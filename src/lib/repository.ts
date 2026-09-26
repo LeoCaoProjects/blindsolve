@@ -22,6 +22,8 @@ export interface SolveRecord {
   reconstruction?: "pending" | "complete";
   engineVersion?: number;
   multiphase?: boolean;
+  /** Timer sessions are a user-facing grouping; legacy solves belong to Today. */
+  sessionId?: string;
   memoSnapshot?: {
     corners: MemoPairSnapshot[];
     edges: MemoPairSnapshot[];
@@ -53,6 +55,8 @@ export interface AppData {
   pairs: Record<string, LetterPair>;
   solves: SolveRecord[];
   attempts: PracticeAttempt[];
+  timerSessions?: Array<{ id: string; name: string; createdAt: string }>;
+  activeTimerSessionId?: string;
   onboarded: boolean;
   schemeUpdatedAt: string;
   multiphaseTiming: boolean;
@@ -70,6 +74,10 @@ export const emptyData = (): AppData => ({
   pairs: {},
   solves: [],
   attempts: [],
+  timerSessions: [
+    { id: "today", name: "Today", createdAt: new Date(0).toISOString() },
+  ],
+  activeTimerSessionId: "today",
   onboarded: false,
   schemeUpdatedAt: new Date(0).toISOString(),
   multiphaseTiming: true,
@@ -144,6 +152,7 @@ const solveSchema = z
     reconstruction: z.enum(["pending", "complete"]).optional(),
     engineVersion: z.number().optional(),
     multiphase: z.boolean().optional(),
+    sessionId: text.optional(),
     memoSnapshot: z
       .object({
         corners: z.array(
@@ -196,6 +205,13 @@ const dataSchema = z.object({
       }),
     )
     .default([]),
+  timerSessions: z
+    .array(z.object({ id: text, name: text, createdAt: iso }))
+    .max(100)
+    .default([
+      { id: "today", name: "Today", createdAt: new Date(0).toISOString() },
+    ]),
+  activeTimerSessionId: text.default("today"),
   onboarded: z.boolean().default(true),
   schemeUpdatedAt: iso.default(new Date(0).toISOString()),
   multiphaseTiming: z.boolean().default(true),

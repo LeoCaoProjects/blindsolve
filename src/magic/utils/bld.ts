@@ -1,5 +1,5 @@
 import { LetterScheme } from '../types/app';
-import { CubeState, FACES, Face } from './cube';
+import { CubeState, FACES, Face, stateFromScramble } from './cube';
 import { CORNER_STICKERS, EDGE_STICKERS } from './scheme';
 
 /**
@@ -203,6 +203,82 @@ export function makeChallenge(filter: TrainFilter, seed: number, setup: TraceSet
       edgeBreaks: e.breaks
     };
   }
+}
+
+/* ---------- Scrambles for Execution Sprint: move sequences whose resulting state is traced ---------- */
+
+const FACE_LETTERS = ['U', 'D', 'R', 'L', 'F', 'B'];
+const AXIS: Record<string, number> = { U: 0, D: 0, R: 1, L: 1, F: 2, B: 2 };
+/** Pure corner 3-cycle ([R U R', D]) and pure edge 3-cycle (Ua perm). Conjugates stay pure. */
+const CORNER_CYCLE = "R U R' D R U' R' D'".split(' ');
+const EDGE_CYCLE = "R U' R U R U R U' R' U' R2".split(' ');
+
+function randomMoves(n: number, rand: () => number): string[] {
+  const out: string[] = [];
+  const faces: string[] = [];
+  while (out.length < n) {
+    const f = FACE_LETTERS[Math.floor(rand() * 6)];
+    const last = faces[faces.length - 1];
+    const prev = faces[faces.length - 2];
+    if (f === last) continue;
+    if (last && prev && AXIS[f] === AXIS[last] && AXIS[f] === AXIS[prev]) continue;
+    faces.push(f);
+    out.push(f + ['', "'", '2'][Math.floor(rand() * 3)]);
+  }
+  return out;
+}
+
+function invert(moves: string[]): string[] {
+  return [...moves].reverse().map((m) => m.endsWith('2') ? m : m.endsWith("'") ? m[0] : `${m}'`);
+}
+
+/** Merge adjacent turns of the same face so conjugates read like a normal scramble. */
+function simplify(moves: string[]): string[] {
+  const out: {f: string;q: number;}[] = [];
+  moves.forEach((m) => {
+    const q = m.endsWith('2') ? 2 : m.endsWith("'") ? 3 : 1;
+    const top = out[out.length - 1];
+    if (top && top.f === m[0]) {
+      top.q = (top.q + q) % 4;
+      if (top.q === 0) out.pop();
+    } else out.push({ f: m[0], q });
+  });
+  return out.map(({ f, q }) => f + (q === 2 ? '2' : q === 3 ? "'" : ''));
+}
+
+/**
+ * Both: a random-move scramble (no wide moves, so centres stay put for tracing).
+ * Corners / Edges only: conjugated pure 3-cycles, so the other piece type stays solved.
+ * Production replaces this with cubing.js random-state scrambles; the contract is the same.
+ */
+export function makeScramble(filter: TrainFilter, seed: number): string {
+  const rand = seededRandom(seed * 104729 + (filter === 'corners' ? 11 : filter === 'edges' ? 13 : 17));
+  if (filter === 'both') return randomMoves(20, rand).join(' ');
+  const cycle = filter === 'corners' ? CORNER_CYCLE : EDGE_CYCLE;
+  const moves: string[] = [];
+  const blocks = 4;
+  for (let b = 0; b < blocks; b++) {
+    const setup = randomMoves(2 + Math.floor(rand() * 2), rand);
+    moves.push(...setup, ...cycle, ...invert(setup));
+  }
+  return simplify(moves).join(' ');
+}
+
+/** The exact state the scramble produces, traced with the user's lettering and buffers. */
+export function challengeFromScramble(scramble: string, filter: TrainFilter, seed: number, setup: TraceSetup): Challenge {
+  const state = stateFromScramble(scramble);
+  const c = filter === 'edges' ? { ids: [], breaks: [] } : trace(state, 'corner', setup.cornerBuffer);
+  const e = filter === 'corners' ? { ids: [], breaks: [] } : trace(state, 'edge', setup.edgeBuffer);
+  const token = (id: string) => setup.scheme[id] || '?';
+  return {
+    seed,
+    filter,
+    state,
+    corners: c.ids.map(token),
+    edges: e.ids.map(token),
+    cornerBreaks: c.breaks,
+    edgeBreaks: e.breaks
+  };
 }
 
 export const SOLVED_STATE: CubeState = toFacelets({ cp: range(8), co: new Array(8).fill(0), ep: range(12), eo: new Array(12).fill(0) });

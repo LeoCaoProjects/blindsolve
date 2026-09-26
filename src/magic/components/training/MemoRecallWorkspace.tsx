@@ -1,97 +1,62 @@
 import React, { useRef } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { useAppData } from '../../contexts/AppDataContext';
+import { AnimatePresence } from 'framer-motion';
+import { clamp } from '../../hooks/useElementSize';
 import { TrainingSession } from '../../hooks/useTrainingSession';
-import { EASE_OUT } from '../../utils/keyboard';
-import { pairKey, resolveWords } from '../../utils/pairs';
-import { PairWords } from '../memo/PairWords';
+import { Cube3D } from '../cube/Cube3D';
 import { RecallInput } from '../memo/RecallInput';
 import { SequenceView } from '../memo/SequenceView';
-import { ResultHeadline } from './ResultHeadline';
-import { SequenceDiff } from './SequenceDiff';
-import { TrainingIdle } from './TrainingIdle';
+import { Fade } from './Fade';
 
 const LABEL = { corners: 'Corners', edges: 'Edges' } as const;
 
-/** Study the memo traced from the cube at right, then recall it. */
-export function MemoRecallWorkspace({ t }: {t: TrainingSession;}) {
-  const { pairs, prefs, addWord } = useAppData();
+/**
+ * Study the memo traced from the cube, then recall it.
+ * The cube lives in the side column on wide screens and inline otherwise — always the same state.
+ */
+export function MemoRecallWorkspace({ t, stage }: {t: TrainingSession;stage: {width: number;height: number;};}) {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const wordFor = (piece: 'corners' | 'edges') => (a: string, b: string) => resolveWords(pairs[pairKey(a, b)], piece, prefs.sharing).words[0];
   const multi = t.groups.length > 1;
+  const recalling = t.phase === 'recall';
+  const inlineCube = clamp(Math.min(stage.width * 0.28, stage.height * 0.55), 120, 240);
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      {t.phase === 'idle' &&
-      <Fade key="idle">
-          <TrainingIdle hold={t.hold.phase} />
-        </Fade>
-      }
+    <div className="flex h-full min-h-0 flex-col gap-6 md:flex-row md:items-center md:gap-10">
+      <div className="scroll-quiet min-h-0 min-w-0 flex-1 overflow-y-auto py-2 md:max-h-full md:pl-14">
+        <AnimatePresence mode="wait" initial={false}>
+          {!recalling ?
+          <Fade key={`study-${t.challenge.seed}`} className="grid gap-[clamp(20px,5vh,40px)]">
+              {t.groups.map((g) =>
+            <section key={g.piece}>
+                  {multi && <h2 className="mb-3 text-[12px] text-ink-3">{LABEL[g.piece]}</h2>}
+                  <SequenceView tokens={g.tokens} size="xl" />
+                </section>
+            )}
+            </Fade> :
 
-      {t.phase === 'active' &&
-      <Fade key={`study-${t.challenge.seed}`} className="grid gap-10 md:pl-14">
-          {t.groups.map((g) =>
-        <section key={g.piece}>
-              {multi && <h2 className="mb-3 text-[12px] text-ink-3">{LABEL[g.piece]}</h2>}
-              <SequenceView tokens={g.tokens} size="xl" />
-            </section>
-        )}
-        </Fade>
-      }
-
-      {t.phase === 'recall' &&
-      <Fade key="recall" className="grid max-w-[880px] gap-10 md:pl-14">
-          {t.groups.map((g, gi) =>
-        <section key={g.piece}>
-              {multi && <h2 className="mb-3 text-[12px] text-ink-3">{LABEL[g.piece]}</h2>}
-              <RecallInput
-            ref={(el) => { inputRefs.current[gi] = el; }}
-            autoFocus={gi === 0}
-            label={`Recall ${LABEL[g.piece].toLowerCase()}`}
-            tokens={t.vocabulary}
-            value={t.inputs[gi] ?? ''}
-            onChange={(v) => t.setInput(gi, v)}
-            onEnter={() => gi < t.groups.length - 1 ? inputRefs.current[gi + 1]?.focus() : t.submit()} />
-          
-            </section>
-        )}
-        </Fade>
-      }
-
-      {t.phase === 'review' &&
-      <Fade key="review" className="md:pl-14">
-          <ResultHeadline results={t.results} />
-          <div className="mt-9 grid gap-9">
-            {t.results.map((g) =>
-          <section key={g.piece} className="grid gap-4 md:grid-cols-[72px_minmax(0,1fr)]">
-                <h2 className="pt-1 text-[12px] text-ink-3">{LABEL[g.piece]}</h2>
-                <div>
-                  {!g.correct &&
-              <div className="mb-5">
-                      <SequenceDiff result={g} />
-                    </div>
-              }
-                  <PairWords tokens={g.actual} wordFor={wordFor(g.piece)} onAdd={(a, b, w) => addWord(pairKey(a, b), g.piece, w)} />
-                </div>
-              </section>
-          )}
-          </div>
-        </Fade>
-      }
-    </AnimatePresence>);
-
-}
-
-export function Fade({ children, className = '' }: {children: React.ReactNode;className?: string;}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.14, ease: EASE_OUT }}
-      className={className}>
-      
-      {children}
-    </motion.div>);
+          <Fade key="recall" className="grid max-w-[880px] gap-[clamp(20px,5vh,40px)]">
+              {t.groups.map((g, gi) =>
+            <section key={g.piece}>
+                  {multi && <h2 className="mb-3 text-[12px] text-ink-3">{LABEL[g.piece]}</h2>}
+                  <RecallInput
+                ref={(el) => { inputRefs.current[gi] = el; }}
+                autoFocus={gi === 0}
+                label={`Recall ${LABEL[g.piece].toLowerCase()}`}
+                tokens={t.vocabulary}
+                value={t.inputs[gi] ?? ''}
+                onChange={(v) => t.setInput(gi, v)}
+                onEnter={() => gi < t.groups.length - 1 ? inputRefs.current[gi + 1]?.focus() : t.submit()} />
+              
+                </section>
+            )}
+            </Fade>
+          }
+        </AnimatePresence>
+      </div>
+      <div
+        className={`order-first flex shrink-0 justify-center transition-opacity duration-200 ease-out md:order-none xl:hidden ${recalling ? 'opacity-[0.08]' : ''}`}>
+        
+        <Cube3D state={t.challenge.state} size={inlineCube} label="The cube this memo was traced from" />
+      </div>
+    </div>);
 
 }

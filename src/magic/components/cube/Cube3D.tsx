@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from "react";
 import {
   CubeState,
   FACES,
@@ -8,12 +8,17 @@ import {
   STICKER_TEXT,
   letterFor,
   physicalStickerAt,
-  slotType } from
-'../../utils/cube';
-import { useAppData, useDefaultView } from '../../contexts/AppDataContext';
-import { CubeViewPref } from '../../types/app';
-import { stickerTextRotation, viewForScrambledCenters, viewTransform } from '../../utils/view';
+  slotType,
+} from "../../utils/cube";
+import { useAppData, useDefaultView } from "../../contexts/AppDataContext";
+import { CubeViewPref } from "../../types/app";
+import {
+  stickerTextRotation,
+  viewForScrambledCenters,
+  viewTransform,
+} from "../../utils/view";
 
+export type CubeRotation = { x: number; y: number };
 export interface CubeHighlight {
   type: PieceType;
   letters: string[];
@@ -32,7 +37,13 @@ interface Cube3DProps {
   /** Camera only — defaults to the saved Default Cube View */
   view?: CubeViewPref;
   /** Starting angle; the back view uses { x: 27, y: 143 } */
-  initialRot?: {x: number;y: number;};
+  initialRot?: { x: number; y: number };
+  /** Controlled camera state for linked practice cubes. */
+  rotation?: CubeRotation;
+  onRotationChange?: (rotation: CubeRotation) => void;
+  instant?: boolean;
+  onDragChange?: (dragging: boolean) => void;
+  hiddenCues?: boolean;
 }
 
 const FRONT_ROT = { x: -27, y: -37 };
@@ -43,25 +54,44 @@ export function Cube3D({
   size,
   highlight,
   showLetters = false,
-  className = '',
-  label = 'Scrambled cube',
+  className = "",
+  label = "Scrambled cube",
   view,
-  initialRot = FRONT_ROT
+  initialRot = FRONT_ROT,
+  rotation,
+  onRotationChange,
+  instant = false,
+  onDragChange,
 }: Cube3DProps) {
   const savedView = useDefaultView();
   const { setup } = useAppData();
   const camera = view ?? savedView;
   const stateCamera = viewForScrambledCenters(state, camera);
   const DEFAULT_ROT = initialRot;
-  const [rot, setRot] = useState(DEFAULT_ROT);
-  const signature = FACES.map((f) => state[f].join('')).join('');
+  const [internalRot, setInternalRot] = useState(DEFAULT_ROT);
+  const rot = rotation ?? internalRot;
+  const setRot = (
+    next: CubeRotation | ((prior: CubeRotation) => CubeRotation),
+  ) => {
+    const value = typeof next === "function" ? next(rot) : next;
+    if (rotation === undefined) setInternalRot(value);
+    onRotationChange?.(value);
+  };
+  const signature = FACES.map((f) => state[f].join("")).join("");
 
   // A new state or view returns to the saved default angle; manual rotation is temporary.
   useEffect(() => {
-    setRot(DEFAULT_ROT);
+    if (rotation === undefined) setInternalRot(DEFAULT_ROT);
+    onRotationChange?.(DEFAULT_ROT);
   }, [signature, camera.top, camera.front]);
   const [dragging, setDragging] = useState(false);
-  const dragRef = useRef<{x: number;y: number;rx: number;ry: number;moved: boolean;} | null>(null);
+  const dragRef = useRef<{
+    x: number;
+    y: number;
+    rx: number;
+    ry: number;
+    moved: boolean;
+  } | null>(null);
   const movedRef = useRef(false);
 
   const S = Math.round(size * 0.56);
@@ -79,17 +109,22 @@ export function Cube3D({
       d.moved = true;
       movedRef.current = true;
       setDragging(true);
-      setRot({ x: Math.max(-85, Math.min(85, d.rx - dy * 0.45)), y: d.ry + dx * 0.45 });
+      onDragChange?.(true);
+      setRot({
+        x: Math.max(-85, Math.min(85, d.rx - dy * 0.45)),
+        y: d.ry + dx * 0.45,
+      });
     };
     const up = () => {
       dragRef.current = null;
       setDragging(false);
+      onDragChange?.(false);
     };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
     return () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
     };
   }, []);
 
@@ -97,17 +132,25 @@ export function Cube3D({
     if (e.button !== 0) return;
     e.stopPropagation();
     movedRef.current = false;
-    dragRef.current = { x: e.clientX, y: e.clientY, rx: rot.x, ry: rot.y, moved: false };
+    dragRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      rx: rot.x,
+      ry: rot.y,
+      moved: false,
+    };
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.target !== e.currentTarget) return;
     const step = 15;
-    if (e.key === 'ArrowLeft') setRot((r) => ({ ...r, y: r.y - step }));else
-    if (e.key === 'ArrowRight') setRot((r) => ({ ...r, y: r.y + step }));else
-    if (e.key === 'ArrowUp') setRot((r) => ({ ...r, x: Math.min(85, r.x + step) }));else
-    if (e.key === 'ArrowDown') setRot((r) => ({ ...r, x: Math.max(-85, r.x - step) }));else
-    return;
+    if (e.key === "ArrowLeft") setRot((r) => ({ ...r, y: r.y - step }));
+    else if (e.key === "ArrowRight") setRot((r) => ({ ...r, y: r.y + step }));
+    else if (e.key === "ArrowUp")
+      setRot((r) => ({ ...r, x: Math.min(85, r.x + step) }));
+    else if (e.key === "ArrowDown")
+      setRot((r) => ({ ...r, x: Math.max(-85, r.x - step) }));
+    else return;
     e.preventDefault();
   };
 
@@ -119,124 +162,144 @@ export function Cube3D({
       onPointerDown={onPointerDown}
       onDoubleClick={() => setRot(DEFAULT_ROT)}
       onKeyDown={onKeyDown}
-      className={`relative touch-none select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'} ${className}`}
+      className={`relative touch-none select-none ${dragging ? "cursor-grabbing" : "cursor-grab"} ${className}`}
       data-cube-view={`${camera.top}/${camera.front}`}
-      style={{ width: size, height: size, perspective: size * 3.4 }}>
-      
+      style={{ width: size, height: size, perspective: size * 3.4 }}
+    >
       <div
         className="absolute inset-0"
         style={{
-          transformStyle: 'preserve-3d',
+          transformStyle: "preserve-3d",
           transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) ${viewTransform(stateCamera)}`,
-          transition: dragging ? 'none' : 'transform 260ms cubic-bezier(0.23, 1, 0.32, 1)'
-        }}>
-        
-        {FACES.map((face) =>
-        <div
-          key={face}
-          data-face={face}
-          className="absolute grid"
-          style={{
-            left: (size - S) / 2,
-            top: (size - S) / 2,
-            width: S,
-            height: S,
-            transform: faceTransform(face, half),
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap,
-            padding: gap,
-            background: 'var(--cube-body)',
-            borderRadius: S * 0.045,
-            backfaceVisibility: 'hidden'
-          }}>
-          
+          transition:
+            dragging || instant
+              ? "none"
+              : "transform 260ms cubic-bezier(0.23, 1, 0.32, 1)",
+        }}
+      >
+        {FACES.map((face) => (
+          <div
+            key={face}
+            data-face={face}
+            className="absolute grid"
+            style={{
+              left: (size - S) / 2,
+              top: (size - S) / 2,
+              width: S,
+              height: S,
+              transform: faceTransform(face, half),
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap,
+              padding: gap,
+              background: "var(--cube-body)",
+              borderRadius: S * 0.045,
+              backfaceVisibility: "hidden",
+            }}
+          >
             {state[face].map((color, i) => {
-            const type = slotType(i);
-            const stickerId = type ? physicalStickerAt(state, face, i) : null;
-            const letter = type && stickerId ? setup.scheme[stickerId] ?? letterFor(stickerId[0] as Face, Number(stickerId.slice(1)), type) : null;
-            const textRotation = stickerTextRotation(face, stateCamera);
-            const isOption = !!highlight && !!letter && highlight.type === type && highlight.letters.includes(letter);
-            const bg = STICKER_COLORS[color];
-            if (isOption && letter) {
-              const selected = highlight?.selected === letter;
-              const focused = highlight?.focused === letter;
+              const type = slotType(i);
+              const stickerId = type ? physicalStickerAt(state, face, i) : null;
+              const letter =
+                type && stickerId
+                  ? (setup.scheme[stickerId] ??
+                    letterFor(
+                      stickerId[0] as Face,
+                      Number(stickerId.slice(1)),
+                      type,
+                    ))
+                  : null;
+              const textRotation = stickerTextRotation(face, stateCamera);
+              const isOption =
+                !!highlight &&
+                !!letter &&
+                highlight.type === type &&
+                highlight.letters.includes(letter);
+              const bg = STICKER_COLORS[color];
+              if (isOption && letter) {
+                const selected = highlight?.selected === letter;
+                const focused = highlight?.focused === letter;
+                return (
+                  <button
+                    key={i}
+                    data-sticker-id={stickerId ?? undefined}
+                    type="button"
+                    aria-label={`Sticker ${letter}`}
+                    aria-pressed={selected}
+                    onClick={() => {
+                      if (!movedRef.current) highlight?.onPick?.(letter);
+                    }}
+                    className="flex items-center justify-center font-mono font-medium outline-none"
+                    style={{
+                      // A highlighted sticker becomes a button. Reset all native button sizing
+                      // so it occupies exactly the same grid cell as an unhighlighted sticker.
+                      // Otherwise browser padding/minimums can reflow one face of the 3D cube.
+                      boxSizing: "border-box",
+                      width: "100%",
+                      height: "100%",
+                      minWidth: 0,
+                      minHeight: 0,
+                      padding: 0,
+                      border: 0,
+                      appearance: "none",
+                      background: bg,
+                      borderRadius: radius,
+                      boxShadow: selected
+                        ? "0 0 0 2px var(--accent)"
+                        : focused
+                          ? "0 0 0 2px var(--ink)"
+                          : "0 0 0 1px rgba(255,255,255,0.35)",
+                      color: STICKER_TEXT[color],
+                      fontSize: Math.max(10, S * 0.13),
+                    }}
+                  >
+                    <span style={{ transform: `rotate(${textRotation}deg)` }}>
+                      {letter}
+                    </span>
+                  </button>
+                );
+              }
               return (
-                <button
+                <div
                   key={i}
                   data-sticker-id={stickerId ?? undefined}
-                  type="button"
-                  aria-label={`Sticker ${letter}`}
-                  aria-pressed={selected}
-                  onClick={() => {
-                    if (!movedRef.current) highlight?.onPick?.(letter);
-                  }}
-                  className="flex items-center justify-center font-mono font-medium outline-none"
+                  className="flex items-center justify-center font-mono"
                   style={{
-                    // A highlighted sticker becomes a button. Reset all native button sizing
-                    // so it occupies exactly the same grid cell as an unhighlighted sticker.
-                    // Otherwise browser padding/minimums can reflow one face of the 3D cube.
-                    boxSizing: 'border-box',
-                    width: '100%',
-                    height: '100%',
-                    minWidth: 0,
-                    minHeight: 0,
-                    padding: 0,
-                    border: 0,
-                    appearance: 'none',
                     background: bg,
                     borderRadius: radius,
-                    boxShadow: selected ?
-                    '0 0 0 2px var(--accent)' :
-                    focused ?
-                    '0 0 0 2px var(--ink)' :
-                    '0 0 0 1px rgba(255,255,255,0.35)',
+                    opacity: highlight ? 0.14 : 1,
+                    transition: "opacity 200ms ease-out",
                     color: STICKER_TEXT[color],
-                    fontSize: Math.max(10, S * 0.13)
-                  }}>
-                  
-                    <span style={{ transform: `rotate(${textRotation}deg)` }}>{letter}</span>
-                  </button>);
-
-            }
-            return (
-              <div
-                key={i}
-                data-sticker-id={stickerId ?? undefined}
-                className="flex items-center justify-center font-mono"
-                style={{
-                  background: bg,
-                  borderRadius: radius,
-                  opacity: highlight ? 0.14 : 1,
-                  transition: 'opacity 200ms ease-out',
-                  color: STICKER_TEXT[color],
-                  fontSize: Math.max(8, S * 0.1)
-                }}>
-                
-                  {showLetters && !highlight && letter &&
-                  <span style={{ transform: `rotate(${textRotation}deg)` }}>{letter}</span>}
-                </div>);
-
-          })}
+                    fontSize: Math.max(8, S * 0.1),
+                  }}
+                >
+                  {showLetters && !highlight && letter && (
+                    <span style={{ transform: `rotate(${textRotation}deg)` }}>
+                      {letter}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        )}
+        ))}
       </div>
-    </div>);
-
+    </div>
+  );
 }
 
 function faceTransform(face: Face, half: number): string {
   switch (face) {
-    case 'F':
+    case "F":
       return `translateZ(${half}px)`;
-    case 'B':
+    case "B":
       return `rotateY(180deg) translateZ(${half}px)`;
-    case 'R':
+    case "R":
       return `rotateY(90deg) translateZ(${half}px)`;
-    case 'L':
+    case "L":
       return `rotateY(-90deg) translateZ(${half}px)`;
-    case 'U':
+    case "U":
       return `rotateX(90deg) translateZ(${half}px)`;
-    case 'D':
+    case "D":
       return `rotateX(-90deg) translateZ(${half}px)`;
   }
 }

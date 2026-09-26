@@ -1,138 +1,161 @@
-import React from 'react';
-import { Segmented } from '../components/common/Segmented';
+import React, { useEffect, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { RefreshCwIcon } from 'lucide-react';
+import { Kbd } from '../components/common/Kbd';
 import { ShortcutSheet } from '../components/common/ShortcutSheet';
 import { AppBar } from '../components/layout/AppBar';
+import { ScrambleText } from '../components/solve/ScrambleText';
+import { ExecutionWorkspace } from '../components/training/ExecutionWorkspace';
+import { Fade } from '../components/training/Fade';
 import { FullMemoWorkspace } from '../components/training/FullMemoWorkspace';
 import { MemoRecallWorkspace } from '../components/training/MemoRecallWorkspace';
+import { ExecReview } from '../components/training/review/ExecReview';
+import { FullMemoReview } from '../components/training/review/FullMemoReview';
+import { RecallReview } from '../components/training/review/RecallReview';
+import { TraceReview } from '../components/training/review/TraceReview';
 import { TraceSprintWorkspace } from '../components/training/TraceSprintWorkspace';
 import { TrainingAside } from '../components/training/TrainingAside';
-import { useElementWidth } from '../hooks/useElementWidth';
+import { TrainingDock } from '../components/training/TrainingDock';
+import { TrainingHeader } from '../components/training/TrainingHeader';
+import { TrainingHelp } from '../components/training/TrainingHelp';
+import { TrainingIdle } from '../components/training/TrainingIdle';
+import { modeInfo } from '../data/trainingModes';
+import { useElementSize } from '../hooks/useElementSize';
+import { useHistoryCleanup } from '../hooks/useHistoryCleanup';
 import { useShortcutSheet } from '../hooks/useShortcutSheet';
-import { TrainInit, TrainMode, TrainingSession, useTrainingSession } from '../hooks/useTrainingSession';
-import { TrainFilter } from '../utils/bld';
+import { TrainInit, useTrainingSession } from '../hooks/useTrainingSession';
+import { isTypingTarget } from '../utils/keyboard';
 import { formatTime } from '../utils/time';
-import { useScreenInit } from '../useScreenInit';
+import { useScreenInit } from '../useScreenInit.js';
 
-const MODES: {value: TrainMode;label: string;}[] = [
-{ value: 'recall', label: 'Memo Recall' },
-{ value: 'trace', label: 'Trace Sprint' },
-{ value: 'full', label: 'Full Memo' }];
-
-
-const FILTERS: {value: TrainFilter;label: string;}[] = [
-{ value: 'corners', label: 'Corners' },
-{ value: 'edges', label: 'Edges' },
-{ value: 'both', label: 'Both' }];
-
-
-/** One practice instrument, three exercises. Every attempt starts with hold-and-release Space. */
+/**
+ * One practice instrument, four drills.
+ * Layout contract: header (drill · settings) / stage (flexible, scrolls inside) / dock (fixed, inset).
+ * During Trace Sprint, Full Memo and Execution Sprint attempts the side column steps away so the
+ * cube and answer get the room. Reviews open in a right-hand sheet over the frozen stage.
+ */
 export function Training() {
   const init = useScreenInit() as TrainInit;
   const sheet = useShortcutSheet();
   const t = useTrainingSession(init);
-  const [stageRef, stageWidth] = useElementWidth<HTMLDivElement>(900);
-  const cubeSize = Math.max(180, Math.min(300, (stageWidth - 80) / 2));
+  const [stageRef, stage] = useElementSize<HTMLDivElement>({ width: 900, height: 560 });
+  const [helpOpen, setHelpOpen] = useState(!!init.help);
+
   const busy = t.running;
   const holding = t.hold.phase !== 'idle';
+  const execSetup = t.mode === 'exec' && t.phase === 'idle';
+  const showAside = !(t.running && t.mode !== 'recall');
+  const latest = t.history[0];
+
+  const cleanup = useHistoryCleanup({
+    count: t.history.length,
+    noun: 'attempt',
+    scope: modeInfo(t.mode).label,
+    latestLabel: latest ? t.mode === 'exec' && !latest.correct ? 'DNF' : formatTime(latest.ms) : undefined,
+    removeLatest: t.removeLatestAttempt,
+    clearAll: t.clearAttempts,
+    keysEnabled: t.phase === 'idle' && !holding && !helpOpen
+  });
+
+  // N swaps the Execution Sprint scramble before starting, as on the Timer.
+  useEffect(() => {
+    if (!execSetup) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'n' && e.key !== 'N' || isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.repeat) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      t.newScramble();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [execSetup, t]);
+
+  const stopHandlers =
+  t.mode === 'exec' && t.phase === 'active' ?
+  {
+    onPointerDown: (e: React.PointerEvent) => {
+      if ((e.target as HTMLElement).closest('button, a, input')) return;
+      t.submit();
+    }
+  } :
+  {};
 
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-bg font-sans text-ink">
+    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar className={busy ? 'opacity-[0.25]' : holding ? 'opacity-40' : ''} onShortcuts={sheet.openSheet} />
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_392px]">
-        <main className="flex min-w-0 flex-col">
-          <section className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-line px-5 py-4 md:px-10">
-            <div className={`flex flex-wrap items-center gap-3 transition-opacity duration-300 ease-out ${busy ? 'opacity-40' : ''}`}>
-              <Segmented label="Exercise" value={t.mode} onChange={t.setMode} options={MODES.map((m) => ({ ...m, disabled: busy }))} />
-              <Segmented
-                label="Pieces"
-                size="sm"
-                value={t.filter}
-                onChange={t.setFilter}
-                options={FILTERS.map((f) => ({ ...f, disabled: busy }))} />
+      <div className={`grid min-h-0 flex-1 grid-cols-1 ${showAside ? 'xl:grid-cols-[minmax(0,1fr)_clamp(280px,24vw,360px)]' : ''}`}>
+        <main className="flex min-h-0 min-w-0 flex-col">
+          <TrainingHeader t={t} />
+
+          {execSetup &&
+          <section
+            aria-label="Scramble"
+            className={`flex shrink-0 items-start gap-4 border-b border-line px-5 py-[clamp(14px,3vh,28px)] transition-opacity duration-300 ease-out md:gap-6 md:px-10 ${
+            holding ? 'opacity-40' : ''}`
+            }>
+            
+              <span className="hidden w-8 shrink-0 pt-[5px] font-mono text-[11px] text-ink-3 tnum md:block">#{t.history.length + 1}</span>
+              <ScrambleText scramble={t.scramble} className="min-w-0 flex-1 text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink" />
+              <button
+              type="button"
+              onClick={t.newScramble}
+              aria-label="New scramble"
+              title="New scramble"
+              className="mt-0.5 inline-flex h-8 shrink-0 items-center gap-2 rounded-[4px] px-2 text-ink-3 transition-colors duration-150 ease-out hover:bg-hover hover:text-ink-2">
               
-            </div>
-            <Clock t={t} />
-          </section>
+                <RefreshCwIcon size={14} strokeWidth={1.75} />
+                <span className="hidden md:inline">
+                  <Kbd>N</Kbd>
+                </span>
+              </button>
+            </section>
+          }
 
           <div
-            ref={stageRef}
-            className={`relative flex min-h-0 flex-1 cursor-default flex-col justify-center px-5 py-6 md:px-10 ${
-            t.phase === 'idle' ? 'touch-none select-none' : ''}`
+            className={`relative flex min-h-0 flex-1 flex-col px-5 py-[clamp(12px,3vh,28px)] md:px-10 ${
+            t.phase === 'idle' ? 'cursor-default touch-none select-none' : ''}`
             }
-            {...t.hold.pointerHandlers}>
+            {...t.phase === 'idle' ? t.hold.pointerHandlers : stopHandlers}>
             
-            {t.mode === 'recall' &&
-            <div className="scroll-quiet min-h-0 overflow-y-auto">
-                <MemoRecallWorkspace t={t} />
-              </div>
-            }
-            {t.mode === 'trace' && <TraceSprintWorkspace t={t} cubeSize={cubeSize} />}
-            {t.mode === 'full' && <FullMemoWorkspace t={t} cubeSize={cubeSize} />}
+            <div ref={stageRef} className="flex min-h-0 flex-1 flex-col justify-center">
+              <AnimatePresence mode="wait" initial={false}>
+                {t.phase === 'idle' ?
+                <Fade key={`idle-${t.mode}`} className="scroll-quiet max-h-full overflow-y-auto">
+                    <TrainingIdle t={t} onHelp={() => setHelpOpen(true)} />
+                  </Fade> :
+
+                <Fade key={`run-${t.mode}`} className="h-full min-h-0">
+                    {t.mode === 'recall' && <MemoRecallWorkspace t={t} stage={stage} />}
+                    {t.mode === 'trace' && <TraceSprintWorkspace t={t} stage={stage} />}
+                    {t.mode === 'full' && <FullMemoWorkspace t={t} stage={stage} />}
+                    {t.mode === 'exec' && <ExecutionWorkspace t={t} />}
+                  </Fade>
+                }
+              </AnimatePresence>
+            </div>
           </div>
 
-          <ActionBar t={t} />
+          <TrainingDock t={t} />
         </main>
 
-        <TrainingAside t={t} className={busy && t.mode !== 'recall' ? 'opacity-[0.15]' : busy ? '' : holding ? 'opacity-60' : ''} />
+        {showAside &&
+        <TrainingAside
+          t={t}
+          onClear={cleanup.askClear}
+          className={`transition-opacity duration-300 ease-out ${busy ? 'opacity-[0.15]' : holding ? 'opacity-60' : ''}`} />
+
+        }
       </div>
+
+      <AnimatePresence>
+        {t.phase === 'review' && t.mode === 'recall' && <RecallReview key="recall" t={t} />}
+        {t.phase === 'review' && t.mode === 'trace' && <TraceReview key="trace" t={t} />}
+        {t.phase === 'review' && t.mode === 'full' && <FullMemoReview key="full" t={t} />}
+        {t.phase === 'review' && t.mode === 'exec' && <ExecReview key="exec" t={t} />}
+      </AnimatePresence>
+      <TrainingHelp open={helpOpen} onClose={() => setHelpOpen(false)} mode={t.mode} />
       <ShortcutSheet open={sheet.open} onClose={sheet.closeSheet} page="training" />
+      {cleanup.dialog}
     </div>);
-
-}
-
-function Clock({ t }: {t: TrainingSession;}) {
-  if (t.phase === 'idle') return null;
-  const cells: [string, number, boolean][] =
-  t.mode === 'recall' ?
-  [
-  ['memo', t.elapsed.memo, t.phase === 'active'],
-  ...(t.phase !== 'active' ? [['recall', t.elapsed.recall, t.phase === 'recall']] as [string, number, boolean][] : [])] :
-
-  [[t.mode === 'trace' ? 'trace' : 'memo', t.elapsed.total, t.phase === 'active']];
-  return (
-    <p className="ml-auto flex gap-5 font-mono text-[12px] text-ink-3 tnum" role="timer">
-      {cells.map(([label, ms, live]) =>
-      <span key={label} className={live ? 'text-ink-2' : ''}>
-          {label} <span className="ml-1">{formatTime(ms)}</span>
-        </span>
-      )}
-    </p>);
-
-}
-
-function ActionBar({ t }: {t: TrainingSession;}) {
-  let primary: {label: string;onClick: () => void;hint: string;} | null = null;
-  let secondary: {label: string;onClick: () => void;hint?: string;} | null = null;
-  if (t.phase === 'active' && t.mode === 'recall') primary = { label: 'Ready', onClick: t.toRecall, hint: 'Space' };else
-  if (t.phase === 'active') primary = { label: 'Submit', onClick: t.submit, hint: '↵' };else
-  if (t.phase === 'recall') {
-    primary = { label: 'Submit', onClick: t.submit, hint: '↵' };
-    secondary = { label: 'Show answer', onClick: t.submit, hint: 'esc' };
-  } else if (t.phase === 'review') primary = { label: 'Next', onClick: t.next, hint: '↵' };
-
-  return (
-    <section className="flex h-[76px] shrink-0 items-center gap-2 border-t border-line px-5 md:px-10 md:pl-24">
-      {primary &&
-      <button
-        type="button"
-        onClick={primary.onClick}
-        className="inline-flex h-11 items-center gap-3 rounded-[4px] bg-ink px-4 text-[13.5px] font-medium text-bg transition-opacity duration-150 ease-out hover:opacity-90">
-        
-          {primary.label}
-          <span className="font-mono text-[11px] opacity-50">{primary.hint}</span>
-        </button>
-      }
-      {secondary &&
-      <button
-        type="button"
-        onClick={secondary.onClick}
-        className="inline-flex h-11 items-center gap-2 rounded-[4px] px-3 text-[13px] text-ink-3 transition-colors duration-150 ease-out hover:bg-hover hover:text-ink-2">
-        
-          {secondary.label} {secondary.hint && <span className="font-mono text-[11px]">{secondary.hint}</span>}
-        </button>
-      }
-      {t.phase === 'idle' && <span className="text-[12.5px] text-ink-3 md:hidden">Press and hold to start</span>}
-    </section>);
 
 }

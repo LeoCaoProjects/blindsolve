@@ -44,6 +44,19 @@ export function compareGroups(groups: TrainGroup[], inputs: string[], vocabulary
   });
 }
 
+/** A Full Memo word is only correct when it matches an existing primary/alternate. */
+export type FullStatus = 'main' | 'alternate' | 'wrong' | 'missing' | 'new' | 'blank';
+export interface FullRow { id: string; a: string; b: string; piece: Piece; typed: string; stored: string[]; status: FullStatus; }
+export function gradeFullMemo(groups: TrainGroup[], words: string[][], stored: (a: string, b: string, piece: Piece) => string[]): FullRow[] {
+  return groups.flatMap((g, gi) => fullPairs(g.tokens).map(([a, b], i) => {
+    const saved = stored(a, b, g.piece);
+    const typed = (words[gi]?.[i] ?? '').trim();
+    const hit = saved.findIndex((word) => word.trim().toLocaleLowerCase() === typed.toLocaleLowerCase());
+    const status: FullStatus = !saved.length ? (typed ? 'new' : 'blank') : !typed ? 'missing' : hit === 0 ? 'main' : hit > 0 ? 'alternate' : 'wrong';
+    return { id: `${g.piece}-${i}`, a, b, piece: g.piece, typed, stored: saved, status };
+  }));
+}
+
 /** Full letter pairs only — a trailing single target has no word slot. */
 export function fullPairs(tokens: string[]): [string, string][] {
   return chunkPairs(tokens).filter((p) => p.length === 2) as [string, string][];
