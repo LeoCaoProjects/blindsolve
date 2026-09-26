@@ -42,6 +42,10 @@ export interface PracticeAttempt {
   correct: boolean;
   accuracy: number;
   createdAt: string;
+  trainingMode?: "recall" | "trace" | "full";
+  durationMs?: number;
+  targets?: number;
+  pairs?: number;
 }
 export interface AppData {
   schemeHistory?: Array<{ scheme: LetteringScheme; updatedAt: string }>;
@@ -52,6 +56,13 @@ export interface AppData {
   onboarded: boolean;
   schemeUpdatedAt: string;
   multiphaseTiming: boolean;
+  pairSharing?: "shared" | "separate";
+  flippedEdges?: "cycle" | "separate";
+  twistedCorners?: "cycle" | "separate";
+  defaultCubeView?: {
+    top: "white" | "yellow" | "green" | "blue" | "red" | "orange";
+    front: "white" | "yellow" | "green" | "blue" | "red" | "orange";
+  };
   preferencesUpdatedAt: string;
 }
 export const emptyData = (): AppData => ({
@@ -62,6 +73,10 @@ export const emptyData = (): AppData => ({
   onboarded: false,
   schemeUpdatedAt: new Date(0).toISOString(),
   multiphaseTiming: true,
+  pairSharing: "shared",
+  flippedEdges: "cycle",
+  twistedCorners: "cycle",
+  defaultCubeView: { top: "white", front: "green" },
   preferencesUpdatedAt: new Date(0).toISOString(),
 });
 const text = z.string().max(1000),
@@ -174,12 +189,25 @@ const dataSchema = z.object({
         correct: z.boolean(),
         accuracy: z.number().min(0).max(1),
         createdAt: iso,
+        trainingMode: z.enum(["recall", "trace", "full"]).optional(),
+        durationMs: z.number().int().nonnegative().optional(),
+        targets: z.number().int().nonnegative().optional(),
+        pairs: z.number().int().nonnegative().optional(),
       }),
     )
     .default([]),
   onboarded: z.boolean().default(true),
   schemeUpdatedAt: iso.default(new Date(0).toISOString()),
   multiphaseTiming: z.boolean().default(true),
+  pairSharing: z.enum(["shared", "separate"]).default("shared"),
+  flippedEdges: z.enum(["cycle", "separate"]).default("cycle"),
+  twistedCorners: z.enum(["cycle", "separate"]).default("cycle"),
+  defaultCubeView: z
+    .object({
+      top: z.enum(["white", "yellow", "green", "blue", "red", "orange"]),
+      front: z.enum(["white", "yellow", "green", "blue", "red", "orange"]),
+    })
+    .default({ top: "white", front: "green" }),
   preferencesUpdatedAt: iso.default(new Date(0).toISOString()),
 });
 
@@ -401,6 +429,18 @@ export function mergeData(
       multiphaseTiming: incomingPreferences
         ? incoming.multiphaseTiming
         : local.multiphaseTiming,
+      pairSharing: incomingPreferences
+        ? incoming.pairSharing
+        : local.pairSharing,
+      flippedEdges: incomingPreferences
+        ? incoming.flippedEdges
+        : local.flippedEdges,
+      twistedCorners: incomingPreferences
+        ? incoming.twistedCorners
+        : local.twistedCorners,
+      defaultCubeView: incomingPreferences
+        ? incoming.defaultCubeView
+        : local.defaultCubeView,
       preferencesUpdatedAt: incomingPreferences
         ? incoming.preferencesUpdatedAt
         : local.preferencesUpdatedAt,
