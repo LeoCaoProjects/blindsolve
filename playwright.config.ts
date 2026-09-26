@@ -6,7 +6,7 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: "http://127.0.0.1:5173",
-    channel: "msedge",
+    ...(process.env.CI ? {} : { channel: "msedge" }),
     viewport: { width: 1440, height: 900 },
     trace: "retain-on-failure",
   },
