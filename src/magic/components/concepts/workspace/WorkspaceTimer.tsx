@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { CaseSensitiveIcon, ChevronDownIcon, RefreshCwIcon } from 'lucide-react';
 import { useTimerSession } from '../../../hooks/useTimerSession';
+import { useAppData } from '../../../contexts/AppDataContext';
 import { TimerPhase } from '../../../hooks/useTimer';
 import { ConceptProps } from '../../../types/solve';
 import { formatTime } from '../../../utils/time';
@@ -25,6 +26,7 @@ import { WorkspaceSolveDetails } from './WorkspaceSolveDetails';
  */
 export function WorkspaceTimer({ multiphase, stage }: ConceptProps) {
   const s = useTimerSession({ multiphase, stage });
+  const { prefs } = useAppData();
   const [letters, setLetters] = useState(false);
   const { phase } = s.timer;
   const recede = s.running ? 'opacity-[0.1]' : phase === 'ready' ? 'opacity-40' : '';
@@ -112,7 +114,7 @@ export function WorkspaceTimer({ multiphase, stage }: ConceptProps) {
 
         <aside className={`flex min-h-0 flex-col border-l border-line bg-surface transition-opacity duration-300 ease-out ${recede}`}>
           <div className="relative flex h-[330px] shrink-0 items-center justify-center border-b border-line">
-            <Cube3D state={s.cubeState} size={272} showLetters={letters} />
+            <Cube3D state={s.cubeState} size={272} showLetters={letters} view={prefs.defaultView} />
             <IconButton
               size="sm"
               label="Sticker letters"

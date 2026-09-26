@@ -7,11 +7,12 @@ import {
   STICKER_COLORS,
   STICKER_TEXT,
   letterFor,
+  physicalStickerAt,
   slotType } from
 '../../utils/cube';
 import { useAppData, useDefaultView } from '../../contexts/AppDataContext';
 import { CubeViewPref } from '../../types/app';
-import { viewTransform } from '../../utils/view';
+import { viewForScrambledCenters, viewTransform } from '../../utils/view';
 
 export interface CubeHighlight {
   type: PieceType;
@@ -50,6 +51,7 @@ export function Cube3D({
   const savedView = useDefaultView();
   const { setup } = useAppData();
   const camera = view ?? savedView;
+  const stateCamera = viewForScrambledCenters(state, camera);
   const DEFAULT_ROT = initialRot;
   const [rot, setRot] = useState(DEFAULT_ROT);
   const signature = FACES.map((f) => state[f].join('')).join('');
@@ -118,19 +120,21 @@ export function Cube3D({
       onDoubleClick={() => setRot(DEFAULT_ROT)}
       onKeyDown={onKeyDown}
       className={`relative touch-none select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'} ${className}`}
+      data-cube-view={`${camera.top}/${camera.front}`}
       style={{ width: size, height: size, perspective: size * 3.4 }}>
       
       <div
         className="absolute inset-0"
         style={{
           transformStyle: 'preserve-3d',
-          transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) ${viewTransform(camera)}`,
+          transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) ${viewTransform(stateCamera)}`,
           transition: dragging ? 'none' : 'transform 260ms cubic-bezier(0.23, 1, 0.32, 1)'
         }}>
         
         {FACES.map((face) =>
         <div
           key={face}
+          data-face={face}
           className="absolute grid"
           style={{
             left: (size - S) / 2,
@@ -148,7 +152,8 @@ export function Cube3D({
           
             {state[face].map((color, i) => {
             const type = slotType(i);
-            const letter = type ? setup.scheme[`${face}${i}`] ?? letterFor(face, i, type) : null;
+            const stickerId = type ? physicalStickerAt(state, face, i) : null;
+            const letter = type && stickerId ? setup.scheme[stickerId] ?? letterFor(stickerId[0] as Face, Number(stickerId.slice(1)), type) : null;
             const isOption = !!highlight && !!letter && highlight.type === type && highlight.letters.includes(letter);
             const bg = STICKER_COLORS[color];
             if (isOption && letter) {
@@ -157,6 +162,7 @@ export function Cube3D({
               return (
                 <button
                   key={i}
+                  data-sticker-id={stickerId ?? undefined}
                   type="button"
                   aria-label={`Sticker ${letter}`}
                   aria-pressed={selected}
@@ -183,6 +189,7 @@ export function Cube3D({
             return (
               <div
                 key={i}
+                data-sticker-id={stickerId ?? undefined}
                 className="flex items-center justify-center font-mono"
                 style={{
                   background: bg,

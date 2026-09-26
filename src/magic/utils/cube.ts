@@ -104,6 +104,39 @@ export function slotType(index: number): PieceType | null {
   return null;
 }
 
+/**
+ * Return the physical sticker occupying a rendered facelet.
+ *
+ * Lettering belongs to stickers, not locations. A scramble moves the U2
+ * sticker away from U2, so a renderer must follow the cubie colours back to
+ * that sticker's home face and slot before looking up the user's token.
+ */
+export function physicalStickerAt(state: CubeState, face: Face, index: number): string | null {
+  const type = slotType(index);
+  if (!type) return null;
+
+  const location = slotPosition(face, Math.floor(index / 3), index % 3);
+  const homePosition: Vec = [0, 0, 0];
+
+  FACES.forEach((side) => {
+    const sideIndex = slotIndex(side, location);
+    if (
+      sideIndex < 0 ||
+      slotType(sideIndex) !== type ||
+      !slotPosition(side, Math.floor(sideIndex / 3), sideIndex % 3).every((value, axis) => value === location[axis])
+    ) return;
+    const homeFace = state[side][sideIndex];
+    const normal = NORMALS[homeFace];
+    homePosition[0] += normal[0];
+    homePosition[1] += normal[1];
+    homePosition[2] += normal[2];
+  });
+
+  const homeFace = state[face][index];
+  const homeIndex = slotIndex(homeFace, homePosition);
+  return homeIndex >= 0 && slotType(homeIndex) === type ? `${homeFace}${homeIndex}` : null;
+}
+
 export function slotPosition(face: Face, r: number, c: number): Vec {
   switch (face) {
     case 'U':
@@ -159,5 +192,6 @@ function slotIndex(face: Face, [x, y, z]: Vec): number {
       r = 1 - y;
       break;
   }
+  if (![r, c].every((value) => Number.isInteger(value) && value >= 0 && value <= 2)) return -1;
   return r * 3 + c;
 }

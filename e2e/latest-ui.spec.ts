@@ -116,6 +116,8 @@ test('Default Cube View persists independently of the fixed scramble reference',
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);
   expect(saved.defaultCubeView).toEqual({ top: 'white', front: 'orange' });
   expect(saved.scheme.orientation).toEqual({ up: 'U', front: 'F' });
+  await page.goto('/');
+  await expect(page.getByRole('group', { name: 'Scrambled cube' })).toHaveAttribute('data-cube-view', 'white/orange');
 });
 
 test('auth surface exposes only WCA and Google and reports unconfigured WCA safely', async ({ page }) => {

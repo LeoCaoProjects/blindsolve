@@ -1,5 +1,5 @@
 import { CubeViewPref, FaceColor } from '../types/app';
-import { Face } from './cube';
+import { CubeState, FACES, Face } from './cube';
 
 type Vec = [number, number, number];
 
@@ -64,4 +64,20 @@ export function viewTransform(v: CubeViewPref): string {
 
 export function sameView(a: CubeViewPref, b: CubeViewPref) {
   return a.top === b.top && a.front === b.front;
+}
+
+/**
+ * Convert a colour preference into the current face frame of a scrambled cube.
+ * 3BLD scrambles may contain wide turns, so centers are not guaranteed to
+ * remain on their reference U/F/etc. faces even though the user still expects
+ * their chosen center colours to appear on top and at the front.
+ */
+export function viewForScrambledCenters(state: CubeState, desired: CubeViewPref): CubeViewPref {
+  const topColor = COLOR_FACE[desired.top];
+  const frontColor = COLOR_FACE[desired.front];
+  const topFace = FACES.find((face) => state[face][4] === topColor);
+  const frontFace = FACES.find((face) => state[face][4] === frontColor);
+  if (!topFace || !frontFace) return desired;
+  const adjusted = { top: FACE_COLOR[topFace], front: FACE_COLOR[frontFace] };
+  return isValidView(adjusted) ? adjusted : desired;
 }
