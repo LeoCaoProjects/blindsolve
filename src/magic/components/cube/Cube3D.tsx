@@ -172,6 +172,17 @@ export function Cube3D({
                   }}
                   className="flex items-center justify-center font-mono font-medium outline-none"
                   style={{
+                    // A highlighted sticker becomes a button. Reset all native button sizing
+                    // so it occupies exactly the same grid cell as an unhighlighted sticker.
+                    // Otherwise browser padding/minimums can reflow one face of the 3D cube.
+                    boxSizing: 'border-box',
+                    width: '100%',
+                    height: '100%',
+                    minWidth: 0,
+                    minHeight: 0,
+                    padding: 0,
+                    border: 0,
+                    appearance: 'none',
                     background: bg,
                     borderRadius: radius,
                     boxShadow: selected ?

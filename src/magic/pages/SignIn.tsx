@@ -13,7 +13,7 @@ export function SignIn() {
   const flow = useSignInFlow({ initial: init.signin, provider: init.provider, onDone: () => navigate('/') });
 
   return (
-    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
+    <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-bg font-sans text-ink">
       <header className="flex h-11 shrink-0 items-center justify-end border-b border-line px-3">
         <Link
           to="/"

@@ -34,7 +34,7 @@ async function holdSpace(page: Page) {
   await page.keyboard.up('Space');
 }
 
-test('latest primary routes render and fixed workspaces do not document-scroll', async ({ page }) => {
+test('latest primary routes render without horizontal overflow', async ({ page }) => {
   await load(page);
   for (const [path, marker] of [['/', 'Scrambled cube'], ['/pairs', 'Pairs starting'], ['/flashcards', 'No pairs yet'], ['/training', 'Hold Space to start'], ['/settings', 'Cube & lettering']] as const) {
     await page.goto(path);
@@ -42,7 +42,6 @@ test('latest primary routes render and fixed workspaces do not document-scroll',
     else if (path === '/training') await expect(page.getByRole('timer', { name: marker })).toBeVisible();
     else await expect(page.getByText(marker, { exact: false }).first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    if (path !== '/settings') expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
   }
 });
 
@@ -140,14 +139,13 @@ test('key latest screens pass automated WCAG checks', async ({ page }) => {
   }
 });
 
-test('requested desktop, tablet and mobile viewports stay contained', async ({ page }) => {
+test('requested desktop, tablet and mobile viewports stay horizontally contained', async ({ page }) => {
   await load(page, workspace(true));
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1024, height: 768 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     for (const [name, path] of [['timer', '/'], ['pairs', '/pairs'], ['flashcards', '/flashcards'], ['training', '/training'], ['settings', '/settings'], ['auth', '/signin']] as const) {
       await page.goto(path);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${viewport.width}px ${name}`).toBe(true);
-      if (name !== 'settings') expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight), `${viewport.width}px ${name} vertical`).toBe(true);
       await page.screenshot({ path: `docs/screenshots/latest/${viewport.width}-${name}.png`, animations: 'disabled' });
     }
   }

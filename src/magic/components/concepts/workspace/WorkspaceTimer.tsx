@@ -33,7 +33,7 @@ export function WorkspaceTimer({ multiphase, stage }: ConceptProps) {
   const latest = s.latest;
 
   return (
-    <div className="theme-workspace flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
+    <div className="theme-workspace flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-bg font-sans text-ink">
       <AppBar
         className={recede}
         onShortcuts={s.openShortcuts}
@@ -48,16 +48,16 @@ export function WorkspaceTimer({ multiphase, stage }: ConceptProps) {
         } />
       
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_392px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_392px]">
         <main className="flex min-w-0 flex-col">
           <section
             aria-label="Scramble"
-            className={`flex items-start gap-6 border-b border-line px-10 py-7 transition-opacity duration-300 ease-out ${
+            className={`flex items-start gap-3 border-b border-line px-5 py-5 sm:gap-6 sm:px-10 sm:py-7 transition-opacity duration-300 ease-out ${
             s.running ? 'opacity-25' : ''}`
             }>
             
             <span className="w-8 shrink-0 pt-[5px] font-mono text-[11px] text-ink-3 tnum">#{s.nextIndex}</span>
-            <ScrambleText scramble={s.scramble} className="min-w-0 flex-1 text-[20px] leading-[1.75] text-ink" />
+            <ScrambleText scramble={s.scramble} className="min-w-0 flex-1 text-[clamp(0.9rem,2vw,1.25rem)] leading-[1.75] text-ink" />
             <button
               type="button"
               onClick={s.newScramble}
@@ -70,13 +70,13 @@ export function WorkspaceTimer({ multiphase, stage }: ConceptProps) {
             </button>
           </section>
 
-          <div className="flex min-h-0 flex-1 cursor-default touch-none select-none flex-col justify-center px-10" {...s.timer.pointerHandlers}>
-            <div className="pl-14">
+          <div className="flex min-h-[min(28rem,55dvh)] flex-1 cursor-default touch-none select-none flex-col justify-center px-5 sm:px-10" {...s.timer.pointerHandlers}>
+            <div className="pl-0 sm:pl-14">
               <TimerReadout
                 phase={phase}
                 value={s.timer.display}
                 penalty={s.lastPenalty}
-                className="-ml-[0.06em] font-timer text-[176px] font-extralight leading-[0.9] tracking-[-0.06em]" />
+                className="-ml-[0.06em] max-w-full font-timer text-[clamp(4.5rem,13vw,11rem)] font-extralight leading-[0.9] tracking-[-0.06em]" />
               
               <WorkspacePhase phase={phase} split={s.timer.split} elapsed={s.timer.elapsed} multiphase={multiphase} />
             </div>
@@ -85,7 +85,7 @@ export function WorkspaceTimer({ multiphase, stage }: ConceptProps) {
           {latest &&
           <section
             aria-label="Last solve memo"
-            className={`grid shrink-0 grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)] items-start gap-x-10 border-t border-line px-10 py-6 transition-opacity duration-300 ease-out ${recede}`}>
+            className={`grid shrink-0 grid-cols-1 items-start gap-5 border-t border-line px-5 py-5 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)] sm:gap-x-10 sm:px-10 sm:py-6 transition-opacity duration-300 ease-out ${recede}`}>
             
               <button type="button" onClick={() => s.selectSolve(latest.id)} className="group flex items-baseline gap-4 text-left">
                 <span className="w-8 font-mono text-[11px] text-ink-3 tnum">#{latest.index}</span>
@@ -112,9 +112,9 @@ export function WorkspaceTimer({ multiphase, stage }: ConceptProps) {
           }
         </main>
 
-        <aside className={`flex min-h-0 flex-col border-l border-line bg-surface transition-opacity duration-300 ease-out ${recede}`}>
-          <div className="relative flex h-[330px] shrink-0 items-center justify-center border-b border-line">
-            <Cube3D state={s.cubeState} size={272} showLetters={letters} view={prefs.defaultView} />
+        <aside className={`flex min-h-0 flex-col border-t border-line bg-surface transition-opacity duration-300 ease-out xl:border-l xl:border-t-0 ${recede}`}>
+          <div className="relative flex h-[min(330px,64vw)] min-h-[210px] shrink-0 items-center justify-center border-b border-line xl:h-[330px]">
+            <Cube3D state={s.cubeState} size={272} showLetters={letters} view={prefs.defaultView} className="scale-[clamp(.72,1vw,.99)]" />
             <IconButton
               size="sm"
               label="Sticker letters"

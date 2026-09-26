@@ -27,4 +27,20 @@ describe("RailCube3D", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sticker CH" }));
     expect(onPick).toHaveBeenCalledWith("U:UB");
   });
+
+  it("keeps selectable highlight stickers constrained to their grid cells", () => {
+    const scheme = createSpeffzScheme();
+    render(
+      <RailCube3D
+        scramble=""
+        scheme={scheme}
+        size={260}
+        highlight={{ type: "edge", stickerIds: ["U:UB"] }}
+      />,
+    );
+    const sticker = screen.getByRole("button", { name: "Sticker A" }) as HTMLButtonElement;
+    expect(sticker.style.width).toBe("100%");
+    expect(sticker.style.height).toBe("100%");
+    expect(sticker.style.padding).toBe("0px");
+  });
 });

@@ -48,7 +48,7 @@ export function Setup() {
   const next = () => step === 'done' ? finish(draft) : setStep(STEPS[index + 1]);
 
   return (
-    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
+    <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-bg font-sans text-ink">
       <header className="flex h-11 shrink-0 items-center justify-between border-b border-line pl-5 pr-3 md:pl-8">
         <div className="flex items-center gap-6">
           <span className="text-[12.5px] text-ink">Setup</span>

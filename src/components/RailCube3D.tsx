@@ -158,6 +158,16 @@ export const RailCube3D = memo(function RailCube3D({
               const candidate = !!highlight && !!definition && highlight.type === definition.pieceType && highlight.stickerIds.includes(definition.id);
               const content = definition?.label ?? "";
               const style = {
+                // Keep selectable highlight cells geometrically identical to ordinary divs.
+                // Native button dimensions otherwise make a highlighted face reflow.
+                boxSizing: "border-box" as const,
+                width: "100%",
+                height: "100%",
+                minWidth: 0,
+                minHeight: 0,
+                padding: 0,
+                border: 0,
+                appearance: "none" as const,
                 background: COLORS[sticker.color],
                 borderRadius: radius,
                 color: TEXT[sticker.color],

@@ -23,7 +23,7 @@ export function App({ stage = 'live' }: AppProps) {
     <MotionConfig reducedMotion="user">
       <BrowserRouter>
         <AppDataProvider>
-          <div className="theme-workspace h-[100dvh] w-full bg-bg">
+          <div className="theme-workspace min-h-[100dvh] w-full overflow-x-hidden bg-bg">
             <ProductionRoutes stage={stage} />
           </div>
         </AppDataProvider>

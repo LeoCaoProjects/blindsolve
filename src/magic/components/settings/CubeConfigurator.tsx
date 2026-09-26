@@ -45,8 +45,13 @@ export function CubeConfigurator({
   const colors = REFERENCE_COLORS;
   const [live, setLive] = useState<CubeView>({ up: 'U', front: 'F' });
   const [resetSignal, setResetSignal] = useState(0);
-  const [stageRef, stageWidth] = useElementWidth<HTMLDivElement>(560);
-  const cubeSize = Math.max(240, Math.min(380, stageWidth - 48));
+  // Start conservatively before ResizeObserver reports the stage width. This
+  // avoids a one-frame desktop-sized cube that can be clipped on mobile.
+  const [stageRef, stageWidth] = useElementWidth<HTMLDivElement>(320);
+  // Perspective makes the rendered cube wider than its square stage. Leave a
+  // generous gutter so the outer stickers remain visible on narrow screens and
+  // at browser zoom, rather than enforcing a desktop-sized minimum.
+  const cubeSize = Math.max(160, Math.min(380, stageWidth - 132));
   const speffz = isSpeffz(setup.scheme);
 
   const pick = (id: string) => {
@@ -61,7 +66,8 @@ export function CubeConfigurator({
         <div className="scroll-none overflow-x-auto border-b border-line px-4 py-3">
           <Segmented label="Cube mode" options={MODES} value={mode} onChange={onModeChange} />
         </div>
-        <div ref={stageRef} className="relative flex h-[340px] items-center justify-center md:h-[440px]">
+        <div ref={stageRef} className="relative flex h-[300px] items-center justify-center md:h-[440px]">
+          <div className="origin-center max-[500px]:-translate-x-8 max-[500px]:scale-[.72]">
           <SchemeCube
             scheme={setup.scheme}
             colors={colors}
@@ -76,6 +82,7 @@ export function CubeConfigurator({
             onViewChange={setLive}
             resetSignal={resetSignal}
             label="Your cube" />
+          </div>
           
           <p className="absolute bottom-3 left-4 flex gap-4 font-mono text-[11px] text-ink-3">
             <span>

@@ -41,10 +41,10 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 24, opacity: 0 }}
         transition={{ duration: 0.24, ease: EASE_OUT }}
-        className="absolute inset-y-0 right-0 flex w-[min(780px,100vw)] flex-col border-l border-line bg-raised shadow-overlay">
+        className="absolute inset-y-0 right-0 flex w-full max-w-[780px] flex-col overflow-y-auto border-l border-line bg-raised shadow-overlay">
         
-        <div className="grid h-[300px] shrink-0 grid-cols-[minmax(0,1fr)_300px] border-b border-line bg-surface">
-          <div className="flex flex-col px-9 py-8">
+        <div className="grid shrink-0 grid-cols-1 border-b border-line bg-surface sm:h-[300px] sm:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="flex min-h-[190px] flex-col px-5 py-6 sm:px-9 sm:py-8">
             <SolveTime
               time={draft.time}
               penalty={r.penalty}
@@ -55,16 +55,16 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
             }
             <ResultControl className="mt-auto self-start" value={r.penalty} onChange={r.setPenalty} />
           </div>
-          <div className="flex items-center justify-center border-l border-line">
-            <Cube3D state={cube} size={260} highlight={cubeHighlightFor(r)} label="Cube at the start of memo" />
+          <div className="flex h-[220px] items-center justify-center border-t border-line sm:h-auto sm:border-l sm:border-t-0">
+            <Cube3D state={cube} size={260} className="scale-[.84] sm:scale-100" highlight={cubeHighlightFor(r)} label="Cube at the start of memo" />
           </div>
         </div>
 
-        <div className="flex h-11 shrink-0 items-center px-9">
+        <div className="flex h-11 shrink-0 items-center px-5 sm:px-9">
           <StepTicks total={r.steps.length} index={r.index} />
         </div>
 
-        <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-9 pb-8 pt-3">
+        <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-3 sm:px-9">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={r.index}
@@ -78,7 +78,7 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
           </AnimatePresence>
         </div>
 
-        <footer className="flex shrink-0 items-center justify-between border-t border-line px-6 py-3.5">
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3.5 sm:px-6">
           {r.step.kind !== 'review' ? <QuietButton onClick={r.finish}>Skip to save</QuietButton> : <span />}
           <div className="flex items-center gap-2">
             {r.index > 0 && <QuietButton onClick={r.back}>Back</QuietButton>}

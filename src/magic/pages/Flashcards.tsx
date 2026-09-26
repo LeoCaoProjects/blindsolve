@@ -32,7 +32,7 @@ export function Flashcards() {
   const revealed = f.phase !== 'question';
 
   return (
-    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
+    <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-bg font-sans text-ink">
       <AppBar onShortcuts={sheet.openSheet} />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_392px]">
