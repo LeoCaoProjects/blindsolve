@@ -3,7 +3,7 @@ import { useDefaultView } from '../../contexts/AppDataContext';
 import { CubeMode, CubeViewPref, FaceColor, LetterScheme } from '../../types/app';
 import { FACES, Face, slotType } from '../../utils/cube';
 import { COLOR_HEX, COLOR_TEXT, REFERENCE_COLORS, siblingsOf } from '../../utils/scheme';
-import { applyView, viewTransform } from '../../utils/view';
+import { applyView, stickerTextRotation, viewTransform } from '../../utils/view';
 
 export interface CubeView {
   up: Face;
@@ -195,6 +195,7 @@ export function SchemeCube({
             if (isSelected) shadows.push('0 0 0 2px var(--accent)');
 
             const fontSize = Math.max(8, S * (token.length > 2 ? 0.075 : token.length === 2 ? 0.1 : 0.13));
+            const textRotation = stickerTextRotation(face, camera);
             const style: React.CSSProperties = {
               background: bg,
               borderRadius: radius,
@@ -206,7 +207,7 @@ export function SchemeCube({
             };
             const content =
             <>
-                  {token}
+                  <span style={{ transform: `rotate(${textRotation}deg)` }}>{token}</span>
                   {isBuffer && <span className="sr-only"> (buffer)</span>}
                 </>;
 

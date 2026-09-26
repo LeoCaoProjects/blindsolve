@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { stateFromScramble } from './cube';
-import { applyView, COLOR_FACE, isValidView, viewForScrambledCenters } from './view';
+import { applyView, COLOR_FACE, isValidView, stickerTextRotation, viewForScrambledCenters } from './view';
 
 const NORMAL = {
   U: [0, 1, 0], D: [0, -1, 0], F: [0, 0, 1], B: [0, 0, -1], R: [1, 0, 0], L: [-1, 0, 0],
@@ -25,5 +25,26 @@ describe('default cube view', () => {
 
     expect(applyView(camera, [...NORMAL[topFace]])).toEqual([0, 1, 0]);
     expect(applyView(camera, [...NORMAL[frontFace]])).toEqual([0, 0, 1]);
+  });
+
+  it('rotates top and bottom tokens with a white-top orange-front view', () => {
+    const view = { top: 'white', front: 'orange' } as const;
+    expect(stickerTextRotation('U', view)).toBe(90);
+    expect(stickerTextRotation('D', view)).toBe(-90);
+    expect(stickerTextRotation('L', view)).toBe(0);
+    expect(stickerTextRotation('F', view)).toBe(0);
+  });
+
+  it('keeps reference-view top and bottom tokens unrotated', () => {
+    const view = { top: 'white', front: 'green' } as const;
+    expect(stickerTextRotation('U', view)).toBe(0);
+    expect(stickerTextRotation('D', view)).toBe(0);
+  });
+
+  it('keeps tokens readable when the opposite colour is selected as top', () => {
+    const view = { top: 'yellow', front: 'green' } as const;
+    expect(stickerTextRotation('D', view)).toBe(180);
+    expect(stickerTextRotation('U', view)).toBe(180);
+    expect(stickerTextRotation('F', view)).toBe(180);
   });
 });

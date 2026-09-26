@@ -12,7 +12,7 @@ import {
 '../../utils/cube';
 import { useAppData, useDefaultView } from '../../contexts/AppDataContext';
 import { CubeViewPref } from '../../types/app';
-import { viewForScrambledCenters, viewTransform } from '../../utils/view';
+import { stickerTextRotation, viewForScrambledCenters, viewTransform } from '../../utils/view';
 
 export interface CubeHighlight {
   type: PieceType;
@@ -154,6 +154,7 @@ export function Cube3D({
             const type = slotType(i);
             const stickerId = type ? physicalStickerAt(state, face, i) : null;
             const letter = type && stickerId ? setup.scheme[stickerId] ?? letterFor(stickerId[0] as Face, Number(stickerId.slice(1)), type) : null;
+            const textRotation = stickerTextRotation(face, stateCamera);
             const isOption = !!highlight && !!letter && highlight.type === type && highlight.letters.includes(letter);
             const bg = STICKER_COLORS[color];
             if (isOption && letter) {
@@ -182,7 +183,7 @@ export function Cube3D({
                     fontSize: Math.max(10, S * 0.13)
                   }}>
                   
-                    {letter}
+                    <span style={{ transform: `rotate(${textRotation}deg)` }}>{letter}</span>
                   </button>);
 
             }
@@ -200,7 +201,8 @@ export function Cube3D({
                   fontSize: Math.max(8, S * 0.1)
                 }}>
                 
-                  {showLetters && !highlight && letter}
+                  {showLetters && !highlight && letter &&
+                  <span style={{ transform: `rotate(${textRotation}deg)` }}>{letter}</span>}
                 </div>);
 
           })}
