@@ -7,3 +7,4 @@ export const supabase: SupabaseClient | null =
     ? createClient(url, anonKey)
     : null;
 export const cloudConfigured = Boolean(supabase);
+export const supabaseUrl = supabase ? url! : null;

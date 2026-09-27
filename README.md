@@ -20,6 +20,15 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-The frontend works locally without Supabase. For account sync, create a dedicated Supabase project, apply the migrations in `supabase/migrations`, and provide the public URL and anon key in `.env`. Do not use a service-role key in the browser.
+The frontend works locally without Supabase. For account sync, create a dedicated Supabase project, apply the migrations in `supabase/migrations`, and provide the public URL and anon key in `.env`. Enable Google in Supabase Auth and add the deployed site URL to its redirect allow-list.
+
+WCA sign-in uses the checked-in `wca-oauth` Edge Function so the OAuth secret never enters the browser. Register an OAuth application at the WCA, using `https://YOUR_PROJECT.supabase.co/functions/v1/wca-oauth/callback` as its callback, then configure and deploy:
+
+```powershell
+supabase secrets set APP_URL=https://YOUR_SITE WCA_CLIENT_ID=... WCA_CLIENT_SECRET=...
+supabase functions deploy wca-oauth --no-verify-jwt
+```
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are supplied to deployed functions by Supabase. Never place the service-role key or WCA secret in a `VITE_` variable or frontend code.
 
 Run checks with `npm test`, `npm run lint`, `npm run build`, and `npm run test:e2e`.

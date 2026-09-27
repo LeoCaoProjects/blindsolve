@@ -1,0 +1,3 @@
+[functions.wca-oauth]
+verify_jwt = false
+

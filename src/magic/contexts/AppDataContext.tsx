@@ -436,7 +436,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     account: store.user
       ? {
           provider:
-            store.user.app_metadata.provider === "google" ? "google" : "wca",
+            store.user.user_metadata.auth_source === "wca" ? "wca" : "google",
           name: String(
             store.user.user_metadata.full_name ??
               store.user.user_metadata.name ??

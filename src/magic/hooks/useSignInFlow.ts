@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppData } from '../contexts/AppDataContext';
 import { AuthProvider } from '../types/app';
-import { supabase } from '../../lib/supabase';
+import { supabase, supabaseUrl } from '../../lib/supabase';
 
 export type SignInStep = 'idle' | 'redirecting' | 'merge';
 export type MergeChoice = 'merge' | 'account';
@@ -20,6 +20,29 @@ export function useSignInFlow(opts: {initial?: SignInStep;provider?: AuthProvide
     if (app.account.provider) onDone.current?.();
   }, [app.account.provider]);
 
+  useEffect(() => {
+    if (!supabase) return;
+    const queryError = new URLSearchParams(window.location.search).get('auth_error');
+    if (queryError) {
+      setError(queryError);
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const tokenHash = hash.get('wca_token_hash');
+    if (!tokenHash) return;
+    setProvider('wca');
+    setStep('redirecting');
+    window.history.replaceState({}, '', window.location.pathname);
+    void supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'email' }).then(({ error: verifyError }) => {
+      if (verifyError) {
+        setError(verifyError.message);
+        setProvider(null);
+        setStep('idle');
+      }
+    });
+  }, []);
+
   const start = useCallback(async (p: AuthProvider) => {
     setError(null);
     if (!supabase) {
@@ -27,7 +50,9 @@ export function useSignInFlow(opts: {initial?: SignInStep;provider?: AuthProvide
       return;
     }
     if (p === 'wca') {
-      setError('WCA sign-in needs the server-side OAuth exchange to be configured. No client secret is stored in this app.');
+      setProvider(p);
+      setStep('redirecting');
+      window.location.assign(`${supabaseUrl}/functions/v1/wca-oauth`);
       return;
     }
     setProvider(p);
