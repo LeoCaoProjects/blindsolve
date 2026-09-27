@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppDataProvider } from './contexts/AppDataContext';
@@ -9,7 +9,7 @@ import { Setup } from './pages/Setup';
 import { SignIn } from './pages/SignIn';
 import { Timer } from './pages/Timer';
 import { Training } from './pages/Training';
-import { useStore } from '../app/Store';
+import { warmScrambles } from './utils/randomStateScramble';
 
 type PreviewStage = 'live' | 'running' | 'stopped' | 'reconstruction' | 'details';
 
@@ -19,24 +19,15 @@ interface AppProps {
 }
 
 export function App({ stage = 'live' }: AppProps) {
+  // Prepare Execution Sprint scrambles in the background as soon as the browser is idle.
+  useEffect(() => warmScrambles(), []);
   return (
     <MotionConfig reducedMotion="user">
       <BrowserRouter>
         <AppDataProvider>
-          <div className="theme-workspace min-h-[100dvh] w-full overflow-x-hidden bg-bg">
-            <ProductionRoutes stage={stage} />
-          </div>
-        </AppDataProvider>
-      </BrowserRouter>
-    </MotionConfig>);
-}
-
-function ProductionRoutes({ stage }: {stage: PreviewStage}) {
-  const { ready, data } = useStore();
-  if (!ready) return <p className="flex h-full items-center justify-center text-[13px] text-ink-3" role="status">Loading your workspace…</p>;
-  return (
+          <div className="theme-workspace h-[100dvh] w-full bg-bg">
             <Routes>
-              <Route path="/" element={data.onboarded ? <Timer stage={stage} /> : <Navigate to="/setup" replace />} />
+              <Route path="/" element={<Timer stage={stage} />} />
               <Route path="/pairs" element={<LetterPairs />} />
               <Route path="/flashcards" element={<Flashcards />} />
               <Route path="/training" element={<Training />} />
@@ -46,5 +37,9 @@ function ProductionRoutes({ stage }: {stage: PreviewStage}) {
               <Route path="/signin" element={<SignIn />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-  );
+          </div>
+        </AppDataProvider>
+      </BrowserRouter>
+    </MotionConfig>);
+
 }

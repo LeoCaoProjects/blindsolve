@@ -12,8 +12,8 @@ interface SequenceViewProps {
 }
 
 const SIZE = {
-  xl: 'text-[40px] md:text-[56px] gap-x-[0.8em] gap-y-[0.25em]',
-  lg: 'text-[30px] md:text-[36px] gap-x-[0.8em] gap-y-[0.2em]',
+  xl: 'text-[clamp(28px,min(4.2vw,6.8vh),56px)] gap-x-[0.8em] gap-y-[0.25em]',
+  lg: 'text-[clamp(24px,min(3vw,5vh),36px)] gap-x-[0.8em] gap-y-[0.2em]',
   md: 'text-[20px] gap-x-[0.9em] gap-y-[0.2em]'
 };
 

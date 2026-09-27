@@ -7,7 +7,6 @@ import {
   TrainFilter,
   challengeFromScramble,
   makeChallenge,
-  makeScramble,
 } from "../utils/bld";
 import { isTypingTarget } from "../utils/keyboard";
 import { pairKey, resolveWords } from "../utils/pairs";
@@ -20,6 +19,8 @@ import {
 } from "../utils/training";
 import { useHoldStart } from "./useHoldStart";
 import { useStore } from "../../app/Store";
+import { useExecScramble } from "./useExecScramble";
+import { FIRST_EXEC_SEED } from "../utils/randomStateScramble";
 
 export type { TrainMode };
 /** idle → (hold Space) → active → [recall] → review → idle */
@@ -71,7 +72,7 @@ export function useTrainingSession(init: TrainInit) {
   const [mode, setModeState] = useState<TrainMode>(init.mode ?? "recall");
   const [filter, setFilterState] = useState<TrainFilter>(init.filter ?? "both");
   const [phase, setPhase] = useState<TrainPhase>(init.phase ?? "idle");
-  const [seed, setSeed] = useState(init.seed ?? randomSeed());
+  const [seed, setSeed] = useState(init.seed ?? FIRST_EXEC_SEED);
   const [history, setHistory] = useState<Attempt[]>(() =>
     store.data.attempts
       .filter(
@@ -93,13 +94,15 @@ export function useTrainingSession(init: TrainInit) {
   const [report, setReport] = useState<ExecResult>(init.report ?? "solved");
 
   // Execution Sprint: the scramble shown during setup IS the challenge — same seed, same state.
-  const scramble = useMemo(() => makeScramble(filter, seed), [filter, seed]);
+  const preparedScramble = useExecScramble(filter, seed, mode === "exec");
+  const scramble = preparedScramble ?? "";
+  const scrambleReady = mode !== "exec" || preparedScramble !== null;
   const challenge: Challenge = useMemo(
     () =>
-      mode === "exec"
+      mode === "exec" && preparedScramble
         ? challengeFromScramble(scramble, filter, seed, setup)
         : makeChallenge(filter, seed, setup),
-    [mode, scramble, filter, seed, setup],
+    [mode, preparedScramble, scramble, filter, seed, setup],
   );
   const groups: TrainGroup[] = useMemo(() => {
     const g: TrainGroup[] = [];
@@ -151,7 +154,7 @@ export function useTrainingSession(init: TrainInit) {
     setPhase("active");
   }, [groups, mode]);
 
-  const hold = useHoldStart({ enabled: phase === "idle", onStart: start });
+  const hold = useHoldStart({ enabled: phase === "idle" && scrambleReady, onStart: start });
 
   const toRecall = useCallback(() => {
     setTimes((t) => ({ ...t, split: performance.now() }));
@@ -206,7 +209,7 @@ export function useTrainingSession(init: TrainInit) {
                   (sum, group) => sum + group.actual.length - group.wrong,
                   0,
                 ) / Math.max(1, targets),
-          trainingMode: mode === "exec" ? "trace" : mode,
+          trainingMode: mode,
           durationMs: Math.round(ms),
           targets,
           ...(attempt.pairs !== undefined ? { pairs: attempt.pairs } : {}),
@@ -228,21 +231,24 @@ export function useTrainingSession(init: TrainInit) {
     store,
   ]);
 
-  const removeAttempt = useCallback(
-    (id: number) => setHistory((h) => h.filter((a) => a.id !== id)),
-    [],
-  );
+  const removeAttempt = useCallback((id: number) => {
+    setHistory((h) => h.filter((a) => a.id !== id));
+    store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => Date.parse(attempt.createdAt) !== id) }));
+  }, [store]);
   const removeLatestAttempt = useCallback(
-    () =>
-      setHistory((h) => {
-        const i = h.findIndex((a) => a.mode === mode);
-        return i === -1 ? h : [...h.slice(0, i), ...h.slice(i + 1)];
-      }),
-    [mode],
+    () => {
+      const latest = history.find((attempt) => attempt.mode === mode);
+      if (!latest) return;
+      removeAttempt(latest.id);
+    },
+    [history, mode, removeAttempt],
   );
   const clearAttempts = useCallback(
-    () => setHistory((h) => h.filter((a) => a.mode !== mode)),
-    [mode],
+    () => {
+      setHistory((h) => h.filter((a) => a.mode !== mode));
+      store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => attempt.trainingMode !== mode) }));
+    },
+    [mode, store],
   );
 
   /** Execution Sprint setup: swap the scramble before starting, like the Timer's N. */
@@ -258,7 +264,14 @@ export function useTrainingSession(init: TrainInit) {
         ? [{ ...h[0], correct: r === "solved" }, ...h.slice(1)]
         : h,
     );
-  }, []);
+    store.update((data) => {
+      const index = data.attempts.findIndex((attempt) => attempt.trainingMode === "exec");
+      if (index < 0) return data;
+      const attempts = [...data.attempts];
+      attempts[index] = { ...attempts[index], correct: r === "solved", accuracy: r === "solved" ? 1 : 0 };
+      return { ...data, attempts };
+    });
+  }, [store]);
 
   const next = useCallback(() => {
     if (mode === "exec") setSeed((s) => s + 1);
@@ -331,6 +344,7 @@ export function useTrainingSession(init: TrainInit) {
     hold,
     challenge,
     scramble,
+    scrambleReady,
     groups,
     vocabulary,
     targets,
@@ -432,10 +446,4 @@ function seededWords(
       return word;
     }),
   );
-}
-
-function randomSeed() {
-  const values = new Uint32Array(1);
-  crypto.getRandomValues(values);
-  return values[0];
 }

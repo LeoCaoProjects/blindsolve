@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { RefreshCwIcon } from 'lucide-react';
 import { Kbd } from '../components/common/Kbd';
@@ -44,8 +44,12 @@ export function Training() {
   const busy = t.running;
   const holding = t.hold.phase !== 'idle';
   const execSetup = t.mode === 'exec' && t.phase === 'idle';
-  const showAside = !(t.running && t.mode !== 'recall');
+  // The side column stays away through review too, so submitting never reflows the stage.
+  const showAside = t.mode === 'recall' || t.phase === 'idle';
   const latest = t.history[0];
+  // Freeze the measured stage once an attempt ends: the cube keeps its size under the review sheet.
+  const stableStage = useRef(stage);
+  if (t.phase !== 'review') stableStage.current = stage;
 
   const cleanup = useHistoryCleanup({
     count: t.history.length,
@@ -95,7 +99,13 @@ export function Training() {
             }>
             
               <span className="hidden w-8 shrink-0 pt-[5px] font-mono text-[11px] text-ink-3 tnum md:block">#{t.history.length + 1}</span>
-              <ScrambleText scramble={t.scramble} className="min-w-0 flex-1 text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink" />
+              {t.scrambleReady ?
+            <ScrambleText scramble={t.scramble} className="min-w-0 flex-1 text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink" /> :
+
+            <p role="status" className="min-w-0 flex-1 font-mono text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink-3">
+                  Preparing scramble…
+                </p>
+            }
               <button
               type="button"
               onClick={t.newScramble}
@@ -125,10 +135,10 @@ export function Training() {
                   </Fade> :
 
                 <Fade key={`run-${t.mode}`} className="h-full min-h-0">
-                    {t.mode === 'recall' && <MemoRecallWorkspace t={t} stage={stage} />}
-                    {t.mode === 'trace' && <TraceSprintWorkspace t={t} stage={stage} />}
-                    {t.mode === 'full' && <FullMemoWorkspace t={t} stage={stage} />}
+                    {t.mode === 'recall' && <MemoRecallWorkspace t={t} stage={stableStage.current} />}
                     {t.mode === 'exec' && <ExecutionWorkspace t={t} />}
+                    {t.mode === 'trace' && <TraceSprintWorkspace t={t} stage={stableStage.current} />}
+                    {t.mode === 'full' && <FullMemoWorkspace t={t} stage={stableStage.current} />}
                   </Fade>
                 }
               </AnimatePresence>
@@ -142,7 +152,7 @@ export function Training() {
         <TrainingAside
           t={t}
           onClear={cleanup.askClear}
-          className={`transition-opacity duration-300 ease-out ${busy ? 'opacity-[0.15]' : holding ? 'opacity-60' : ''}`} />
+          recede={busy ? 'opacity-[0.15]' : holding ? 'opacity-60' : ''} />
 
         }
       </div>

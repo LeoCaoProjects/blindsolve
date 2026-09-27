@@ -44,7 +44,9 @@ export interface PracticeAttempt {
   correct: boolean;
   accuracy: number;
   createdAt: string;
-  trainingMode?: "recall" | "trace" | "full";
+  trainingMode?: "recall" | "exec" | "trace" | "full";
+  pairKey?: string;
+  pairPiece?: "edges" | "corners";
   durationMs?: number;
   targets?: number;
   pairs?: number;
@@ -198,7 +200,9 @@ const dataSchema = z.object({
         correct: z.boolean(),
         accuracy: z.number().min(0).max(1),
         createdAt: iso,
-        trainingMode: z.enum(["recall", "trace", "full"]).optional(),
+        trainingMode: z.enum(["recall", "exec", "trace", "full"]).optional(),
+        pairKey: text.optional(),
+        pairPiece: z.enum(["edges", "corners"]).optional(),
         durationMs: z.number().int().nonnegative().optional(),
         targets: z.number().int().nonnegative().optional(),
         pairs: z.number().int().nonnegative().optional(),

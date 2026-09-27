@@ -154,6 +154,28 @@ export function slotPosition(face: Face, r: number, c: number): Vec {
   }
 }
 
+export type EdgeDir = 'top' | 'bottom' | 'left' | 'right';
+export interface HiddenPartner { dir: EdgeDir; face: Face; color: Face; }
+
+/** Hidden stickers belonging to the same physical cubie as this facelet. */
+export function piecePartners(state: CubeState, face: Face, index: number): HiddenPartner[] {
+  const r = Math.floor(index / 3), c = index % 3;
+  const position = slotPosition(face, r, c);
+  const centre = slotPosition(face, 1, 1);
+  const step = (row: number, column: number): Vec => {
+    const next = slotPosition(face, row, column);
+    return [next[0] - centre[0], next[1] - centre[1], next[2] - centre[2]];
+  };
+  const dirs: [EdgeDir, boolean, Vec][] = [
+    ['top', r === 0, step(0, 1)], ['bottom', r === 2, step(2, 1)],
+    ['left', c === 0, step(1, 0)], ['right', c === 2, step(1, 2)]
+  ];
+  return dirs.filter(([, on]) => on).map(([dir, , vector]) => {
+    const partnerFace = faceFromNormal(vector);
+    return { dir, face: partnerFace, color: state[partnerFace][slotIndex(partnerFace, position)] };
+  });
+}
+
 function faceFromNormal([x, y, z]: Vec): Face {
   if (y === 1) return 'U';
   if (y === -1) return 'D';

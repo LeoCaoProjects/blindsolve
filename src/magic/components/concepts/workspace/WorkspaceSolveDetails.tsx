@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { XIcon } from 'lucide-react';
 import { useDetailsKeys } from '../../../hooks/useDetailsKeys';
+import { clamp, useElementSize } from '../../../hooks/useElementSize';
 import { LetterPairDb, Penalty, Solve } from '../../../types/solve';
 import { stateFromScramble } from '../../../utils/cube';
 import { EASE_OUT } from '../../../utils/keyboard';
@@ -26,6 +27,8 @@ export function WorkspaceSolveDetails({ solve, db, onClose, onPenalty, onDelete 
   const setPenalty = useCallback((p: Penalty) => onPenalty(solve.id, p), [onPenalty, solve.id]);
   useDetailsKeys(onClose, setPenalty);
   const cube = useMemo(() => stateFromScramble(solve.scramble), [solve.scramble]);
+  const [cubeRef, box] = useElementSize<HTMLDivElement>({ width: 300, height: 300 });
+  const cubeSize = clamp(Math.min(box.width, box.height) - 36, 130, 250);
 
   return (
     <motion.div className="fixed inset-0 z-40" initial={{ opacity: 1 }} exit={{ opacity: 1 }}>
@@ -47,8 +50,8 @@ export function WorkspaceSolveDetails({ solve, db, onClose, onPenalty, onDelete 
         transition={{ duration: 0.22, ease: EASE_OUT }}
         className="absolute inset-y-0 right-0 flex w-[min(780px,100vw)] flex-col border-l border-line bg-raised shadow-overlay">
         
-        <div className="grid h-[300px] shrink-0 grid-cols-[minmax(0,1fr)_300px] border-b border-line bg-surface">
-          <div className="flex flex-col px-9 py-8">
+        <div className="grid h-[clamp(200px,34vh,300px)] shrink-0 grid-cols-[minmax(0,1fr)_clamp(150px,34vh,300px)] border-b border-line bg-surface">
+          <div className="flex min-w-0 flex-col px-5 py-[clamp(16px,3.5vh,32px)] md:px-9">
             <div className="flex items-center justify-between">
               <p className="flex items-baseline gap-3 text-[12.5px] text-ink-3">
                 <span className="font-mono tnum">#{solve.index}</span>
@@ -58,29 +61,29 @@ export function WorkspaceSolveDetails({ solve, db, onClose, onPenalty, onDelete 
             <SolveTime
               time={solve.time}
               penalty={solve.penalty}
-              className="mt-3 font-timer text-[60px] font-extralight leading-none tracking-[-0.05em] text-ink" />
+              className="mt-3 font-timer text-[clamp(38px,6.5vh,60px)] font-extralight leading-none tracking-[-0.05em] text-ink" />
             
             {solve.memoTime !== undefined &&
-            <SplitMeter memo={solve.memoTime} total={solve.time} showLabels className="mt-5 w-[280px]" />
+            <SplitMeter memo={solve.memoTime} total={solve.time} showLabels className="mt-[clamp(10px,2vh,20px)] w-full max-w-[280px]" />
             }
             <ResultControl className="mt-auto self-start" value={solve.penalty} onChange={setPenalty} />
           </div>
-          <div className="relative flex items-center justify-center border-l border-line">
-            <IconButton label="Close" onClick={onClose} className="absolute right-3 top-3">
+          <div ref={cubeRef} className="relative flex min-h-0 items-center justify-center overflow-hidden border-l border-line">
+            <IconButton label="Close" onClick={onClose} className="absolute right-3 top-3 z-10">
               <XIcon />
             </IconButton>
-            <Cube3D state={cube} size={250} label="Cube after scramble" />
+            <Cube3D state={cube} size={cubeSize} label="Cube after scramble" />
           </div>
         </div>
 
-        <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-9 py-8">
+        <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-5 py-8 md:px-9">
           <ScrambleText scramble={solve.scramble} animate={false} className="text-[15px] leading-[1.75] text-ink" />
           <div className="mt-8 border-t border-line pt-7">
             <SolveMemoView memo={solve.memo} db={db} />
           </div>
         </div>
 
-        <footer className="flex shrink-0 items-center justify-between border-t border-line px-9 py-3 text-[12.5px]">
+        <footer className="dock-inset flex shrink-0 items-center justify-between border-t border-line px-5 pt-3 text-[12.5px] md:px-9">
           <button
             type="button"
             onClick={() => onDelete(solve.id)}

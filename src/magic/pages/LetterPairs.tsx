@@ -12,7 +12,7 @@ import { PairScope } from '../types/app';
 import { EASE_OUT } from '../utils/keyboard';
 import { pairKey, resolveWords, tokenize } from '../utils/pairs';
 import { tokensOf } from '../utils/scheme';
-import { useScreenInit } from '../useScreenInit';
+import { useScreenInit } from '../useScreenInit.js';
 
 interface ScreenState {
   scope?: PairScope;
@@ -170,16 +170,16 @@ export function LetterPairs() {
 
 
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-bg font-sans text-ink">
+    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar onShortcuts={sheet.openSheet} />
 
-      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[104px_minmax(0,1fr)] md:grid-rows-1">
-        <div className="border-b border-line md:border-b-0">
+      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[104px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)]">
+        <div className="min-h-0 min-w-0 overflow-hidden border-b border-line md:h-full md:border-b-0">
           <FirstTokenRail tokens={axes} active={activeFirst} filled={filled} total={total} onSelect={selectFirst} />
         </div>
 
         <main className="flex min-h-0 min-w-0 flex-col">
-          <header className="flex shrink-0 flex-wrap items-end justify-between gap-4 px-5 pb-6 pt-6 md:px-10 md:pt-8">
+          <header className="flex shrink-0 flex-wrap items-end justify-between gap-4 px-5 pb-[clamp(12px,3vh,24px)] pt-[clamp(14px,3.5vh,32px)] md:px-10">
             <div className="flex items-baseline gap-4">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.h1
@@ -188,7 +188,7 @@ export function LetterPairs() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.12, ease: EASE_OUT }}
-                  className="font-timer text-[48px] font-extralight leading-none tracking-[0.02em] text-ink md:text-[56px]">
+                  className="font-timer text-[clamp(36px,6vh,56px)] font-extralight leading-none tracking-[0.02em] text-ink">
                   
                   <span className="sr-only">Pairs starting with </span>
                   {activeFirst}

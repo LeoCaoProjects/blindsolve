@@ -82,15 +82,15 @@ export function PairEditor({ first, second, entry, initialScope, sharing, uses, 
 
   return (
     <Inspector label={`Pair ${first}${second}`} onClose={onClose} width={480}>
-      <header className="relative shrink-0 border-b border-line bg-surface px-8 pb-6 pt-7">
+      <header className="relative shrink-0 border-b border-line bg-surface px-6 pb-[clamp(14px,3vh,24px)] pt-[clamp(16px,3.5vh,28px)] md:px-8">
         <IconButton label="Close" onClick={onClose} className="absolute right-3 top-3">
           <XIcon />
         </IconButton>
-        <PairTokens first={first} second={second} className="block font-timer text-[64px] font-extralight leading-none tracking-[0.04em] text-ink" />
+        <PairTokens first={first} second={second} className="block font-timer text-[clamp(40px,8vh,64px)] font-extralight leading-none tracking-[0.04em] text-ink" />
         <p className="mt-4 text-[12.5px] text-ink-3">{uses > 0 ? `Used in ${uses} solves` : 'Not used in a solve yet'}</p>
       </header>
 
-      <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-8 pb-8 pt-6">
+      <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-6 pb-8 pt-6 md:px-8">
         <Segmented label="Applies to" options={scopeOptions} value={tab} onChange={setTab} />
 
         <AnimatePresence mode="wait" initial={false}>
@@ -222,7 +222,7 @@ export function PairEditor({ first, second, entry, initialScope, sharing, uses, 
         </AnimatePresence>
       </div>
 
-      <footer className="flex shrink-0 items-center justify-between border-t border-line px-6 py-3.5">
+      <footer className="dock-inset flex shrink-0 items-center justify-between border-t border-line px-6 pt-3.5">
         {!inheriting && words.length > 0 ? <QuietButton onClick={() => setWords([])}>Clear</QuietButton> : <span />}
         <div className="flex items-center gap-2">
           <QuietButton onClick={onClose}>Cancel</QuietButton>

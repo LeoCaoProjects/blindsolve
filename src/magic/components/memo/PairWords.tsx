@@ -36,7 +36,7 @@ export function PairWords({ tokens, wordFor, onAdd }: PairWordsProps) {
 
 }
 
-function WordSlot({ word, pair, onAdd }: {word?: string;pair: string;onAdd: (w: string) => void;}) {
+export function WordSlot({ word, pair, onAdd }: {word?: string;pair: string;onAdd: (w: string) => void;}) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');
   if (word) return <span className="block truncate text-ink-2">{word}</span>;

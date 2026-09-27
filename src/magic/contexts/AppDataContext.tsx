@@ -296,6 +296,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       store.update((current) => ({
         ...current,
         solves: current.solves.map((s) => {
+          if ((s.sessionId ?? "today") !== activeSessionId) return s;
           const view = byId.get(s.id);
           if (!view)
             return { ...s, deleted: true, updatedAt: new Date().toISOString() };
@@ -310,7 +311,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         }),
       }));
     },
-    [solves, store],
+    [activeSessionId, solves, store],
   );
   const setActiveSession = useCallback(
     (id: string) => store.update((d) => ({ ...d, activeTimerSessionId: id })),
@@ -491,4 +492,9 @@ export function useDefaultView(): CubeViewPref {
       front: "green",
     }
   );
+}
+
+/** User lettering keyed by physical sticker id, shared by every cube renderer. */
+export function useLetterScheme() {
+  return useContext(AppDataContext)?.setup.scheme ?? magicSpeffz;
 }

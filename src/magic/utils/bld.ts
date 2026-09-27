@@ -56,7 +56,7 @@ export function seededRandom(seed: number): () => number {
 
 const range = (n: number) => Array.from({ length: n }, (_, i) => i);
 
-function parity(p: number[]): number {
+export function parity(p: number[]): number {
   const seen = new Array(p.length).fill(false);
   let cycles = 0;
   for (let i = 0; i < p.length; i++) {
@@ -67,7 +67,7 @@ function parity(p: number[]): number {
   return (p.length - cycles) % 2;
 }
 
-function randomPerm(n: number, rand: () => number, wantParity?: number): number[] {
+export function randomPerm(n: number, rand: () => number, wantParity?: number): number[] {
   const p = range(n);
   for (let i = n - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
@@ -77,7 +77,7 @@ function randomPerm(n: number, rand: () => number, wantParity?: number): number[
   return p;
 }
 
-function randomOri(n: number, mod: number, rand: () => number): number[] {
+export function randomOri(n: number, mod: number, rand: () => number): number[] {
   const o = range(n - 1).map(() => Math.floor(rand() * mod));
   const sum = o.reduce((s, v) => s + v, 0);
   o.push((mod - sum % mod) % mod);
@@ -109,6 +109,29 @@ export function toFacelets(s: PieceState): CubeState {
     for (let n = 0; n < 2; n++) put(EDGE_POS[p][(n + s.eo[p]) % 2], faceOf(EDGE_POS[k][n]));
   });
   return state;
+}
+
+const PIECE_OF = new Map<string, {type: 'corner' | 'edge';p: number;}>();
+CORNER_POS.forEach((ids, p) => ids.forEach((id) => PIECE_OF.set(id, { type: 'corner', p })));
+EDGE_POS.forEach((ids, p) => ids.forEach((id) => PIECE_OF.set(id, { type: 'edge', p })));
+const HOME_KEY = {
+  corner: CORNER_POS.map((ids) => ids.map(faceOf).sort().join('')),
+  edge: EDGE_POS.map((ids) => ids.map(faceOf).sort().join(''))
+};
+
+/**
+ * The physical sticker now sitting at `id`, named by where it belongs (its lettering id).
+ * Read from the piece's colours, so a token always travels with its sticker through any scramble.
+ * Edge and corner stickers resolve separately: an edge id never maps to a corner id.
+ */
+export function homeSticker(state: CubeState, id: string): string | null {
+  const at = PIECE_OF.get(id);
+  if (!at) return null;
+  const pieces = at.type === 'corner' ? CORNER_POS : EDGE_POS;
+  const colorAt = (s: string) => state[faceOf(s)][indexOf(s)];
+  const k = HOME_KEY[at.type].indexOf(pieces[at.p].map(colorAt).sort().join(''));
+  if (k === -1) return null;
+  return pieces[k].find((s) => faceOf(s) === colorAt(id)) ?? null;
 }
 
 export interface Trace {
@@ -228,7 +251,7 @@ function randomMoves(n: number, rand: () => number): string[] {
   return out;
 }
 
-function invert(moves: string[]): string[] {
+export function invert(moves: string[]): string[] {
   return [...moves].reverse().map((m) => m.endsWith('2') ? m : m.endsWith("'") ? m[0] : `${m}'`);
 }
 
@@ -247,9 +270,9 @@ function simplify(moves: string[]): string[] {
 }
 
 /**
- * Both: a random-move scramble (no wide moves, so centres stay put for tracing).
- * Corners / Edges only: conjugated pure 3-cycles, so the other piece type stays solved.
- * Production replaces this with cubing.js random-state scrambles; the contract is the same.
+ * Offline fallback only (used if the random-state solver can't load): random moves for Both,
+ * conjugated pure 3-cycles for Corners / Edges. Execution Sprint normally uses
+ * utils/randomStateScramble.ts, which picks a restricted random state and solves for it.
  */
 export function makeScramble(filter: TrainFilter, seed: number): string {
   const rand = seededRandom(seed * 104729 + (filter === 'corners' ? 11 : filter === 'edges' ? 13 : 17));

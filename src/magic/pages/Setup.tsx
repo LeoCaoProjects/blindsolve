@@ -8,11 +8,11 @@ import { StepTicks } from '../components/reconstruction/StepTicks';
 import { BufferPanel } from '../components/settings/BufferPanel';
 import { StickerEditor } from '../components/settings/StickerEditor';
 import { defaultSetup, useAppData } from '../contexts/AppDataContext';
-import { useElementWidth } from '../hooks/useElementWidth';
+import { clamp, useElementSize } from '../hooks/useElementSize';
 import { BldSetup, CubeMode } from '../types/app';
 import { EASE_OUT } from '../utils/keyboard';
 import { REFERENCE_COLORS, isSpeffz, speffzScheme, stickerById } from '../utils/scheme';
-import { useScreenInit } from '../useScreenInit';
+import { useScreenInit } from '../useScreenInit.js';
 
 type Step = 'lettering' | 'edge' | 'corner' | 'done';
 const STEPS: Step[] = ['lettering', 'edge', 'corner', 'done'];
@@ -32,7 +32,8 @@ export function Setup() {
   const [custom, setCustom] = useState(!!init.custom);
   const [draft, setDraft] = useState<BldSetup>(defaultSetup());
   const [selected, setSelected] = useState<string>('U0');
-  const [stageRef, stageWidth] = useElementWidth<HTMLDivElement>(700);
+  const [stageRef, stageBox] = useElementSize<HTMLDivElement>({ width: 700, height: 600 });
+  const cubeSize = clamp(Math.min(stageBox.width - 64, stageBox.height - 32), 160, 460);
 
   const index = STEPS.indexOf(step);
   const colors = REFERENCE_COLORS;
@@ -48,7 +49,7 @@ export function Setup() {
   const next = () => step === 'done' ? finish(draft) : setStep(STEPS[index + 1]);
 
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-bg font-sans text-ink">
+    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <header className="flex h-11 shrink-0 items-center justify-between border-b border-line pl-5 pr-3 md:pl-8">
         <div className="flex items-center gap-6">
           <span className="text-[12.5px] text-ink">Setup</span>
@@ -76,7 +77,7 @@ export function Setup() {
           <SchemeCube
             scheme={draft.scheme}
             colors={colors}
-            size={Math.max(220, Math.min(460, stageWidth - 64))}
+            size={cubeSize}
             mode={mode}
             selected={mode === 'lettering' ? selected : null}
             edgeBuffer={draft.edgeBuffer}
@@ -91,7 +92,7 @@ export function Setup() {
           
         </div>
 
-        <aside className="flex min-h-0 flex-col border-t border-line bg-surface lg:border-l lg:border-t-0">
+        <aside className="flex max-h-[58dvh] min-h-0 flex-col border-t border-line bg-surface lg:max-h-none lg:border-l lg:border-t-0">
           <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-6 py-7 md:px-8 md:py-9">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
@@ -156,7 +157,7 @@ export function Setup() {
               </motion.div>
             </AnimatePresence>
           </div>
-          <footer className="flex shrink-0 items-center justify-between border-t border-line px-6 py-3.5">
+          <footer className="dock-inset flex shrink-0 items-center justify-between border-t border-line px-6 pt-3.5">
             {index > 0 ? <QuietButton onClick={() => setStep(STEPS[index - 1])}>Back</QuietButton> : <span />}
             <PrimaryButton onClick={next}>{step === 'done' ? 'Start timing' : 'Continue'}</PrimaryButton>
           </footer>

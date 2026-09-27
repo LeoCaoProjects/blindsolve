@@ -10,7 +10,6 @@ import { ScrambleText } from '../../solve/ScrambleText';
 import { SolveTime } from '../../solve/SolveTime';
 import { ReviewPanel } from './ReviewPanel';
 
-const SCOPE = { both: 'Both', edges: 'Edges', corners: 'Corners' } as const;
 const LABEL = { corners: 'Corners', edges: 'Edges' } as const;
 
 /**
@@ -37,19 +36,13 @@ export function ExecReview({ t }: {t: TrainingSession;}) {
       label="Execution Sprint result"
       onNext={t.next}
       width={780}
-      footerStart={<span className="font-mono text-[11px]">S solved · D DNF</span>}
       header={
       <div className="grid h-[clamp(200px,34vh,290px)] shrink-0 grid-cols-[minmax(0,1fr)_clamp(150px,32vh,280px)] border-b border-line bg-surface">
           <div className="flex min-w-0 flex-col px-5 py-[clamp(16px,3.5vh,30px)] md:px-9">
-            <p className="flex flex-wrap items-baseline gap-x-3 text-[12.5px] text-ink-3">
-              <span>Execution Sprint</span>
-              <span>{SCOPE[t.filter]}</span>
-              <span>{t.display === 'letters' ? 'Letters' : 'Words'}</span>
-            </p>
             <SolveTime
             time={t.elapsed.total}
             penalty={dnf ? 'dnf' : 'ok'}
-            className="mt-3 font-timer text-[clamp(38px,6.5vh,60px)] font-extralight leading-none tracking-[-0.05em] text-ink" />
+            className="mt-1 font-timer text-[clamp(38px,6.5vh,60px)] font-extralight leading-none tracking-[-0.05em] text-ink" />
           
             <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1">
               {[

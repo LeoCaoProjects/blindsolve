@@ -1,13 +1,13 @@
 import { CubeViewPref } from '../types/app';
-import { FACES, Face } from './cube';
-import { applyView } from './view';
+import { CubeState, FACES, Face } from './cube';
+import { applyView, viewForScrambledCenters } from './view';
 
 export interface Rot {
   x: number;
   y: number;
 }
 
-/** Three-quarter view showing U · F · R (relative to the saved default view). */
+/** Three-quarter view showing the default view's top, front and right. */
 export const FRONT_ROT: Rot = { x: -27, y: -37 };
 
 const NORMALS: Record<Face, [number, number, number]> = {
@@ -19,18 +19,24 @@ const NORMALS: Record<Face, [number, number, number]> = {
   L: [-1, 0, 0]
 };
 
-/** How squarely a face points at the viewer (1 = head-on, ≤0 = hidden). Mirrors the CSS transform order. */
-export function faceDepth(face: Face, rot: Rot, camera: CubeViewPref): number {
+/**
+ * How squarely a face points at the viewer (1 = head-on, ≤0 = hidden). Mirrors the CSS transform order.
+ * Pass the state so the camera follows the real centres (wide moves).
+ */
+export function faceDepth(face: Face, rot: Rot, camera: CubeViewPref, state?: CubeState): number {
   const rx = rot.x * Math.PI / 180;
   const ry = rot.y * Math.PI / 180;
-  const [nx, ny, nz] = applyView(camera, NORMALS[face]);
+  const effectiveCamera = state ? viewForScrambledCenters(state, camera) : camera;
+  const [nx, ny, nz] = applyView(effectiveCamera, NORMALS[face]);
   const y = -ny;
   const z1 = -nx * Math.sin(ry) + nz * Math.cos(ry);
   return y * Math.sin(rx) + z1 * Math.cos(rx);
 }
 
-export function visibleFaces(rot: Rot, camera: CubeViewPref, min = 0.15): Face[] {
-  return FACES.filter((f) => faceDepth(f, rot, camera) > min).sort((a, b) => faceDepth(b, rot, camera) - faceDepth(a, rot, camera));
+export function visibleFaces(rot: Rot, camera: CubeViewPref, min = 0.15, state?: CubeState): Face[] {
+  return FACES.filter((f) => faceDepth(f, rot, camera, state) > min).sort(
+    (a, b) => faceDepth(b, rot, camera, state) - faceDepth(a, rot, camera, state)
+  );
 }
 
 /** The same cube seen from the other side: walk around it. Always shows the three faces the first view hides. */

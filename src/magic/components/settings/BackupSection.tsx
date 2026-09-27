@@ -1,57 +1,149 @@
-import React, { useRef, useState } from 'react';
-import { useStore } from '../../../app/Store';
-import { downloadBackup, parseBackup, type AppData } from '../../../lib/repository';
+import React, { useEffect, useRef, useState } from 'react';
+import { useAppData } from '../../contexts/AppDataContext';
+import { ImportSummary, MergeStrategy, buildBackup, downloadJson, mergePairs, sampleBackup, summarize } from '../../utils/backup';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { RadioRows } from '../common/Toggle';
 import { SecondaryButton, SettingsRow } from './SettingsSection';
 
-/** Latest Magic presentation connected to the versioned production backup format. */
-export function BackupSection({ preview: _preview }: {preview?: 'valid' | 'invalid';}) {
-  const store = useStore();
+export function BackupSection({ preview }: {preview?: 'valid' | 'invalid';}) {
+  const app = useAppData();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [pending, setPending] = useState<{name: string;data: AppData;} | null>(null);
-  const [problem, setProblem] = useState<{name: string;message: string;} | null>(null);
+  const [summary, setSummary] = useState<ImportSummary | null>(null);
+  const [strategy, setStrategy] = useState<MergeStrategy>('keep-mine');
   const [notice, setNotice] = useState<string | null>(null);
 
-  const flash = (message: string) => {
-    setNotice(message);
+  useEffect(() => {
+    if (preview === 'valid') setSummary(summarize('3bld-backup-2026-09-19.json', sampleBackup(app.pairs, app.setup), app.pairs));
+    if (preview === 'invalid') setSummary(summarize('cstimer_export.json', { properties: {}, session1: [] }, app.pairs));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const flash = (msg: string) => {
+    setNotice(msg);
     window.setTimeout(() => setNotice(null), 2600);
   };
+
   const onFile = async (file: File) => {
     try {
-      setPending({ name: file.name, data: parseBackup(await file.text()) });
-    } catch (error) {
-      setProblem({ name: file.name, message: error instanceof Error ? error.message : 'Invalid backup' });
+      const json = JSON.parse(await file.text());
+      setSummary(summarize(file.name, json, app.pairs));
+    } catch {
+      setSummary({ ok: false, fileName: file.name, problems: ['not valid JSON'] });
     }
   };
 
-  return <div>
-    <SettingsRow label="Export backup" hint="Setup, lettering, letter pairs, solves and practice history">
-      <SecondaryButton onClick={() => { downloadBackup(store.data); flash('Backup saved to downloads'); }}>Export</SecondaryButton>
-    </SettingsRow>
-    <SettingsRow label="Import backup" hint="You’ll see what’s inside before anything changes">
-      <SecondaryButton onClick={() => fileRef.current?.click()}>Import…</SecondaryButton>
-      <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => {
-        const file = event.target.files?.[0];
-        if (file) void onFile(file);
-        event.target.value = '';
-      }} />
-    </SettingsRow>
-    <p className="h-5 pt-1 text-[12.5px] text-ink-2" role="status">{notice}</p>
-    {pending && <ConfirmDialog open width={520} title="Import backup" onCancel={() => setPending(null)} confirm={{
-      label: 'Merge backup', onClick: () => {
-        store.importData(pending.data);
-        flash(`Imported ${Object.keys(pending.data.pairs).length} pairs`);
-        setPending(null);
-      },
-    }}>
-      <p className="mt-1 font-mono text-[12px] text-ink-3">{pending.name}</p>
-      <dl className="mt-5 grid grid-cols-[1fr_auto] gap-y-2.5 border-y border-line py-4 text-[13px]">
-        <dt className="text-ink-3">Letter pairs</dt><dd className="text-right tnum">{Object.keys(pending.data.pairs).length}</dd>
-        <dt className="text-ink-3">Solves</dt><dd className="text-right tnum">{pending.data.solves.length}</dd>
-        <dt className="text-ink-3">Practice history</dt><dd className="text-right tnum">{pending.data.attempts.length}</dd>
-      </dl>
-      <p className="mt-4 text-[12.5px] leading-relaxed text-ink-3">Existing data is retained; differing mnemonics are preserved as alternates.</p>
-    </ConfirmDialog>}
-    {problem && <ConfirmDialog open title="Can’t import this file" body={<><span className="font-mono text-[12px] text-ink-3">{problem.name}</span><span className="mt-3 block">{problem.message}</span></>} onCancel={() => setProblem(null)} cancelLabel="Close" confirm={{ label: 'Choose another file', onClick: () => { setProblem(null); fileRef.current?.click(); } }} />}
-  </div>;
+  const doImport = () => {
+    if (!summary?.ok) return;
+    const incoming = summary.file.pairs ?? {};
+    app.replacePairs(mergePairs(app.pairs, incoming, strategy));
+    if (strategy === 'replace' && summary.file.setup) app.saveSetup(summary.file.setup);
+    setSummary(null);
+    flash(`Imported ${summary.pairs.total} pairs`);
+  };
+
+  return (
+    <div>
+      <SettingsRow label="Export backup" hint="Setup, lettering, letter pairs, solves and practice history">
+        <SecondaryButton
+          onClick={() => {
+            downloadJson(buildBackup(app.setup, app.prefs, app.pairs, app.solves), '3bld-backup-2026-09-25.json');
+            flash('Backup saved to downloads');
+          }}>
+          
+          Export
+        </SecondaryButton>
+      </SettingsRow>
+      <SettingsRow label="Import backup" hint="You’ll see what’s inside before anything changes">
+        <SecondaryButton onClick={() => fileRef.current?.click()}>Import…</SecondaryButton>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onFile(f);
+            e.target.value = '';
+          }} />
+        
+      </SettingsRow>
+      <p className="h-5 pt-1 text-[12.5px] text-ink-2" role="status">
+        {notice}
+      </p>
+      <button
+        type="button"
+        onClick={() => setSummary(summarize('3bld-backup-2026-09-19.json', sampleBackup(app.pairs, app.setup), app.pairs))}
+        className="sr-only focus:not-sr-only focus:text-[12px] focus:text-ink-3">
+        
+        Preview a sample backup
+      </button>
+
+      {summary && summary.ok &&
+      <ConfirmDialog
+        open
+        width={520}
+        title="Import backup"
+        onCancel={() => setSummary(null)}
+        confirm={{ label: strategy === 'replace' ? 'Replace my data' : 'Import', onClick: doImport }}>
+        
+          <p className="mt-1 font-mono text-[12px] text-ink-3">
+            {summary.fileName} · {summary.exportedAt.slice(0, 10)}
+          </p>
+          <dl className="mt-5 grid grid-cols-[1fr_auto] gap-y-2.5 border-y border-line py-4 text-[13px]">
+            <dt className="text-ink-3">Lettering</dt>
+            <dd className="text-right text-ink">{summary.lettering}</dd>
+            <dt className="text-ink-3">Buffers</dt>
+            <dd className="text-right font-mono text-ink">{summary.buffers}</dd>
+            <dt className="text-ink-3">Letter pairs</dt>
+            <dd className="text-right text-ink tnum">
+              {summary.pairs.total}
+              <span className="ml-2 text-ink-3">
+                {summary.pairs.added} new · {summary.pairs.conflicts} differ
+              </span>
+            </dd>
+            <dt className="text-ink-3">Alternates</dt>
+            <dd className="text-right text-ink tnum">{summary.alternates}</dd>
+            <dt className="text-ink-3">Solves</dt>
+            <dd className="text-right text-ink tnum">{summary.solves.toLocaleString()}</dd>
+            <dt className="text-ink-3">Practice history</dt>
+            <dd className="text-right text-ink tnum">{summary.practice.toLocaleString()}</dd>
+          </dl>
+          <RadioRows
+          className="mt-4"
+          name="When pairs differ"
+          value={strategy}
+          onChange={setStrategy}
+          options={[
+          { value: 'keep-mine', label: 'Merge, keep mine where they differ' },
+          { value: 'prefer-backup', label: 'Merge, use the backup where they differ' },
+          { value: 'replace', label: 'Replace everything with the backup' }]
+          } />
+        
+        </ConfirmDialog>
+      }
+
+      {summary && !summary.ok &&
+      <ConfirmDialog
+        open
+        title="Can’t import this file"
+        onCancel={() => setSummary(null)}
+        cancelLabel="Close"
+        confirm={{
+          label: 'Choose another file',
+          onClick: () => {
+            setSummary(null);
+            fileRef.current?.click();
+          }
+        }}
+        body={
+        <>
+              <span className="font-mono text-[12px] text-ink-3">{summary.fileName}</span>
+              <span className="mt-3 block">This isn’t a backup from this app.</span>
+              <span className="mt-2 block text-[12.5px] text-ink-3">{summary.problems.join(' · ')}</span>
+            </>
+        } />
+
+      }
+    </div>);
+
 }

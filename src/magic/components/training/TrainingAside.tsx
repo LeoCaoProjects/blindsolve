@@ -4,7 +4,6 @@ import { CheckIcon, XIcon } from 'lucide-react';
 import { clamp, useElementSize } from '../../hooks/useElementSize';
 import { TrainingSession } from '../../hooks/useTrainingSession';
 import { SOLVED_STATE } from '../../utils/bld';
-import { stateFromScramble } from '../../utils/cube';
 import { EASE_OUT } from '../../utils/keyboard';
 import { formatTime } from '../../utils/time';
 import { HistoryHeader, RowDelete } from '../common/HistoryHeader';
@@ -15,7 +14,18 @@ import { SessionReadout } from '../practice/SessionReadout';
  * Reference column on wide screens, as on the Timer: a cube where one helps (Memo Recall's
  * challenge, Execution Sprint's scramble to check against), the readout, and attempts.
  */
-export function TrainingAside({ t, onClear, className = '' }: {t: TrainingSession;onClear: () => void;className?: string;}) {
+export function TrainingAside({
+  t,
+  onClear,
+  recede = '',
+  className = ''
+
+
+
+
+
+
+}: {t: TrainingSession;onClear: () => void; /** Fades the readout and attempts while an attempt runs. The cube has its own state-driven look. */recede?: string;className?: string;}) {
   const [boxRef, box] = useElementSize<HTMLDivElement>({ width: 340, height: 300 });
   const cubeSize = clamp(Math.min(box.width - 64, box.height - 40), 140, 260);
   const h = t.history;
@@ -37,12 +47,18 @@ export function TrainingAside({ t, onClear, className = '' }: {t: TrainingSessio
   [t.mode === 'recall' ? 'mean memo' : t.mode === 'trace' ? 'mean trace' : 'mean exec', n ? formatTime(mean) : '—']];
 
 
-  const live = t.phase !== 'idle';
+  // The cube's look is derived from the phase every render, so no dim can outlive its state.
+  //   idle   → a normal solved cube (the challenge stays hidden until you start)
+  //   study  → the challenge cube, full strength
+  //   recall → dimmed, so it can't help you remember
+  //   review → the challenge cube, full strength again
   const cube =
   t.mode === 'recall' ?
-  { state: live ? t.challenge.state : SOLVED_STATE, dim: !live ? 'opacity-25' : t.phase === 'recall' ? 'opacity-[0.08]' : '', label: live ? 'The cube this memo was traced from' : 'No challenge yet' } :
+  t.phase === 'idle' ?
+  { state: SOLVED_STATE, dim: '', label: 'Solved cube. The challenge appears when you start' } :
+  { state: t.challenge.state, dim: t.phase === 'recall' ? 'opacity-[0.08]' : '', label: 'The cube this memo was traced from' } :
   t.mode === 'exec' && t.phase === 'idle' ?
-  { state: stateFromScramble(t.scramble), dim: '', label: 'Your cube after this scramble' } :
+  { state: t.challenge.state, dim: t.scrambleReady ? '' : 'opacity-25', label: 'Your cube after this scramble' } :
   null;
 
   return (
@@ -55,26 +71,27 @@ export function TrainingAside({ t, onClear, className = '' }: {t: TrainingSessio
           <Cube3D state={cube.state} size={cubeSize} label={cube.label} />
         </div>
       }
+      <div className={`flex min-h-0 flex-1 flex-col transition-opacity duration-300 ease-out ${recede}`}>
       <SessionReadout cells={cells} />
       <HistoryHeader label="Attempts" count={n} onClear={onClear} />
       <ol aria-label="Attempts" className="scroll-quiet min-h-0 flex-1 overflow-y-auto py-2">
         <AnimatePresence initial={false}>
           {h.map((a, i) =>
-          <motion.li
-            key={a.id}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: EASE_OUT }}
-            className="group relative">
-            
+            <motion.li
+              key={a.id}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: EASE_OUT }}
+              className="group relative">
+              
               <div className="grid grid-cols-[30px_20px_1fr_auto] items-center py-[7px] pl-5 pr-10">
                 <span className={`font-mono text-[10.5px] tnum ${i === 0 ? 'text-accent' : 'text-ink-3'}`}>{n - i}</span>
                 {a.correct ?
-              <CheckIcon size={13} className="text-ink-3" aria-label={t.mode === 'exec' ? 'solved' : 'correct'} /> :
+                <CheckIcon size={13} className="text-ink-3" aria-label={t.mode === 'exec' ? 'solved' : 'correct'} /> :
 
-              <XIcon size={13} className="text-accent" aria-label={t.mode === 'exec' ? 'DNF' : 'incorrect'} />
-              }
+                <XIcon size={13} className="text-accent" aria-label={t.mode === 'exec' ? 'DNF' : 'incorrect'} />
+                }
                 <span className={`font-mono text-[14.5px] tnum ${i === 0 ? 'text-ink' : 'text-ink-2'}`}>
                   {t.mode === 'exec' && !a.correct ? 'DNF' : formatTime(a.ms)}
                 </span>
@@ -82,10 +99,11 @@ export function TrainingAside({ t, onClear, className = '' }: {t: TrainingSessio
               </div>
               <RowDelete label={`Delete attempt ${n - i}`} onClick={() => t.removeAttempt(a.id)} />
             </motion.li>
-          )}
+            )}
         </AnimatePresence>
         {n === 0 && <li className="px-5 py-3 text-[12.5px] text-ink-3">No attempts yet</li>}
       </ol>
+      </div>
     </aside>);
 
 }

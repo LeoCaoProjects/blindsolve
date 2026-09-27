@@ -24,6 +24,18 @@ export const trainingModes: TrainingModeInfo[] = [
 
 },
 {
+  id: 'exec',
+  label: 'Execution Sprint',
+  line: 'Scramble your cube, then solve it blind while reading the memo on screen.',
+  tests: 'Practises execution only. The memo is given to you.',
+  steps: [
+  'Apply the scramble to your cube. Take your time',
+  'Hold Space and release. The memo appears and the clock starts',
+  'Solve without looking at the cube',
+  'Press Space to stop, then mark it Solved or DNF']
+
+},
+{
   id: 'trace',
   label: 'Trace Sprint',
   line: 'Trace the cube and type the targets as fast as you can.',
@@ -45,18 +57,6 @@ export const trainingModes: TrainingModeInfo[] = [
   'Type the word for each pair and press Enter after each one',
   'Press Enter on an empty field to submit',
   'Words that don’t match your list are marked wrong']
-
-},
-{
-  id: 'exec',
-  label: 'Execution Sprint',
-  line: 'Scramble your cube, then solve it blind while reading the memo on screen.',
-  tests: 'Practises execution only. The memo is given to you.',
-  steps: [
-  'Apply the scramble to your cube. Take your time',
-  'Hold Space and release. The memo appears and the clock starts',
-  'Solve without looking at the cube',
-  'Press Space to stop, then mark it Solved or DNF']
 
 }];
 

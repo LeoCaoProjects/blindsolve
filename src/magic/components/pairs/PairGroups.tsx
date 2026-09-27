@@ -37,6 +37,7 @@ export function PairGroups({ first, rows, focus, onFocus, onOpen, onKeyDown, ref
     const active = document.activeElement;
     if (active instanceof HTMLElement && active.closest('[role="dialog"]')) return;
     if (refocus > 0 || active && active.closest('[data-pair-grid]')) refs.current[focus]?.focus({ preventScroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, first, refocus]);
 
   return (

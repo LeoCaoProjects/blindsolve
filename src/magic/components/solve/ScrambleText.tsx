@@ -14,6 +14,7 @@ export function ScrambleText({ scramble, className = '', align = 'start', animat
     <AnimatePresence mode="wait" initial={false}>
       <motion.p
         key={scramble}
+        aria-label={`Scramble ${scramble}`}
         initial={animate ? { opacity: 0 } : false}
         animate={{ opacity: 1 }}
         exit={animate ? { opacity: 0 } : undefined}

@@ -17,6 +17,8 @@ export const shortcuts: ShortcutItem[] = [
 { keys: ['A–X'], label: 'Pick cycle-break sticker' },
 { keys: ['↵'], label: 'Continue / save' },
 { keys: ['Esc'], label: 'Close · save without questions' },
+{ keys: ['⌫'], label: 'Delete latest solve' },
+{ keys: ['⇧', '⌫'], label: 'Clear this session' },
 { keys: ['?'], label: 'This sheet' }];
 
 
@@ -42,7 +44,9 @@ export const shortcutSections: ShortcutSection[] = [
   { keys: ['↵'], label: 'Remembered' },
   { keys: ['F'], label: 'Forgot' },
   { keys: ['E'], label: 'Edit mnemonic' },
-  { keys: ['A'], label: 'Add alternate' }]
+  { keys: ['A'], label: 'Add alternate' },
+  { keys: ['⌫'], label: 'Remove latest card from history' },
+  { keys: ['⇧', '⌫'], label: 'Clear history' }]
 
 },
 {
@@ -51,8 +55,13 @@ export const shortcutSections: ShortcutSection[] = [
   items: [
   { keys: ['Space'], label: 'Hold, release to start' },
   { keys: ['Space'], label: 'Memo Recall: done studying' },
-  { keys: ['↵'], label: 'Next group · submit · next' },
+  { keys: ['Space'], label: 'Execution Sprint: stop' },
+  { keys: ['S', 'D'], label: 'Execution Sprint: Solved · DNF' },
+  { keys: ['↵'], label: 'Next field · submit · next' },
   { keys: ['⌫'], label: 'Full Memo: edit previous word' },
-  { keys: ['Esc'], label: 'Show the answer' }]
+  { keys: ['Esc'], label: 'Show the answer · cancel edits' },
+  { keys: ['N'], label: 'Execution Sprint: new scramble' },
+  { keys: ['⌫'], label: 'Delete latest attempt' },
+  { keys: ['⇧', '⌫'], label: 'Clear this drill’s attempts' }]
 
 }];

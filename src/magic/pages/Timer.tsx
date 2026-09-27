@@ -2,7 +2,7 @@ import React from 'react';
 import { WorkspaceTimer } from '../components/concepts/workspace/WorkspaceTimer';
 import { useAppData } from '../contexts/AppDataContext';
 import { DemoStage } from '../types/solve';
-import { useScreenInit } from '../useScreenInit';
+import { useScreenInit } from '../useScreenInit.js';
 
 export function Timer({ stage: stageProp }: {stage: DemoStage;}) {
   const init = useScreenInit() as {stage?: DemoStage;};

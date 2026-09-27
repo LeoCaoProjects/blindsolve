@@ -59,7 +59,7 @@ export function ChallengeCubes({ state, size, className = '' }: ChallengeCubesPr
 /** Which faces this view shows: centre colour + face letter, e.g. U F R / D B L. */
 function FaceKey({ state, rot }: {state: CubeState;rot: Rot;}) {
   const camera = useDefaultView();
-  const faces = visibleFaces(rot, camera, 0.2).slice(0, 3);
+  const faces = visibleFaces(rot, camera, 0.2, state).slice(0, 3);
   return (
     <figcaption className="mt-1 flex h-5 items-center gap-3 font-mono text-[10.5px] text-ink-3" aria-label={`Showing ${faces.join(', ')}`}>
       {faces.map((f) =>

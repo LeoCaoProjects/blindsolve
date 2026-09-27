@@ -30,11 +30,11 @@ import { useScreenInit } from '../../../useScreenInit.js';
  * Sizes follow the viewport (clamp on vw/vh) so zoom and short windows keep everything reachable.
  */
 export function WorkspaceTimer({ multiphase, stage }: ConceptProps) {
-  const init = useScreenInit() as {sessions?: 'open' | 'confirm';};
+  const init = useScreenInit() as {sessions?: 'open' | 'confirm';letters?: boolean;};
   const s = useTimerSession({ multiphase, stage, initialSessionsOpen: !!init.sessions });
   const { sessions, activeSessionId } = useAppData();
   const sessionName = sessions.find((x) => x.id === activeSessionId)?.name ?? 'Session';
-  const [letters, setLetters] = useState(false);
+  const [letters, setLetters] = useState(!!init.letters);
   const [cubeRef, cubeBox] = useElementSize<HTMLDivElement>({ width: 392, height: 330 });
   const cubeSize = clamp(Math.min(cubeBox.width - 56, cubeBox.height - 36), 120, 272);
   const { phase } = s.timer;

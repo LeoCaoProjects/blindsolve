@@ -5,12 +5,13 @@ import { anyWords, pairKey, resolveWords, splitKey } from '../utils/pairs';
 import { isTypingTarget } from '../utils/keyboard';
 import { useStore } from '../../app/Store';
 
-export type CardScope = 'all' | 'edges' | 'corners';
+export type CardScope = 'both' | 'edges' | 'corners';
 export type CardPhase = 'question' | 'revealed' | 'editing' | 'adding';
 
 export interface CardLog {
   id: number;
   key: string;
+  type: 'edges' | 'corners';
   result: 'remembered' | 'forgot';
 }
 
@@ -24,77 +25,87 @@ interface Options {
 export function useFlashcards(opts: Options) {
   const store = useStore();
   const { pairs, prefs, savePair } = useAppData();
-  const [scope, setScope] = useState<CardScope>(opts.scope ?? 'all');
-  const [log, setLog] = useState<CardLog[]>([]);
+  const [scope, setScope] = useState<CardScope>(opts.scope ?? 'both');
+  const [log, setLog] = useState<CardLog[]>(() => store.data.attempts.filter((attempt) => attempt.kind === 'flashcard' && attempt.pairKey).map((attempt) => ({ id: Date.parse(attempt.createdAt), key: attempt.pairKey!, type: attempt.pairPiece ?? 'edges', result: attempt.correct ? 'remembered' : 'forgot' })));
   const [phase, setPhase] = useState<CardPhase>(opts.phase ?? 'question');
   const idRef = useRef(1);
 
   const wordsFor = useCallback(
-    (key: string) => {
+    (key: string, type?: 'edges' | 'corners') => {
       const entry = pairs[key];
-      if (scope === 'all') return anyWords(entry);
-      return resolveWords(entry, scope, prefs.sharing).words;
+      const resolvedType = type ?? (scope === 'both' ? undefined : scope);
+      return resolvedType ? resolveWords(entry, resolvedType, prefs.sharing).words : anyWords(entry);
     },
     [pairs, scope, prefs.sharing]
   );
 
   const eligible = useMemo(
-    () =>
-    Object.keys(pairs).filter((key) => {
+    () => Object.keys(pairs).flatMap((key) => {
       const [a, b] = splitKey(key);
-      return a !== b && wordsFor(key).length > 0;
+      if (a === b) return [];
+      const types: ('edges' | 'corners')[] = scope === 'both' ? ['edges', 'corners'] : [scope];
+      return types.filter((type) => wordsFor(key, type).length > 0).map((type) => ({ key, type }));
     }),
     [pairs, wordsFor]
   );
 
   const pick = useCallback(
-    (exclude?: string | null) => {
-      const pool = eligible.length > 1 ? eligible.filter((k) => k !== exclude) : eligible;
+    (exclude?: {key: string;type: 'edges' | 'corners'} | null) => {
+      const pool = eligible.length > 1 ? eligible.filter((candidate) => !exclude || candidate.key !== exclude.key || candidate.type !== exclude.type) : eligible;
       return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
     },
     [eligible]
   );
 
-  const [card, setCard] = useState<string | null>(() => opts.card && pairs[opts.card] ? opts.card : null);
+  const initialCandidate = opts.card ? eligible.find((candidate) => candidate.key === opts.card) ?? null : null;
+  const [card, setCard] = useState<string | null>(initialCandidate?.key ?? null);
+  const [cardType, setCardType] = useState<'edges' | 'corners'>(initialCandidate?.type ?? 'edges');
 
   useEffect(() => {
-    if (!card || !eligible.includes(card)) {
+    if (!card || !eligible.some((candidate) => candidate.key === card && candidate.type === cardType)) {
       if (phase === 'editing' || phase === 'adding') return;
-      setCard(pick(null));
+      const candidate = pick(null);
+      setCard(candidate?.key ?? null);
+      if (candidate) setCardType(candidate.type);
       setPhase('question');
     }
   }, [eligible]);
 
-  const words = card ? wordsFor(card) : [];
+  const words = card ? wordsFor(card, cardType) : [];
 
   const next = useCallback(
     (result: 'remembered' | 'forgot') => {
       if (!card) return;
-      setLog((l) => [{ id: idRef.current++, key: card, result }, ...l].slice(0, 200));
+      const createdAt = new Date().toISOString();
+      const id = Date.parse(createdAt);
+      idRef.current++;
+      setLog((l) => [{ id, key: card, type: cardType, result }, ...l].slice(0, 200));
       const [first, second] = splitKey(card);
       store.update((data) => ({ ...data,
         pairs: Object.fromEntries(Object.entries(data.pairs).map(([key, pair]) => {
           const type = data.scheme.stickers[pair.firstStickerId]?.pieceType;
-          const inScope = scope === 'all' || scope === 'edges' && type === 'edge' || scope === 'corners' && type === 'corner';
+          const inScope = scope === 'both' || scope === 'edges' && type === 'edge' || scope === 'corners' && type === 'corner';
           return [key, inScope && pair.firstToken === first && pair.secondToken === second ? { ...pair, encounters: pair.encounters + 1, forgotten: pair.forgotten + (result === 'forgot' ? 1 : 0), updatedAt: new Date().toISOString() } : pair];
         })),
-        attempts: [{ id: crypto.randomUUID(), kind: 'flashcard', correct: result === 'remembered', accuracy: result === 'remembered' ? 1 : 0, createdAt: new Date().toISOString() }, ...data.attempts]
+        attempts: [{ id: crypto.randomUUID(), kind: 'flashcard', correct: result === 'remembered', accuracy: result === 'remembered' ? 1 : 0, pairKey: card, pairPiece: cardType, createdAt }, ...data.attempts]
       }));
-      setCard(pick(card));
+      const candidate = pick({ key: card, type: cardType });
+      setCard(candidate?.key ?? null);
+      if (candidate) setCardType(candidate.type);
       setPhase('question');
     },
-    [card, pick, scope, store]
+    [card, cardType, pick, scope, store]
   );
 
   /** Which stored list the visible word came from, so edits land in the right place. */
   const targetScope = useCallback(
     (key: string): PairScope => {
       const entry = pairs[key];
-      if (scope === 'all') return entry?.shared.length ? 'shared' : entry?.edges?.length ? 'edges' : 'corners';
+      if (scope === 'both') return entry?.shared.length ? 'shared' : cardType;
       const r = resolveWords(entry, scope, prefs.sharing);
       return r.source === 'override' || prefs.sharing === 'separate' ? scope : 'shared';
     },
-    [pairs, scope, prefs.sharing]
+    [pairs, scope, prefs.sharing, cardType]
   );
 
   const updateWords = useCallback(
@@ -118,8 +129,9 @@ export function useFlashcards(opts: Options) {
     setPhase('revealed');
   };
 
-  const review = (key: string) => {
+  const review = (key: string, type?: 'edges' | 'corners') => {
     setCard(key);
+    if (type) setCardType(type);
     setPhase('revealed');
   };
 
@@ -127,6 +139,10 @@ export function useFlashcards(opts: Options) {
     const onKey = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
       if (document.querySelector('[role="dialog"]')) return;
+      if (e.repeat) {
+        if (e.code === 'Space' || e.key === 'Enter') e.preventDefault();
+        return;
+      }
       const key = e.key.toLowerCase();
       if (phase === 'question' && (e.code === 'Space' || e.key === 'Enter')) {
         if (e.target instanceof HTMLButtonElement && e.key === 'Enter') return;
@@ -160,6 +176,7 @@ export function useFlashcards(opts: Options) {
       setPhase('question');
     },
     card,
+    cardType,
     cardTokens: card ? splitKey(card) : null,
     words,
     phase,
@@ -171,8 +188,21 @@ export function useFlashcards(opts: Options) {
     review,
     eligibleCount: eligible.length,
     log,
+    removeLog: (id: number) => {
+      setLog((entries) => entries.filter((entry) => entry.id !== id));
+      store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => Date.parse(attempt.createdAt) !== id) }));
+    },
+    removeLatestLog: () => {
+      const latest = log[0]; if (!latest) return;
+      setLog((entries) => entries.slice(1));
+      store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => Date.parse(attempt.createdAt) !== latest.id) }));
+    },
+    clearLog: () => {
+      setLog([]);
+      store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => attempt.kind !== 'flashcard') }));
+    },
     stats: { seen: log.length, remembered, forgot: log.length - remembered },
-    wordsForKey: (key: string) => anyWords(pairs[key]),
+    wordsForKey: (key: string, type?: 'edges' | 'corners') => type ? resolveWords(pairs[key], type, prefs.sharing).words : anyWords(pairs[key]),
     keyOf: pairKey
   };
 }

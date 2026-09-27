@@ -45,13 +45,8 @@ export function CubeConfigurator({
   const colors = REFERENCE_COLORS;
   const [live, setLive] = useState<CubeView>({ up: 'U', front: 'F' });
   const [resetSignal, setResetSignal] = useState(0);
-  // Start conservatively before ResizeObserver reports the stage width. This
-  // avoids a one-frame desktop-sized cube that can be clipped on mobile.
-  const [stageRef, stageWidth] = useElementWidth<HTMLDivElement>(320);
-  // Perspective makes the rendered cube wider than its square stage. Leave a
-  // generous gutter so the outer stickers remain visible on narrow screens and
-  // at browser zoom, rather than enforcing a desktop-sized minimum.
-  const cubeSize = Math.max(160, Math.min(380, stageWidth - 132));
+  const [stageRef, stageWidth] = useElementWidth<HTMLDivElement>(560);
+  const cubeSize = Math.max(240, Math.min(380, stageWidth - 48));
   const speffz = isSpeffz(setup.scheme);
 
   const pick = (id: string) => {
@@ -66,8 +61,7 @@ export function CubeConfigurator({
         <div className="scroll-none overflow-x-auto border-b border-line px-4 py-3">
           <Segmented label="Cube mode" options={MODES} value={mode} onChange={onModeChange} />
         </div>
-        <div ref={stageRef} className="relative flex h-[300px] items-center justify-center md:h-[440px]">
-          <div className="origin-center max-[500px]:-translate-x-8 max-[500px]:scale-[.72]">
+        <div ref={stageRef} className="relative flex h-[340px] items-center justify-center md:h-[440px]">
           <SchemeCube
             scheme={setup.scheme}
             colors={colors}
@@ -82,7 +76,6 @@ export function CubeConfigurator({
             onViewChange={setLive}
             resetSignal={resetSignal}
             label="Your cube" />
-          </div>
           
           <p className="absolute bottom-3 left-4 flex gap-4 font-mono text-[11px] text-ink-3">
             <span>
@@ -103,7 +96,7 @@ export function CubeConfigurator({
             transition={{ duration: 0.14, ease: EASE_OUT }}>
             
             {mode === 'view' &&
-            <div className="grid gap-0">
+            <dl className="grid gap-0">
                 <SummaryRow label="Lettering" onChange={() => onModeChange('lettering')}>
                   <span className="text-ink">{speffz ? 'Speffz' : setup.schemeName || 'Custom'}</span>
                 </SummaryRow>
@@ -118,7 +111,7 @@ export function CubeConfigurator({
                     {COLOR_NAMES[view.top]} top · {COLOR_NAMES[view.front]} front
                   </span>
                 </SummaryRow>
-              </div>
+              </dl>
             }
 
             {mode === 'lettering' &&
@@ -187,8 +180,8 @@ function SummaryRow({ label, children, onChange }: {label: string;children: Reac
   return (
     <div className="flex items-center justify-between gap-4 border-b border-line py-3.5 first:pt-0 last:border-b-0">
       <div>
-        <p className="text-[12px] text-ink-3">{label}</p>
-        <p className="mt-1 text-[13.5px]">{children}</p>
+        <dt className="text-[12px] text-ink-3">{label}</dt>
+        <dd className="mt-1 text-[13.5px]">{children}</dd>
       </div>
       <button type="button" onClick={onChange} className="text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2">
         Change

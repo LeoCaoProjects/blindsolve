@@ -18,7 +18,7 @@ import { BldSetup, CubeMode, CubeViewPref } from '../types/app';
 import { sameView } from '../utils/view';
 import { EASE_OUT } from '../utils/keyboard';
 import { isSpeffz, speffzScheme } from '../utils/scheme';
-import { useScreenInit } from '../useScreenInit';
+import { useScreenInit } from '../useScreenInit.js';
 
 interface ScreenState {
   section?: string;
@@ -63,10 +63,12 @@ export function Settings() {
   useEffect(() => {
     app.setNavGuard(dirty ? (path: string) => (setPendingNav(path), false) : null);
     return () => app.setNavGuard(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty]);
 
   useEffect(() => {
     if (init.section) document.getElementById(init.section)?.scrollIntoView();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Track the section in view.
@@ -125,7 +127,7 @@ export function Settings() {
   };
 
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-bg font-sans text-ink">
+    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar onShortcuts={sheet.openSheet} />
 
       <div ref={scrollRef} className="scroll-quiet relative min-h-0 flex-1 overflow-y-auto">

@@ -4,7 +4,7 @@ import { MergeDialog } from '../components/auth/MergeDialog';
 import { ProviderButtons } from '../components/auth/ProviderButtons';
 import { SignInStep, useSignInFlow } from '../hooks/useSignInFlow';
 import { AuthProvider } from '../types/app';
-import { useScreenInit } from '../useScreenInit';
+import { useScreenInit } from '../useScreenInit.js';
 
 /** OAuth only: WCA first, Google second. First sign-in creates the account. */
 export function SignIn() {
@@ -13,7 +13,7 @@ export function SignIn() {
   const flow = useSignInFlow({ initial: init.signin, provider: init.provider, onDone: () => navigate('/') });
 
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-bg font-sans text-ink">
+    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <header className="flex h-11 shrink-0 items-center justify-end border-b border-line px-3">
         <Link
           to="/"
@@ -28,7 +28,6 @@ export function SignIn() {
           <div className="mt-7">
             <ProviderButtons pending={flow.step === 'redirecting' ? flow.provider : null} onStart={flow.start} />
           </div>
-          {flow.error && <p className="mt-4 text-[12.5px] leading-relaxed text-accent" role="alert">{flow.error}</p>}
           {flow.step === 'redirecting' &&
           <button type="button" onClick={flow.cancel} className="mt-4 text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2">
               Cancel

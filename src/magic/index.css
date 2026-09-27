@@ -126,6 +126,25 @@ body {
 .scroll-none {
   scrollbar-width: none;
 }
+/* Edge fades for long scroll regions — applied only while more content exists in that direction */
+@layer utilities {
+  .fade-top {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 28px);
+  }
+  .fade-bottom {
+    -webkit-mask-image: linear-gradient(to top, transparent 0, #000 28px);
+    mask-image: linear-gradient(to top, transparent 0, #000 28px);
+  }
+  .fade-both {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  }
+}
+/* Inset from the viewport floor for action regions: never flush with the bottom edge */
+.dock-inset {
+  padding-bottom: max(28px, min(8vh, 64px), env(safe-area-inset-bottom));
+}
 .scroll-none::-webkit-scrollbar {
   display: none;
 }

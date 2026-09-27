@@ -3,7 +3,7 @@ import { useDefaultView } from '../../contexts/AppDataContext';
 import { CubeMode, CubeViewPref, FaceColor, LetterScheme } from '../../types/app';
 import { FACES, Face, slotType } from '../../utils/cube';
 import { COLOR_HEX, COLOR_TEXT, REFERENCE_COLORS, siblingsOf } from '../../utils/scheme';
-import { applyView, stickerTextRotation, viewTransform } from '../../utils/view';
+import { applyView, glyphRotation, viewTransform } from '../../utils/view';
 
 export interface CubeView {
   up: Face;
@@ -28,6 +28,8 @@ interface SchemeCubeProps {
   onPick?: (id: string) => void;
   onViewChange?: (view: CubeView) => void;
   resetSignal?: number;
+  /** Camera angle to animate to (e.g. to show the stickers of a flashcard) */
+  rotation?: {x: number;y: number;};
   label?: string;
   className?: string;
 }
@@ -61,6 +63,7 @@ export function SchemeCube({
   onPick,
   onViewChange,
   resetSignal = 0,
+  rotation,
   label = 'Cube',
   className = ''
 }: SchemeCubeProps) {
@@ -76,10 +79,14 @@ export function SchemeCube({
   const gap = Math.max(2, Math.round(S * 0.032));
   const radius = Math.max(1.5, S * 0.022);
 
-  useEffect(() => setRot(DEFAULT_ROT), [resetSignal, camera.top, camera.front]);
+  useEffect(() => setRot(rotation ?? DEFAULT_ROT), [resetSignal, camera.top, camera.front]);
+  useEffect(() => {
+    if (rotation) setRot(rotation);
+  }, [rotation?.x, rotation?.y]);
 
   useEffect(() => {
     onViewChange?.(computeView(rot.x, rot.y, camera));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rot.x, rot.y, camera.top, camera.front]);
 
   useEffect(() => {
@@ -161,7 +168,8 @@ export function SchemeCube({
             width: S,
             height: S,
             transform: faceTransform(face, half),
-            gridTemplateColumns: 'repeat(3, 1fr)',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gridTemplateRows: 'repeat(3, minmax(0, 1fr))',
             gap,
             padding: gap,
             background: 'var(--cube-body)',
@@ -191,11 +199,15 @@ export function SchemeCube({
             const shadows: string[] = [];
             if (isBuffer) shadows.push('inset 0 0 0 2px rgba(0,0,0,0.72)', '0 0 0 1.5px var(--ink)');else
             if (isBufferPiece) shadows.push('inset 0 0 0 2px rgba(0,0,0,0.38)');
-            if (tokenMatch) shadows.push(tokenIndex === 0 ? '0 0 0 2px var(--accent)' : '0 0 0 1.5px var(--ink)');
+            if (tokenMatch)
+            shadows.push(
+              tokenIndex === 0 ?
+              `inset 0 0 0 ${Math.max(2, S * 0.024)}px var(--accent)` :
+              `inset 0 0 0 ${Math.max(1.5, S * 0.014)}px var(--cube-body), inset 0 0 0 ${Math.max(3, S * 0.03)}px var(--ink)`
+            );
             if (isSelected) shadows.push('0 0 0 2px var(--accent)');
 
             const fontSize = Math.max(8, S * (token.length > 2 ? 0.075 : token.length === 2 ? 0.1 : 0.13));
-            const textRotation = stickerTextRotation(face, camera);
             const style: React.CSSProperties = {
               background: bg,
               borderRadius: radius,
@@ -205,9 +217,12 @@ export function SchemeCube({
               fontSize,
               transition: 'opacity 180ms ease-out, box-shadow 150ms ease-out'
             };
+            const turn = glyphRotation(face, camera);
             const content =
             <>
-                  <span style={{ transform: `rotate(${textRotation}deg)` }}>{token}</span>
+                  <span className="inline-block" style={{ transform: turn ? `rotate(${turn}deg)` : undefined }}>
+                    {token}
+                  </span>
                   {isBuffer && <span className="sr-only"> (buffer)</span>}
                 </>;
 
@@ -222,7 +237,7 @@ export function SchemeCube({
                     if (!movedRef.current) onPick(id);
                   }}
                   className="flex items-center justify-center font-mono font-medium leading-none outline-none"
-                  style={style}>
+                  style={{ ...style, boxSizing: 'border-box', width: '100%', height: '100%', minWidth: 0, minHeight: 0, padding: 0, border: 0, appearance: 'none' }}>
                   
                     {content}
                   </button>);

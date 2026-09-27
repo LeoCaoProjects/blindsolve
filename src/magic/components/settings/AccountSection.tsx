@@ -31,7 +31,6 @@ export function AccountSection({ initialStep }: {initialStep?: SignInStep;}) {
           </div>
           <ProviderButtons layout="row" pending={flow.step === 'redirecting' ? flow.provider : null} onStart={flow.start} />
         </div>
-        {flow.error && <p className="mt-3 text-[12.5px] leading-relaxed text-accent" role="alert">{flow.error}</p>}
         <MergeDialog flow={flow} />
       </div>);
 
