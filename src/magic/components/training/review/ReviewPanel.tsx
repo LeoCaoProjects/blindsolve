@@ -7,6 +7,10 @@ export interface PendingEdits {
   count: number;
   onSave: () => void;
   onCancel: () => void;
+  saveLabel?: string;
+  cancelLabel?: string;
+  /** Singular / plural noun for the footer count, e.g. ['change', 'changes'] */
+  noun?: [string, string];
 }
 
 interface ReviewPanelProps {
@@ -74,14 +78,16 @@ export function ReviewPanel({ label, header, children, onNext, footerStart, pend
         <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-5 py-[clamp(16px,3.5vh,28px)] md:px-9">{children}</div>
         <footer className="dock-inset flex shrink-0 items-center justify-between gap-3 border-t border-line px-5 pt-3.5 md:px-6">
           <div className="min-w-0 text-[12.5px] text-ink-3">
-            {hasPending ? `${pending!.count} unsaved ${pending!.count === 1 ? 'word' : 'words'}` : footerStart}
+            {hasPending ?
+            `${pending!.count} unsaved ${pending!.count === 1 ? pending!.noun?.[0] ?? 'word' : pending!.noun?.[1] ?? 'words'}` :
+            footerStart}
           </div>
           {hasPending ?
           <div className="flex items-center gap-1">
               <QuietButton onClick={pending!.onCancel}>
-                Cancel <span className="ml-2 font-mono text-[11px]">esc</span>
+                {pending!.cancelLabel ?? 'Cancel'} <span className="ml-2 font-mono text-[11px]">esc</span>
               </QuietButton>
-              <PrimaryButton onClick={pending!.onSave}>Save</PrimaryButton>
+              <PrimaryButton onClick={pending!.onSave}>{pending!.saveLabel ?? 'Save'}</PrimaryButton>
             </div> :
 
           <PrimaryButton onClick={onNext}>Next</PrimaryButton>

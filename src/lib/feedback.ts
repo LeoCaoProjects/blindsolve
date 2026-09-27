@@ -1,0 +1,132 @@
+import type { User } from '@supabase/supabase-js';
+import type { Feedback, FeedbackStatus, NewFeedback } from '../magic/types/feedback';
+import { supabase } from './supabase';
+
+type FeedbackRow = {
+  id: string;
+  user_id: string | null;
+  contact_email: string | null;
+  category: Feedback['category'];
+  message: string;
+  status: FeedbackStatus;
+  source_page: string;
+  technical_context: Feedback['context'] | null;
+  screenshot_path: string | null;
+  screenshot_name: string | null;
+  admin_note: string | null;
+  submitter_name: string | null;
+  submitter_detail: string | null;
+  submitter_provider: 'wca' | 'google' | null;
+  created_at: string;
+};
+
+const requireClient = () => {
+  if (!supabase) throw new Error('Feedback is unavailable until Supabase is configured');
+  return supabase;
+};
+
+export async function feedbackAdmin(): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('is_feedback_admin');
+  if (error) return false;
+  return data === true;
+}
+
+export async function submitFeedback(input: NewFeedback, user: User | null): Promise<Feedback> {
+  const client = requireClient();
+  const id = crypto.randomUUID();
+  let screenshotPath: string | null = null;
+  if (input.screenshot?.file) {
+    const safe = input.screenshot.name.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(-120) || 'screenshot.png';
+    screenshotPath = `${id}/${crypto.randomUUID()}-${safe}`;
+    const { error } = await client.storage.from('feedback-screenshots').upload(screenshotPath, input.screenshot.file, {
+      contentType: input.screenshot.file.type,
+      upsert: false,
+    });
+    if (error) throw error;
+  }
+  const provider = user?.user_metadata.auth_source === 'wca' ? 'wca' : user ? 'google' : null;
+  const row = {
+    id,
+    user_id: user?.id ?? null,
+    contact_email: user ? null : input.contact || null,
+    category: input.category,
+    message: input.message,
+    source_page: input.source,
+    technical_context: input.context ?? null,
+    screenshot_path: screenshotPath,
+    screenshot_name: input.screenshot?.name ?? null,
+    submitter_name: user ? String(user.user_metadata.full_name ?? user.user_metadata.name ?? user.email ?? 'Signed in') : null,
+    submitter_detail: user ? String(user.user_metadata.wca_id ?? user.email ?? '') : null,
+    submitter_provider: provider,
+  };
+  const { error } = await client.from('feedback').insert(row);
+  if (error) throw error;
+  return {
+    id,
+    category: input.category,
+    message: input.message,
+    status: 'new',
+    createdAt: new Date().toISOString(),
+    contact: user ? undefined : input.contact,
+    source: input.source,
+    context: input.context,
+    screenshot: input.screenshot ? { name: input.screenshot.name, url: input.screenshot.url } : undefined,
+    user: user && provider ? { name: row.submitter_name!, detail: row.submitter_detail!, provider } : undefined,
+  };
+}
+
+export async function listFeedback(): Promise<Feedback[]> {
+  const client = requireClient();
+  const { data, error } = await client.from('feedback').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return Promise.all((data as FeedbackRow[]).map(async (row) => {
+    let url: string | undefined;
+    if (row.screenshot_path) {
+      const signed = await client.storage.from('feedback-screenshots').createSignedUrl(row.screenshot_path, 900);
+      url = signed.data?.signedUrl;
+    }
+    return rowToFeedback(row, url);
+  }));
+}
+
+export async function updateFeedback(id: string, patch: { status?: FeedbackStatus; note?: string }): Promise<void> {
+  const client = requireClient();
+  const values: Record<string, unknown> = {};
+  if (patch.status) values.status = patch.status;
+  if ('note' in patch) values.admin_note = patch.note?.trim() || null;
+  const { error } = await client.from('feedback').update(values).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteFeedback(id: string): Promise<void> {
+  const client = requireClient();
+  const existing = await client.from('feedback').select('screenshot_path').eq('id', id).maybeSingle();
+  if (existing.error) throw existing.error;
+  if (existing.data?.screenshot_path) {
+    const removed = await client.storage.from('feedback-screenshots').remove([existing.data.screenshot_path]);
+    if (removed.error) throw removed.error;
+  }
+  const { error } = await client.from('feedback').delete().eq('id', id);
+  if (error) throw error;
+}
+
+function rowToFeedback(row: FeedbackRow, screenshotUrl?: string): Feedback {
+  return {
+    id: row.id,
+    category: row.category,
+    message: row.message,
+    status: row.status,
+    createdAt: row.created_at,
+    contact: row.contact_email ?? undefined,
+    source: row.source_page,
+    context: row.technical_context ?? undefined,
+    note: row.admin_note ?? undefined,
+    screenshot: row.screenshot_name && screenshotUrl ? { name: row.screenshot_name, url: screenshotUrl } : undefined,
+    user: row.submitter_provider && row.submitter_name ? {
+      name: row.submitter_name,
+      detail: row.submitter_detail ?? '',
+      provider: row.submitter_provider,
+    } : undefined,
+  };
+}

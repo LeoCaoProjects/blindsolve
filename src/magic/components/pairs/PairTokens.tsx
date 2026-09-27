@@ -4,8 +4,7 @@ import React from 'react';
 export function PairTokens({ first, second, className = '' }: {first: string;second: string;className?: string;}) {
   const spaced = first.length > 1 || second.length > 1;
   return (
-    <span className={`font-mono ${className}`}>
-      <span className="sr-only">{first} {second}</span>
+    <span className={`font-mono ${className}`} role="img" aria-label={`${first} ${second}`}>
       <span aria-hidden>{first}</span>
       <span aria-hidden className={spaced ? 'ml-[0.35em]' : ''}>
         {second}

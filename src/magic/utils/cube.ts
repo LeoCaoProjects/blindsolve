@@ -176,6 +176,28 @@ export function piecePartners(state: CubeState, face: Face, index: number): Hidd
   });
 }
 
+/** The rendered reference location named by a standard A-X target token. */
+export function locationOf(letter: string, type: PieceType): {face: Face;index: number;} | null {
+  const offset = letter.charCodeAt(0) - 65;
+  if (letter.length !== 1 || offset < 0 || offset > 23) return null;
+  const order = type === 'corner' ? CORNER_SLOTS : EDGE_SLOTS;
+  return { face: FACES[Math.floor(offset / 4)], index: order[offset % 4] };
+}
+
+/** Locate a reference target after whole-cube/wide centre movement in object space. */
+export function locateTarget(state: CubeState, face: Face, index: number): string {
+  const centreAt = (home: Face): Vec => NORMALS[FACES.find((candidate) => state[candidate][4] === home) ?? home];
+  const right = centreAt('R'), up = centreAt('U'), front = centreAt('F');
+  const map = ([a, b, c]: Vec): Vec => [
+    a * right[0] + b * up[0] + c * front[0],
+    a * right[1] + b * up[1] + c * front[1],
+    a * right[2] + b * up[2] + c * front[2],
+  ];
+  const position = map(slotPosition(face, Math.floor(index / 3), index % 3));
+  const objectFace = faceFromNormal(map(NORMALS[face]));
+  return `${objectFace}${slotIndex(objectFace, position)}`;
+}
+
 function faceFromNormal([x, y, z]: Vec): Face {
   if (y === 1) return 'U';
   if (y === -1) return 'D';

@@ -1,43 +1,49 @@
 import React, { useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAppData, useDefaultView } from '../../contexts/AppDataContext';
+import { LetterScheme } from '../../types/app';
 import { FRONT_ROT, Rot, bestRotation, oppositeRot } from '../../utils/camera';
 import { Face, slotType } from '../../utils/cube';
 import { EASE_OUT } from '../../utils/keyboard';
 import { SchemeCube } from '../cube/SchemeCube';
 
+type Kind = 'edge' | 'corner';
+
 interface PairCubeProps {
   tokens: string[];
-  type: 'edge' | 'corner' | null;
+  /** null = Both: the pair is resolved through the edge lettering AND the corner lettering */
+  type: Kind | null;
   size: number;
 }
 
 /**
- * Turns the lettered cube the short way to a view that shows both stickers of the pair.
- * When they sit on opposite faces, the main view shows the first and a small far-side view
- * appears for the second — only for that card.
+ * Turns the lettered cube the short way to a view that shows the pair's stickers.
+ * Each token is resolved separately per piece type, so an edge "X" and a corner "CH" never mix.
+ * When one view can't show every target, it shows as many as possible and a small far-side
+ * view appears for the rest, only for that card.
  */
 export function PairCube({ tokens, type, size }: PairCubeProps) {
   const { setup } = useAppData();
   const camera = useDefaultView();
   const last = useRef<Rot>(FRONT_ROT);
 
+  const kinds: Kind[] = type ? [type] : ['edge', 'corner'];
+
+  // Exact sticker ids: first token's stickers, then second token's. Same list drives camera and highlight.
+  const { ids, primaryCount } = useMemo(() => {
+    const first = kinds.map((k) => findSticker(setup.scheme, tokens[0], k)).filter((id): id is string => !!id);
+    const second = kinds.map((k) => findSticker(setup.scheme, tokens[1], k)).filter((id): id is string => !!id);
+    return { ids: [...first, ...second], primaryCount: first.length };
+  }, [tokens.join('|'), type, setup.scheme]);
+
   const { rot, hidden } = useMemo(() => {
-    const faceOf = (token: string): Face | null => {
-      const hit = Object.entries(setup.scheme).find(([id, t]) => {
-        if (t !== token) return false;
-        const kind = slotType(Number(id.slice(1)));
-        return type ? kind === type : !!kind;
-      });
-      return hit ? hit[0][0] as Face : null;
-    };
-    const faces = tokens.map(faceOf).filter((f): f is Face => !!f);
+    const faces = ids.map((id) => id[0] as Face);
     if (!faces.length) return { rot: FRONT_ROT, hidden: [] as Face[] };
     return bestRotation(faces, camera, last.current);
-  }, [tokens.join('|'), type, setup.scheme, camera.top, camera.front]);
+  }, [ids.join('|'), camera.top, camera.front]);
   last.current = rot;
 
-  const farToken = hidden.length ? tokens[1] : null;
+  const hiddenIds = ids.filter((id) => hidden.includes(id[0] as Face));
   const inset = Math.round(size * 0.42);
 
   return (
@@ -47,14 +53,14 @@ export function PairCube({ tokens, type, size }: PairCubeProps) {
         size={size}
         mode="static"
         rotation={rot}
-        highlightTokens={tokens}
-        highlightType={type}
-        label={`Where ${tokens.join('')} sits on the cube`} />
+        highlightIds={ids}
+        highlightPrimaryCount={primaryCount}
+        label={`Where ${tokens.join('')} sits on the cube${type ? '' : ', edges and corners'}`} />
       
       <AnimatePresence>
-        {farToken &&
+        {hiddenIds.length > 0 &&
         <motion.figure
-          key={tokens.join('|')}
+          key={`${tokens.join('|')}-${type ?? 'both'}`}
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
@@ -66,13 +72,19 @@ export function PairCube({ tokens, type, size }: PairCubeProps) {
             size={inset}
             mode="static"
             rotation={oppositeRot(rot)}
-            highlightTokens={tokens}
-            highlightType={type}
-            label={`${farToken} on the far side`} />
+            highlightIds={ids}
+            highlightPrimaryCount={primaryCount}
+            label={`${hiddenIds.length} more ${hiddenIds.length === 1 ? 'sticker' : 'stickers'} on the far side`} />
           
           </motion.figure>
         }
       </AnimatePresence>
     </div>);
 
+}
+
+function findSticker(scheme: LetterScheme, token: string | undefined, kind: Kind): string | null {
+  if (!token) return null;
+  const hit = Object.entries(scheme).find(([id, t]) => t === token && slotType(Number(id.slice(1))) === kind);
+  return hit ? hit[0] : null;
 }

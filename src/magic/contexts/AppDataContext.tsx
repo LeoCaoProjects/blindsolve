@@ -2,6 +2,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -23,6 +24,14 @@ import type { LetterPairDb, Solve } from "../types/solve";
 import { pairKey, splitKey, toTimerDb } from "../utils/pairs";
 import { ALL_STICKERS, speffzScheme } from "../utils/scheme";
 import { supabase } from "../../lib/supabase";
+import type { Feedback, NewFeedback } from "../types/feedback";
+import {
+  deleteFeedback as deleteFeedbackRemote,
+  feedbackAdmin,
+  listFeedback,
+  submitFeedback as submitFeedbackRemote,
+  updateFeedback as updateFeedbackRemote,
+} from "../../lib/feedback";
 
 type NavGuard = ((path: string) => boolean) | null;
 interface AppDataValue {
@@ -47,9 +56,13 @@ interface AppDataValue {
   setPrefs: (p: Partial<Prefs>) => void;
   account: Account;
   setAccount: (a: Account) => void;
-  replacePairs: (db: PairDb) => void;
+  replacePairs: React.Dispatch<React.SetStateAction<PairDb>>;
   navGuard: NavGuard;
   setNavGuard: (g: NavGuard) => void;
+  feedback: Feedback[];
+  submitFeedback: (feedback: NewFeedback) => Promise<Feedback>;
+  updateFeedback: (id: string, patch: Partial<Pick<Feedback, 'status' | 'note'>>) => Promise<void>;
+  deleteFeedback: (id: string) => Promise<void>;
 }
 const AppDataContext = createContext<AppDataValue | null>(null);
 const canonical = createSpeffzScheme();
@@ -160,6 +173,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const store = useStore(),
     data = store.data;
   const [navGuard, setNavGuardState] = useState<NavGuard>(null);
+  const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const pairs = useMemo(() => pairsFromStore(data), [data]);
   const setup = useMemo(() => setupFromStore(data), [data]);
   const sessions = useMemo(
@@ -214,6 +229,24 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     multiphase: data.multiphaseTiming,
     defaultView: data.defaultCubeView ?? { top: "white", front: "green" },
   };
+  useEffect(() => {
+    let live = true;
+    void feedbackAdmin().then(async (allowed) => {
+      if (!live) return;
+      setIsAdmin(allowed);
+      if (allowed) {
+        try {
+          const items = await listFeedback();
+          if (live) setFeedback(items);
+        } catch {
+          if (live) setFeedback([]);
+        }
+      } else {
+        setFeedback([]);
+      }
+    });
+    return () => { live = false; };
+  }, [store.user?.id]);
   const writeEntry = useCallback(
     (key: string, entry: PairEntry | null) => {
       const [first, second] = splitKey(key);
@@ -447,6 +480,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             store.user.user_metadata.wca_id ?? store.user.email ?? "",
           ),
           status: accountStatus,
+          role: isAdmin ? "admin" : "user",
         }
       : {
           provider: null,
@@ -459,10 +493,47 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       if (!account.provider) void supabase.auth.signOut();
       else if (account.status === "saving") store.retry();
     },
-    replacePairs: (db) =>
-      Object.entries(db).forEach(([key, entry]) => writeEntry(key, entry)),
+    replacePairs: (action) => {
+      const db = typeof action === 'function' ? action(pairs) : action;
+      store.update((current) => {
+        const next: typeof current.pairs = {};
+        Object.entries(db).forEach(([key, entry]) => {
+          const [first, second] = splitKey(key);
+          (["edge", "corner"] as const).forEach((type) => {
+            const a = Object.values(current.scheme.stickers).find((s) => s.pieceType === type && s.label === first);
+            const b = Object.values(current.scheme.stickers).find((s) => s.pieceType === type && s.label === second);
+            if (!a || !b) return;
+            const id = physicalPairKey(a.id, b.id);
+            const scoped = type === "edge" ? entry.edges : entry.corners;
+            const words = scoped?.length ? scoped : entry.shared;
+            if (!words.length) return;
+            const old = current.pairs[id];
+            next[id] = {
+              id: old?.id ?? crypto.randomUUID(), firstStickerId: a.id, secondStickerId: b.id,
+              firstToken: first, secondToken: second, primaryMnemonic: words[0], alternates: words.slice(1),
+              encounters: old?.encounters ?? 0, forgotten: old?.forgotten ?? 0, updatedAt: new Date().toISOString(),
+            };
+          });
+        });
+        return { ...current, pairs: next };
+      });
+    },
     navGuard,
     setNavGuard: (g) => setNavGuardState(() => g),
+    feedback,
+    submitFeedback: async (input) => {
+      const created = await submitFeedbackRemote(input, store.user);
+      if (isAdmin) setFeedback((items) => [created, ...items]);
+      return created;
+    },
+    updateFeedback: async (id, patch) => {
+      await updateFeedbackRemote(id, patch);
+      setFeedback((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
+    },
+    deleteFeedback: async (id) => {
+      await deleteFeedbackRemote(id);
+      setFeedback((items) => items.filter((item) => item.id !== id));
+    },
   };
   return (
     <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>

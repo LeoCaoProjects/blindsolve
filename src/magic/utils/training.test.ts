@@ -15,4 +15,16 @@ describe('Full Memo validation', () => {
     expect(gradeFullMemo(groups, [['  AdVeRt  ', '']], stored)[0].status).toBe('main');
     expect(gradeFullMemo(groups, [['advertise', '']], stored)[0].status).toBe('wrong');
   });
+
+  it('keeps every extra word and every missing expected position in strict order', () => {
+    const long: TrainGroup[] = [{ piece: 'corners', tokens: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] }];
+    const allStored = (a: string, b: string) => [`${a}${b}`.toLowerCase()];
+    const extra = gradeFullMemo(long, [['ab', 'cd', 'ef', 'gh', 'ij', 'six', 'seven']], allStored);
+    expect(extra.map((row) => row.status)).toEqual(['main', 'main', 'main', 'main', 'main', 'extra', 'extra']);
+    expect(extra.slice(-2).map((row) => row.typed)).toEqual(['six', 'seven']);
+
+    const missing = gradeFullMemo(long, [['ab', 'cd']], allStored);
+    expect(missing.map((row) => row.status)).toEqual(['main', 'main', 'missing', 'missing', 'missing']);
+    expect(missing.map((row) => `${row.a}${row.b}`)).toEqual(['AB', 'CD', 'EF', 'GH', 'IJ']);
+  });
 });

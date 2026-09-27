@@ -8,8 +8,9 @@ import { IconButton } from '../common/IconButton';
 import { Inspector } from '../common/Inspector';
 import { PrimaryButton, QuietButton } from '../common/PrimaryButton';
 import { Segmented } from '../common/Segmented';
+import { ConfirmDialog } from '../common/ConfirmDialog';
+import { SuggestToggle, SuggestionList } from '../common/SuggestWords';
 import { PairTokens } from './PairTokens';
-import { SuggestionPanel } from './SuggestionPanel';
 
 interface PairEditorProps {
   first: string;
@@ -28,7 +29,10 @@ export function PairEditor({ first, second, entry, initialScope, sharing, uses, 
   const [tab, setTab] = useState<PairScope>(sharing === 'separate' && initialScope === 'shared' ? 'edges' : initialScope);
   const [showSuggestions, setShowSuggestions] = useState(suggestionsOpen);
   const [alt, setAlt] = useState('');
+  const [note, setNote] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const primaryRef = useRef<HTMLInputElement>(null);
+  const savedCount = entry ? entry.shared.length + (entry.edges?.length ?? 0) + (entry.corners?.length ?? 0) : 0;
 
   const inheriting = sharing === 'shared' && tab !== 'shared' && draft[tab] === undefined;
   const words = tab === 'shared' ? draft.shared : draft[tab] ?? [];
@@ -37,6 +41,14 @@ export function PairEditor({ first, second, entry, initialScope, sharing, uses, 
 
   const setWords = (next: string[]) =>
   setDraft((d) => tab === 'shared' ? { ...d, shared: next } : { ...d, [tab]: next });
+
+  // Removing the primary promotes the first alternate, and says so. Any alternate can still be
+  // made primary by clicking it. Nothing is written until Save.
+  const removePrimary = () => {
+    setWords(alternates);
+    setNote(alternates[0] ? `${alternates[0]} is now the primary. Click another alternate to swap.` : null);
+    primaryRef.current?.focus();
+  };
 
   const startOverride = () => {
     setDraft((d) => ({ ...d, [tab]: [] }));
@@ -122,7 +134,10 @@ export function PairEditor({ first, second, entry, initialScope, sharing, uses, 
                 aria-label="Mnemonic"
                 value={primary}
                 placeholder="Add mnemonic"
-                onChange={(e) => setWords([e.target.value, ...alternates])}
+                onChange={(e) => {
+                  setNote(null);
+                  setWords([e.target.value, ...alternates]);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -131,45 +146,41 @@ export function PairEditor({ first, second, entry, initialScope, sharing, uses, 
                 }}
                 className="w-full border-b border-line-strong bg-transparent pb-2 text-[26px] text-ink outline-none transition-colors duration-150 ease-out placeholder:text-ink-3 focus:border-accent" />
               
-                <div className="mt-2.5 flex items-center justify-between">
-                  {tab !== 'shared' && sharing === 'shared' ?
-                <button type="button" onClick={removeOverride} className="text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2">
-                      Use shared instead
-                    </button> :
-
-                <span />
-                }
-                  <button
-                  type="button"
-                  aria-expanded={showSuggestions}
-                  onClick={() => setShowSuggestions((v) => !v)}
-                  className="text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2">
-                  
-                    {showSuggestions ? 'Hide suggestions' : "Can't think of one?"}
-                  </button>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-4">
+                    {primary.trim() &&
+                  <button type="button" onClick={removePrimary} className="text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2">
+                        Remove
+                      </button>
+                  }
+                    {tab !== 'shared' && sharing === 'shared' &&
+                  <button type="button" onClick={removeOverride} className="text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2">
+                        Use shared instead
+                      </button>
+                  }
+                  </div>
+                  <SuggestToggle open={showSuggestions} onToggle={() => setShowSuggestions((v) => !v)} className="-mr-1.5" />
                 </div>
+                {note &&
+              <p role="status" className="mt-2 text-[12.5px] text-ink-2">
+                    {note}
+                  </p>
+              }
 
                 <AnimatePresence initial={false}>
                   {showSuggestions &&
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2, ease: EASE_OUT }}
-                  className="overflow-hidden">
-                  
-                      <div className="mt-5 border-t border-line pt-4">
-                        <SuggestionPanel
-                      first={first}
-                      second={second}
-                      current={primary}
-                      onPick={(w) => {
-                        setWords([w, ...alternates]);
-                        primaryRef.current?.focus();
-                      }} />
-                    
-                      </div>
-                    </motion.div>
+                <SuggestionList
+                  className="mt-2"
+                  first={first}
+                  second={second}
+                  exclude={alternates}
+                  current={primary}
+                  onPick={(w) => {
+                    setNote(null);
+                    setWords([w, ...alternates]);
+                    primaryRef.current?.focus();
+                  }} />
+
                 }
                 </AnimatePresence>
 
@@ -189,7 +200,10 @@ export function PairEditor({ first, second, entry, initialScope, sharing, uses, 
                           <button
                         type="button"
                         title="Make primary"
-                        onClick={() => setWords([w, primary, ...alternates.filter((_, j) => j !== i)].filter(Boolean))}
+                        onClick={() => {
+                          setNote(null);
+                          setWords([w, primary, ...alternates.filter((_, j) => j !== i)].filter(Boolean));
+                        }}
                         className="min-w-0 flex-1 truncate py-2.5 text-left text-[14px] text-ink-2 transition-colors duration-150 hover:text-ink">
                         
                             {w}
@@ -223,12 +237,25 @@ export function PairEditor({ first, second, entry, initialScope, sharing, uses, 
       </div>
 
       <footer className="dock-inset flex shrink-0 items-center justify-between border-t border-line px-6 pt-3.5">
-        {!inheriting && words.length > 0 ? <QuietButton onClick={() => setWords([])}>Clear</QuietButton> : <span />}
+        {savedCount > 0 ?
+        <QuietButton onClick={() => setConfirmClear(true)}>Clear pair</QuietButton> :
+        !inheriting && words.length > 0 ?
+        <QuietButton onClick={() => setWords([])}>Clear</QuietButton> :
+
+        <span />
+        }
         <div className="flex items-center gap-2">
           <QuietButton onClick={onClose}>Cancel</QuietButton>
           <PrimaryButton onClick={save}>Save</PrimaryButton>
         </div>
       </footer>
+      <ConfirmDialog
+        open={confirmClear}
+        title={`Clear ${first}${second}?`}
+        body={`This removes ${savedCount === 1 ? 'its saved word' : `all ${savedCount} saved words`}, including alternates and edge or corner overrides.`}
+        onCancel={() => setConfirmClear(false)}
+        confirm={{ label: 'Clear pair', onClick: () => onSave(null), tone: 'danger' }} />
+
     </Inspector>);
 
 }

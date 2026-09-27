@@ -89,6 +89,12 @@
   --font-mono: 'Red Hat Mono', ui-monospace, monospace;
   --font-timer: 'Red Hat Display', system-ui, sans-serif;
 }
+/* Destructive actions only (removing saved data). Kept distinct from the vermilion accent. */
+:root {
+  --danger: #f06462;
+  --danger-soft: rgba(240, 100, 98, 0.1);
+  --danger-strong: #d8423f;
+}
 html,
 body,
 #root {

@@ -44,17 +44,68 @@ export function compareGroups(groups: TrainGroup[], inputs: string[], vocabulary
   });
 }
 
-/** A Full Memo word is only correct when it matches an existing primary/alternate. */
-export type FullStatus = 'main' | 'alternate' | 'wrong' | 'missing' | 'new' | 'blank';
-export interface FullRow { id: string; a: string; b: string; piece: Piece; typed: string; stored: string[]; status: FullStatus; }
-export function gradeFullMemo(groups: TrainGroup[], words: string[][], stored: (a: string, b: string, piece: Piece) => string[]): FullRow[] {
-  return groups.flatMap((g, gi) => fullPairs(g.tokens).map(([a, b], i) => {
-    const saved = stored(a, b, g.piece);
-    const typed = (words[gi]?.[i] ?? '').trim();
-    const hit = saved.findIndex((word) => word.trim().toLocaleLowerCase() === typed.toLocaleLowerCase());
-    const status: FullStatus = !saved.length ? (typed ? 'new' : 'blank') : !typed ? 'missing' : hit === 0 ? 'main' : hit > 0 ? 'alternate' : 'wrong';
-    return { id: `${g.piece}-${i}`, a, b, piece: g.piece, typed, stored: saved, status };
-  }));
+/**
+ * main / alternate: matches a saved word (correct)
+ * wrong: the pair has saved words and the answer matches none of them
+ * missing: the pair has saved words and nothing was entered
+ * new: no saved word yet, something was entered
+ * blank: no saved word and nothing entered
+ * extra: a word typed after the memo ended; there is no pair at this position
+ */
+export type FullStatus = 'main' | 'alternate' | 'wrong' | 'missing' | 'new' | 'blank' | 'extra';
+
+export interface FullRow {
+  id: string;
+  a: string;
+  b: string;
+  piece: Piece;
+  /** Position within its piece group (0-based), matching the typed word's position */
+  index: number;
+  typed: string;
+  stored: string[];
+  status: FullStatus;
+}
+
+/**
+ * Strictly positional: expected pair n ↔ typed word n. Leftover expected pairs are missing,
+ * leftover typed words are extra. Nothing typed is ever dropped.
+ */
+export function gradeFullMemo(
+groups: TrainGroup[],
+words: string[][],
+stored: (a: string, b: string, piece: Piece) => string[])
+: FullRow[] {
+  return groups.flatMap((g, gi) => {
+    const pairs = fullPairs(g.tokens);
+    const typedAll = (words[gi] ?? []).map((w) => w.trim());
+    const rows: FullRow[] = pairs.map(([a, b], i) => {
+      const saved = stored(a, b, g.piece);
+      const typed = typedAll[i] ?? '';
+      const hit = saved.findIndex((w) => w.toLowerCase() === typed.toLowerCase());
+      const status: FullStatus = !saved.length ?
+      typed ?
+      'new' :
+      'blank' :
+      !typed ?
+      'missing' :
+      hit === 0 ?
+      'main' :
+      hit > 0 ?
+      'alternate' :
+      'wrong';
+      return { id: `${g.piece}-${i}`, a, b, piece: g.piece, index: i, typed, stored: saved, status };
+    });
+    typedAll.slice(pairs.length).forEach((typed, k) => {
+      if (!typed) return;
+      const i = pairs.length + k;
+      rows.push({ id: `${g.piece}-x${i}`, a: '', b: '', piece: g.piece, index: i, typed, stored: [], status: 'extra' });
+    });
+    return rows;
+  });
+}
+
+export function isFullCorrect(status: FullStatus): boolean {
+  return status === 'main' || status === 'alternate';
 }
 
 /** Full letter pairs only — a trailing single target has no word slot. */

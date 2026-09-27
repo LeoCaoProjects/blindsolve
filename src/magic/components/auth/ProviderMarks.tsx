@@ -1,30 +1,22 @@
-import React, { useState } from 'react';
-
-/** Official WCA logo (no text), served by the WCA. */
-const WCA_LOGO = 'https://www.worldcubeassociation.org/files/WCAlogo_notext.svg';
+import React from 'react';
 
 /**
- * WCA identity mark. Uses the WCA's own logo file; if it can't load, a close drawing of the
- * same mark (coloured cube-face globe) stands in so the button never shows a broken image.
+ * The supplied WCA logo, used as-is. The file carries a small ® at its lower right, outside the
+ * circular mark; a circular crop shows only the mark itself. Nothing is redrawn or stretched.
  */
+const WCA_LOGO = "/image.png";
+
 export function WcaMark({ size = 16 }: {size?: number;}) {
-  const [failed, setFailed] = useState(false);
-  if (!failed) {
-    return <img src={WCA_LOGO} width={size} height={size} alt="" aria-hidden className="shrink-0" onError={() => setFailed(true)} />;
-  }
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden className="shrink-0">
-      <circle cx="16" cy="16" r="15" fill="#fff" />
-      <path d="M16 1a15 15 0 0 0-13 7.5L16 16z" fill="#029347" />
-      <path d="M29 8.5A15 15 0 0 0 16 1v15z" fill="#fc0" />
-      <path d="M31 16a15 15 0 0 0-2-7.5L16 16z" fill="#e90d0d" />
-      <path d="M29 23.5A15 15 0 0 0 31 16H16z" fill="#304a96" />
-      <path d="M16 31a15 15 0 0 0 13-7.5L16 16z" fill="#f60" />
-      <path d="M3 23.5A15 15 0 0 0 16 31V16z" fill="#029347" />
-      <path d="M1 16a15 15 0 0 0 2 7.5L16 16z" fill="#304a96" />
-      <path d="M3 8.5A15 15 0 0 0 1 16h15z" fill="#e90d0d" />
-      <circle cx="16" cy="16" r="15" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="1" />
-    </svg>);
+    <img
+      src={WCA_LOGO}
+      width={size}
+      height={size}
+      alt=""
+      aria-hidden
+      className="shrink-0 object-contain"
+      style={{ clipPath: 'circle(48.6% at 49.2% 49.6%)' }} />);
+
 
 }
 

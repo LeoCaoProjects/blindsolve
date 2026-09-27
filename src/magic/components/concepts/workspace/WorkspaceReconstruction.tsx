@@ -59,7 +59,7 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
             <ResultControl className="mt-auto self-start" value={r.penalty} onChange={r.setPenalty} />
           </div>
           <div ref={cubeRef} className="flex min-h-0 items-center justify-center overflow-hidden border-l border-line">
-            <Cube3D state={cube} size={cubeSize} highlight={cubeHighlightFor(r)} label="Cube at the start of memo" />
+            <Cube3D state={cube} size={cubeSize} highlight={cubeHighlightFor(r, cube)} label="Cube at the start of memo" />
           </div>
         </div>
 

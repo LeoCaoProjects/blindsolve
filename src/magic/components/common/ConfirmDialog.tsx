@@ -5,6 +5,8 @@ import { EASE_OUT } from '../../utils/keyboard';
 interface Action {
   label: string;
   onClick: () => void;
+  /** 'danger' for actions that remove saved data */
+  tone?: 'default' | 'danger';
 }
 
 interface ConfirmDialogProps {
@@ -80,7 +82,9 @@ export function ConfirmDialog({ open, title, body, confirm, secondary, onCancel,
               type="button"
               autoFocus
               onClick={confirm.onClick}
-              className="inline-flex h-9 items-center rounded-[4px] bg-ink px-4 text-[13px] font-medium text-bg transition-opacity duration-150 ease-out hover:opacity-90">
+              className={`inline-flex h-9 items-center rounded-[4px] px-4 text-[13px] font-medium transition-opacity duration-150 ease-out hover:opacity-90 ${
+              confirm.tone === 'danger' ? 'bg-[var(--danger-strong)] text-white' : 'bg-ink text-bg'}`
+              }>
               
                 {confirm.label}
               </button>

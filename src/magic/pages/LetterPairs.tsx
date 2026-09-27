@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Trash2Icon } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Segmented } from '../components/common/Segmented';
 import { ShortcutSheet } from '../components/common/ShortcutSheet';
@@ -10,7 +11,8 @@ import { useAppData } from '../contexts/AppDataContext';
 import { useShortcutSheet } from '../hooks/useShortcutSheet';
 import { PairScope } from '../types/app';
 import { EASE_OUT } from '../utils/keyboard';
-import { pairKey, resolveWords, tokenize } from '../utils/pairs';
+import { pairKey, resolveWords, splitKey, tokenize } from '../utils/pairs';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { tokensOf } from '../utils/scheme';
 import { useScreenInit } from '../useScreenInit.js';
 
@@ -27,7 +29,8 @@ interface ScreenState {
  */
 export function LetterPairs() {
   const init = useScreenInit() as ScreenState;
-  const { pairs, savePair, usage, prefs, setup } = useAppData();
+  const { pairs, savePair, replacePairs, usage, prefs, setup } = useAppData();
+  const [confirmSection, setConfirmSection] = useState(false);
   const sheet = useShortcutSheet();
   const sharing = prefs.sharing;
   const [scope, setScope] = useState<PairScope>(init.scope ?? (sharing === 'shared' ? 'shared' : 'edges'));
@@ -82,6 +85,15 @@ export function LetterPairs() {
     return out;
   }, [axes, pairs, scope, sharing]);
   const allEmpty = Object.values(filled).every((n) => n === 0);
+
+  // Every saved entry starting with this token, in any scope (shared, edge or corner override).
+  const sectionKeys = useMemo(() => Object.keys(pairs).filter((k) => splitKey(k)[0] === activeFirst), [pairs, activeFirst]);
+  const clearSection = () => {
+    const drop = new Set(sectionKeys);
+    replacePairs((prev) => Object.fromEntries(Object.entries(prev).filter(([k]) => !drop.has(k))));
+    setConfirmSection(false);
+    setRefocus((n) => n + 1);
+  };
 
   const selectFirst = (t: string) => {
     setFirst(t);
@@ -189,7 +201,7 @@ export function LetterPairs() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.12, ease: EASE_OUT }}
                   className="font-timer text-[clamp(36px,6vh,56px)] font-extralight leading-none tracking-[0.02em] text-ink">
-                  
+
                   <span className="sr-only">Pairs starting with </span>
                   {activeFirst}
                 </motion.h1>
@@ -199,7 +211,22 @@ export function LetterPairs() {
               </span>
               {allEmpty && <span className="text-[12.5px] text-ink-3">No mnemonics yet</span>}
             </div>
-            <Segmented label="Vocabulary" size="sm" options={scopeOptions} value={scope} onChange={setScope} />
+            <div className="flex items-center gap-4">
+              <Segmented label="Vocabulary" size="sm" options={scopeOptions} value={scope} onChange={setScope} />
+              {sectionKeys.length > 0 &&
+              <>
+                  <span aria-hidden className="h-5 w-px bg-line-strong" />
+                  <button
+                  type="button"
+                  onClick={() => setConfirmSection(true)}
+                  className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[4px] px-2 text-[12.5px] text-danger transition-colors duration-150 ease-out hover:bg-danger-soft">
+
+                    <Trash2Icon size={13} strokeWidth={1.75} aria-hidden />
+                    Clear {activeFirst} pairs
+                  </button>
+                </>
+              }
+            </div>
           </header>
 
           <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-5 pb-10 md:px-10">
@@ -235,6 +262,13 @@ export function LetterPairs() {
 
         }
       </AnimatePresence>
+      <ConfirmDialog
+        open={confirmSection}
+        title={`Clear ${activeFirst} pairs?`}
+        body={`This will remove saved mnemonics from ${sectionKeys.length} ${sectionKeys.length === 1 ? 'pair' : 'pairs'} starting with ${activeFirst}, including alternates and overrides. This can’t be undone.`}
+        onCancel={() => setConfirmSection(false)}
+        confirm={{ label: 'Clear pairs', onClick: clearSection, tone: 'danger' }} />
+
       <ShortcutSheet open={sheet.open} onClose={sheet.closeSheet} page="pairs" />
     </div>);
 

@@ -18,7 +18,8 @@ interface InspectorProps {
 export function Inspector({ label, onClose, children, width = 480, dismissable = true }: InspectorProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) {
+      // A confirmation open on top handles its own Escape.
+      if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('[role="alertdialog"]')) {
         e.preventDefault();
         onClose();
       }

@@ -10,7 +10,9 @@ import { AppBar } from '../components/layout/AppBar';
 import { AccountSection } from '../components/settings/AccountSection';
 import { BackupSection } from '../components/settings/BackupSection';
 import { CubeConfigurator } from '../components/settings/CubeConfigurator';
-import { SettingsRow, SettingsSection } from '../components/settings/SettingsSection';
+import { SecondaryButton, SettingsRow, SettingsSection } from '../components/settings/SettingsSection';
+import { FeedbackSheet } from '../components/feedback/FeedbackSheet';
+import { FeedbackCategory } from '../types/feedback';
 import { useAppData } from '../contexts/AppDataContext';
 import { settingsSections } from '../data/navigation';
 import { useShortcutSheet } from '../hooks/useShortcutSheet';
@@ -32,6 +34,9 @@ interface ScreenState {
   conventions?: boolean;
   draftView?: 'orange';
   signin?: 'merge';
+  feedback?: FeedbackCategory;
+  feedbackFails?: boolean;
+  clearAll?: boolean;
 }
 
 export function Settings() {
@@ -55,6 +60,7 @@ export function Settings() {
   const [pendingNav, setPendingNav] = useState<string | null>(init.leaveConfirm ? '/flashcards' : null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'failed'>('idle');
   const failNext = useRef(!!init.saveFails);
+  const [feedbackOpen, setFeedbackOpen] = useState(!!init.feedback);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(app.setup) || !sameView(draftView, app.prefs.defaultView);
   const patch = (p: Partial<BldSetup>) => setDraft((d) => ({ ...d, ...p }));
@@ -71,20 +77,58 @@ export function Settings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Track the section in view.
+  // Track the section in view. The last section wins at the bottom of the page, since a short
+  // final section (Support) can never scroll up to the activation line. A nav click holds its
+  // choice until the smooth scroll settles, so it isn't overridden on the way.
+  const clickLock = useRef<string | null>(null);
+  const settleTimer = useRef<number | undefined>(undefined);
   useEffect(() => {
     const root = scrollRef.current;
     if (!root) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (visible) setActive((visible.target as HTMLElement).dataset.section ?? 'cube');
-      },
-      { root, rootMargin: '0px 0px -65% 0px' }
-    );
-    root.querySelectorAll('[data-section]').forEach((el) => io.observe(el));
-    return () => io.disconnect();
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      if (clickLock.current) return;
+      const sections = Array.from(root.querySelectorAll<HTMLElement>('[data-section]'));
+      if (!sections.length) return;
+      if (root.scrollTop + root.clientHeight >= root.scrollHeight - 4) {
+        setActive(sections[sections.length - 1].dataset.section ?? 'cube');
+        return;
+      }
+      const line = root.getBoundingClientRect().top + Math.min(160, root.clientHeight * 0.3);
+      let current = sections[0];
+      sections.forEach((s) => {
+        if (s.getBoundingClientRect().top <= line) current = s;
+      });
+      setActive(current.dataset.section ?? 'cube');
+    };
+    const onScroll = () => {
+      if (clickLock.current) {
+        window.clearTimeout(settleTimer.current);
+        settleTimer.current = window.setTimeout(() => clickLock.current = null, 160);
+        return;
+      }
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    root.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.clearTimeout(settleTimer.current);
+      root.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
   }, []);
+
+  const goToSection = (id: string) => {
+    clickLock.current = id;
+    setActive(id);
+    window.clearTimeout(settleTimer.current);
+    // Released after the scroll settles, or straight away if there was nothing to scroll.
+    settleTimer.current = window.setTimeout(() => clickLock.current = null, 700);
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const save = useCallback(() => {
     setSaveState('saving');
@@ -138,12 +182,12 @@ export function Settings() {
               <li key={s.id}>
                   <button
                   type="button"
-                  onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth' })}
+                  onClick={() => goToSection(s.id)}
                   aria-current={active === s.id ? 'true' : undefined}
                   className={`relative whitespace-nowrap rounded-[4px] px-3 py-2 text-left text-[13px] transition-colors duration-150 ease-out md:w-full md:rounded-none md:py-1.5 md:pl-4 ${
                   active === s.id ? 'text-ink' : 'text-ink-3 hover:text-ink-2'}`
                   }>
-                  
+
                     {active === s.id && <span aria-hidden className="absolute bottom-0 left-3 right-3 h-px bg-ink md:inset-y-1.5 md:left-0 md:right-auto md:h-auto md:w-px" />}
                     {s.label}
                   </button>
@@ -277,8 +321,25 @@ export function Settings() {
               <AccountSection initialStep={init.signin} />
             </SettingsSection>
 
-            <SettingsSection id="backup" title="Backup">
+            <SettingsSection id="backup" title="Data">
               <BackupSection preview={init.import} />
+              <ClearAllPairs openInitially={!!init.clearAll} />
+            </SettingsSection>
+
+            <SettingsSection id="support" title="Support">
+              <SettingsRow label="Give feedback" hint="Report a bug, suggest a feature, or tell us what you think">
+                <SecondaryButton onClick={() => setFeedbackOpen(true)}>Give feedback</SecondaryButton>
+              </SettingsRow>
+              {app.account.role === 'admin' &&
+              <SettingsRow label="Feedback inbox" hint={`${app.feedback.filter((f) => f.status === 'new').length} new · admins only`}>
+                  <Link
+                  to="/admin/feedback"
+                  className="inline-flex h-8 items-center rounded-[4px] border border-line-strong px-3 text-[12.5px] text-ink transition-colors duration-150 ease-out hover:bg-hover">
+
+                    Open inbox
+                  </Link>
+                </SettingsRow>
+              }
             </SettingsSection>
           </div>
         </div>
@@ -317,7 +378,7 @@ export function Settings() {
         body="Your custom tokens will be overwritten. Letter pairs are kept."
         onCancel={() => setSpeffzConfirm(false)}
         confirm={{ label: 'Use Speffz', onClick: applySpeffz }} />
-      
+
       <ConfirmDialog
         open={pendingNav !== null}
         title="Save setup changes?"
@@ -327,7 +388,53 @@ export function Settings() {
         secondary={{ label: 'Discard', onClick: () => leave(false) }}
         confirm={{ label: 'Save and leave', onClick: () => leave(true) }} />
       
+      <FeedbackSheet
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        failFirst={!!init.feedbackFails}
+        initialCategory={init.feedback ?? 'bug'} />
+
       <ShortcutSheet open={sheet.open} onClose={sheet.closeSheet} page="timer" />
+    </div>);
+
+}
+
+/** Deliberately tucked under Data, away from normal editing. */
+function ClearAllPairs({ openInitially }: {openInitially: boolean;}) {
+  const app = useAppData();
+  const [open, setOpen] = useState(openInitially);
+  const [notice, setNotice] = useState<string | null>(null);
+  const count = Object.keys(app.pairs).length;
+  return (
+    <div className="mt-8 border-t border-line pt-5">
+      <SettingsRow label="Clear all letter pairs" hint="Removes every saved mnemonic. Export a backup first if you might want them back.">
+        <button
+          type="button"
+          disabled={count === 0}
+          onClick={() => setOpen(true)}
+          className="inline-flex h-8 items-center rounded-[4px] px-2.5 text-[12.5px] text-ink-3 transition-colors duration-150 ease-out hover:bg-hover hover:text-ink-2 disabled:opacity-40">
+
+          Clear all…
+        </button>
+      </SettingsRow>
+      <p className="h-5 pt-1 text-[12.5px] text-ink-2" role="status">
+        {notice}
+      </p>
+      <ConfirmDialog
+        open={open}
+        title={`Clear all ${count} saved mnemonic ${count === 1 ? 'entry' : 'entries'}?`}
+        body="Every letter pair, alternate and edge or corner override will be removed. This can’t be undone."
+        onCancel={() => setOpen(false)}
+        confirm={{
+          label: 'Clear all',
+          tone: 'danger',
+          onClick: () => {
+            app.replacePairs({});
+            setOpen(false);
+            setNotice('All letter pairs cleared');
+          }
+        }} />
+
     </div>);
 
 }

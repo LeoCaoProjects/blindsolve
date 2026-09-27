@@ -20,6 +20,7 @@ import { TrainingHeader } from '../components/training/TrainingHeader';
 import { TrainingHelp } from '../components/training/TrainingHelp';
 import { TrainingIdle } from '../components/training/TrainingIdle';
 import { modeInfo } from '../data/trainingModes';
+import { recordTraining } from '../utils/feedbackContext';
 import { useElementSize } from '../hooks/useElementSize';
 import { useHistoryCleanup } from '../hooks/useHistoryCleanup';
 import { useShortcutSheet } from '../hooks/useShortcutSheet';
@@ -38,6 +39,10 @@ export function Training() {
   const init = useScreenInit() as TrainInit;
   const sheet = useShortcutSheet();
   const t = useTrainingSession(init);
+  // Drill and pieces only, for bug reports. Never answers or mnemonics.
+  useEffect(() => {
+    recordTraining(modeInfo(t.mode).label, t.filter === 'both' ? 'Both' : t.filter === 'edges' ? 'Edges' : 'Corners');
+  }, [t.mode, t.filter]);
   const [stageRef, stage] = useElementSize<HTMLDivElement>({ width: 900, height: 560 });
   const [helpOpen, setHelpOpen] = useState(!!init.help);
 

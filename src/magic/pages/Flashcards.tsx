@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRightIcon, CheckIcon, XIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { HistoryHeader, RowDelete } from '../components/common/HistoryHeader';
-import { ScopeTabs } from '../components/common/ScopeTabs';
 import { useHistoryCleanup } from '../hooks/useHistoryCleanup';
 import { ShortcutSheet } from '../components/common/ShortcutSheet';
 import { AppBar } from '../components/layout/AppBar';
@@ -11,14 +10,14 @@ import { PairTokens } from '../components/pairs/PairTokens';
 import { PairCube } from '../components/practice/PairCube';
 import { SessionReadout } from '../components/practice/SessionReadout';
 import { clamp, useElementSize } from '../hooks/useElementSize';
-import { CardPhase, CardScope, useFlashcards } from '../hooks/useFlashcards';
+import { CardPhase, CardPiece, useFlashcards } from '../hooks/useFlashcards';
 import { useShortcutSheet } from '../hooks/useShortcutSheet';
 import { EASE_OUT } from '../utils/keyboard';
 import { splitKey } from '../utils/pairs';
 import { useScreenInit } from '../useScreenInit.js';
 
 interface ScreenState {
-  scope?: CardScope;
+  scope?: CardPiece | 'both';
   card?: string;
   phase?: CardPhase;
 }
@@ -29,7 +28,7 @@ export function Flashcards() {
   const f = useFlashcards(init);
   const [cubeRef, cubeBox] = useElementSize<HTMLDivElement>({ width: 392, height: 330 });
   const cubeSize = clamp(Math.min(cubeBox.width - 80, cubeBox.height - 48), 140, 250);
-  const cubeType = f.cardType === 'edges' ? 'edge' : 'corner';
+  const cubeType = f.cardType;
   const latestLog = f.log[0];
   const cleanup = useHistoryCleanup({
     count: f.log.length,
@@ -49,12 +48,11 @@ export function Flashcards() {
         <main className="flex min-h-0 min-w-0 flex-col">
           <section className="flex shrink-0 items-center gap-6 border-b border-line px-5 py-2 md:px-10">
             <span className="hidden w-8 shrink-0 font-mono text-[11px] text-ink-3 tnum md:block">#{f.stats.seen + 1}</span>
-            <ScopeTabs value={f.scope} onChange={f.setScope} />
-            <span className="ml-auto font-mono text-[11.5px] text-ink-3 tnum">{f.eligibleCount} pairs</span>
+            <span className="ml-auto font-mono text-[11.5px] text-ink-3 tnum">{f.eligibleCount} cards</span>
           </section>
 
           {!f.card || !f.cardTokens ?
-          <EmptyState scope={f.scope} /> :
+          <EmptyState /> :
 
           <>
               <div className="scroll-quiet flex min-h-0 flex-1 flex-col overflow-y-auto px-5 md:px-10">
@@ -62,7 +60,7 @@ export function Flashcards() {
                   <div className="min-w-0">
                     <AnimatePresence mode="wait" initial={false}>
                       <motion.div
-                      key={f.card}
+                      key={f.cardId}
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -4 }}
@@ -73,6 +71,7 @@ export function Flashcards() {
                         second={f.cardTokens[1]}
                         className="block font-timer text-[clamp(72px,min(12vw,18vh),176px)] font-extralight leading-[0.9] tracking-[0.02em] text-ink" />
                       
+                        <span className="mt-2 block text-[12.5px] text-ink-3">{f.cardType === 'edge' ? 'Edge' : 'Corner'}</span>
                       </motion.div>
                     </AnimatePresence>
 
@@ -138,11 +137,12 @@ export function Flashcards() {
                     <RowDelete label={`Remove ${a}${b} from history`} onClick={() => f.removeLog(entry.id)} />
                     <button
                       type="button"
-                      onClick={() => f.review(entry.key, entry.type)}
+                      title={entry.piece === 'edges' ? 'Edge' : 'Corner'}
+                      onClick={() => f.review(entry)}
                       className="grid w-full grid-cols-[34px_1fr_auto] items-center gap-2 py-[7px] pl-5 pr-9 text-left transition-colors duration-150 ease-out hover:bg-hover">
                       
                       <PairTokens first={a} second={b} className={`text-[13.5px] tracking-[0.08em] ${forgot ? 'text-ink' : 'text-ink-2'}`} />
-                      <span className="truncate text-[12px] text-ink-3">{f.wordsForKey(entry.key, entry.type)[0]}</span>
+                      <span className="truncate text-[12px] text-ink-3">{f.wordsForLog(entry)[0]}</span>
                       {forgot ?
                       <XIcon size={13} className="text-accent" aria-label="forgot" /> :
 
@@ -292,10 +292,10 @@ function InlineWordInput({
 
 }
 
-function EmptyState({ scope }: {scope: CardScope;}) {
+function EmptyState() {
   return (
     <div className="flex flex-1 flex-col justify-center px-5 md:px-10 md:pl-24">
-      <p className="text-[22px] text-ink">{scope === 'both' ? 'No pairs yet' : `No ${scope === 'edges' ? 'edge' : 'corner'} pairs yet`}</p>
+      <p className="text-[22px] text-ink">No pairs yet</p>
       <Link
         to="/pairs"
         className="mt-3 inline-flex w-fit items-center gap-2 text-[14px] text-ink-2 transition-colors duration-150 ease-out hover:text-ink">

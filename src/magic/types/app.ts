@@ -54,6 +54,8 @@ export interface Account {
   /** WCA ID for WCA accounts, email for Google */
   detail: string;
   status: SyncStatus;
+  /** Granted by the database; never inferred from frontend identity fields. */
+  role?: 'user' | 'admin';
 }
 
 export type CubeMode = 'view' | 'lettering' | 'edge-buffer' | 'corner-buffer' | 'cube-view';

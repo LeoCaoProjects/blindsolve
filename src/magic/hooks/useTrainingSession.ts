@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppData } from "../contexts/AppDataContext";
-import { curatedSuggestions } from "../data/suggestions";
+import { suggestionsFor } from "../utils/suggestions";
 import { TrainMode } from "../data/trainingModes";
 import {
   Challenge,
@@ -186,7 +186,7 @@ export function useTrainingSession(init: TrainInit) {
           ? true
           : mode === "full"
             ? gradeFullMemo(groups, words, storedFor).every(
-                (row) => row.status === "main" || row.status === "alternate",
+                (row) => row.status === "main" || row.status === "alternate" || row.status === "new",
               )
             : r.every((g) => g.correct),
       pairs: mode === "full" || mode === "exec" ? pairCount : undefined,
@@ -203,7 +203,7 @@ export function useTrainingSession(init: TrainInit) {
           accuracy:
             mode === "full"
               ? rows.filter(
-                  (row) => row.status === "main" || row.status === "alternate",
+                  (row) => row.status === "main" || row.status === "alternate" || row.status === "new",
                 ).length / Math.max(1, pairCount)
               : r.reduce(
                   (sum, group) => sum + group.actual.length - group.wrong,
@@ -437,7 +437,7 @@ function seededWords(
     fullPairs(g.tokens).map(([a, b], i) => {
       const word = stored(a, b, g.piece);
       if (!word)
-        return curatedSuggestions[a + b]?.[0]?.word ?? `${a}${b}`.toLowerCase();
+        return suggestionsFor(a, b)[0] ?? `${a}${b}`.toLowerCase();
       if (i === 1 && changed < 2) return CHANGED_WORDS[changed++];
       if (i === 3 && !skipped) {
         skipped = true;

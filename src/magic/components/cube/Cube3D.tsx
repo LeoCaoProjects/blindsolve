@@ -4,10 +4,8 @@ import {
   FACES,
   Face,
   HiddenPartner,
-  PieceType,
   STICKER_COLORS,
   STICKER_TEXT,
-  letterFor,
   piecePartners,
   slotType } from
 '../../utils/cube';
@@ -18,8 +16,8 @@ import { FRONT_ROT, Rot, faceDepth } from '../../utils/camera';
 import { glyphRotation, viewTransform } from '../../utils/view';
 
 export interface CubeHighlight {
-  type: PieceType;
-  letters: string[];
+  /** Resolved sticker targets (see utils/reconstruction breakTargets). Drives BOTH highlight and click. */
+  targets: {id: string;value: string;}[];
   focused?: string | null;
   selected?: string | null;
   onPick?: (letter: string) => void;
@@ -206,12 +204,13 @@ export function Cube3D({
             {state[face].map((color, i) => {
                 const type = slotType(i);
                 const id = `${face}${i}`;
-                // Location letter: what a cycle-break option refers to (a target position).
-                const letter = type ? letterFor(face, i, type) : null;
-                const isOption = !!highlight && !!letter && highlight.type === type && highlight.letters.includes(letter);
+                // Cycle-break option: looked up from the resolved target list, never recomputed here.
+                const target = highlight?.targets.find((t) => t.id === id);
+                const letter = target?.value ?? null;
+                const isOption = !!target;
                 // Sticker token: the user's token for the physical sticker sitting here.
                 const home = type && showLetters && !highlight ? homeSticker(state, id) : null;
-                const token = isOption ? scheme[id] ?? letter : home ? scheme[home] ?? '' : null;
+                const token = isOption ? letter : home ? scheme[home] ?? '' : null;
                 const base: React.CSSProperties = {
                   background: STICKER_COLORS[color],
                   borderRadius: radius,

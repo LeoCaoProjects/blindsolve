@@ -25,6 +25,10 @@ interface SchemeCubeProps {
   /** Emphasise stickers carrying these tokens: [first, second] */
   highlightTokens?: string[];
   highlightType?: 'corner' | 'edge' | null;
+  /** Exact sticker ids to emphasise, in pair order. Takes precedence over highlightTokens. */
+  highlightIds?: string[];
+  /** How many leading highlightIds belong to the pair's first token (accent ring); the rest get the ink ring */
+  highlightPrimaryCount?: number;
   onPick?: (id: string) => void;
   onViewChange?: (view: CubeView) => void;
   resetSignal?: number;
@@ -60,6 +64,8 @@ export function SchemeCube({
   showBuffers = false,
   highlightTokens,
   highlightType = null,
+  highlightIds,
+  highlightPrimaryCount = 1,
   onPick,
   onViewChange,
   resetSignal = 0,
@@ -136,6 +142,7 @@ export function SchemeCube({
     e.preventDefault();
   };
 
+  const hasHighlight = !!(highlightIds?.length || highlightTokens?.length);
   const edgeSiblings = showBuffers && edgeBuffer ? siblingsOf(edgeBuffer) : [];
   const cornerSiblings = showBuffers && cornerBuffer ? siblingsOf(cornerBuffer) : [];
 
@@ -182,16 +189,28 @@ export function SchemeCube({
             const bg = COLOR_HEX[color];
             const type = slotType(i);
             if (!type) {
-              return <div key={i} style={{ background: bg, borderRadius: radius }} />;
+              // Centres are never targets: when a pair is highlighted they dim with everything else.
+              return (
+                <div
+                  key={i}
+                  style={{ background: bg, borderRadius: radius, opacity: hasHighlight ? 0.2 : 1, transition: 'opacity 180ms ease-out' }} />);
+
+
             }
             const id = `${face}${i}`;
             const token = scheme[id] ?? '';
             const pickable =
             mode === 'lettering' || mode === 'edge-buffer' && type === 'edge' || mode === 'corner-buffer' && type === 'corner';
             const typeDim = mode === 'edge-buffer' && type !== 'edge' || mode === 'corner-buffer' && type !== 'corner';
-            const tokenIndex = highlightTokens ? highlightTokens.indexOf(token) : -1;
-            const tokenMatch = tokenIndex !== -1 && (!highlightType || highlightType === type);
-            const dim = typeDim || !!highlightTokens && !tokenMatch;
+            // Targets resolve by exact sticker id when given, so an edge "X" and a corner "CH" never mix.
+            const tokenIndex = highlightIds ?
+            highlightIds.indexOf(id) :
+            highlightTokens ?
+            highlightTokens.indexOf(token) :
+            -1;
+            const tokenMatch = tokenIndex !== -1 && (!!highlightIds || !highlightType || highlightType === type);
+            // With a highlight, everything except the tested stickers is dimmed (centres too, above).
+            const dim = typeDim || hasHighlight && !tokenMatch;
             const isBuffer = showBuffers && (id === edgeBuffer || id === cornerBuffer);
             const isBufferPiece = !isBuffer && (edgeSiblings.includes(id) || cornerSiblings.includes(id));
             const isSelected = selected === id;
@@ -201,7 +220,7 @@ export function SchemeCube({
             if (isBufferPiece) shadows.push('inset 0 0 0 2px rgba(0,0,0,0.38)');
             if (tokenMatch)
             shadows.push(
-              tokenIndex === 0 ?
+              tokenIndex < (highlightIds ? highlightPrimaryCount : 1) ?
               `inset 0 0 0 ${Math.max(2, S * 0.024)}px var(--accent)` :
               `inset 0 0 0 ${Math.max(1.5, S * 0.014)}px var(--cube-body), inset 0 0 0 ${Math.max(3, S * 0.03)}px var(--ink)`
             );
@@ -237,7 +256,7 @@ export function SchemeCube({
                     if (!movedRef.current) onPick(id);
                   }}
                   className="flex items-center justify-center font-mono font-medium leading-none outline-none"
-                  style={{ ...style, boxSizing: 'border-box', width: '100%', height: '100%', minWidth: 0, minHeight: 0, padding: 0, border: 0, appearance: 'none' }}>
+                  style={style}>
                   
                     {content}
                   </button>);

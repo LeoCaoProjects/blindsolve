@@ -6,7 +6,7 @@ import { isTypingTarget } from '../utils/keyboard';
 
 export type ReconStep =
   {kind: 'break';piece: Piece;options: string[];answer: string;} |
-  {kind: 'word';piece: Piece;pair: string;} |
+  {kind: 'word';piece: Piece;pair: string;first: string;second: string;} |
   {kind: 'review';};
 export type Decision = 'keep' | 'replace' | 'alternate';
 export interface ReconResult {
@@ -66,16 +66,17 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     }
     const result: ReconStep[] = [];
     const seen = new Set<string>();
-    ([['corners', completedSample.corners], ['edges', completedSample.edges]] as [Piece, string[]][]).forEach(([piece, pairs]) => {
-      pairs.forEach((pair) => {
-        if (db[pair] || seen.has(pair) || pair.includes('·')) return;
+    ([['corners', traced?.corners.targets.map((target) => target.token) ?? []], ['edges', traced?.edges.targets.map((target) => target.token) ?? []]] as [Piece, string[]][]).forEach(([piece, tokens]) => {
+      for (let index = 0; index + 1 < tokens.length; index += 2) {
+        const first = tokens[index], second = tokens[index + 1], pair = first + second;
+        if (db[pair] || seen.has(pair) || pair.includes('·')) continue;
         seen.add(pair);
-        result.push({ kind: 'word', piece, pair });
-      });
+        result.push({ kind: 'word', piece, pair, first, second });
+      }
     });
     result.push({ kind: 'review' });
     return result;
-  }, [completedSample, db, draft.engine, pending]);
+  }, [db, draft.engine, pending, traced]);
   const step = steps[Math.min(index, steps.length - 1)];
 
   useEffect(() => setOptionFocus(0), [index, pending?.piece, pending?.section.targets.length]);
@@ -147,6 +148,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
   }, [finish, optionFocus, pickBreak, step]);
 
   return { draft, sample: pending ? sample : completedSample, steps, step, index, penalty, setPenalty, breaks,
+    breakTargetIds: pending?.section.validCycleBreaks ?? [],
     optionFocus, pickBreak, words, setWord, wordFor, storedFor, isNew, newPairs, changedPairs, decisions, decide,
     next, back, finish, primary, isResolved: () => !pending, primaryLabel: step.kind === 'review' ? 'Save solve' : 'Continue' };
 }

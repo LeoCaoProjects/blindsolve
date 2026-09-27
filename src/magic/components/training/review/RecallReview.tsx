@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SuggestPopover } from '../../common/SuggestWords';
 import { useAppData } from '../../../contexts/AppDataContext';
 import { TrainingSession } from '../../../hooks/useTrainingSession';
 import { pairKey } from '../../../utils/pairs';
@@ -110,9 +111,9 @@ export function RecallReview({ t }: {t: TrainingSession;}) {
           </button>
         </header>
         {shown.length > 0 &&
-        <ul className="mt-3 grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-3 grid grid-cols-1 items-start gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
             {shown.map((w) =>
-          <li key={w.key} className="grid min-h-[44px] grid-cols-[44px_minmax(0,1fr)] items-center gap-3 border-b border-line py-1.5">
+          <li key={w.key} className="grid min-h-[44px] grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-line py-1.5">
                 <PairTokens first={w.a} second={w.b} className={`font-mono text-[14px] tracking-[0.1em] ${w.missed ? 'text-accent' : 'text-ink'}`} />
                 <span className="flex min-w-0 items-baseline gap-2 text-[13.5px]">
                   {w.word ?
@@ -139,6 +140,19 @@ export function RecallReview({ t }: {t: TrainingSession;}) {
                     </button>
               }
                 </span>
+                {!w.word ?
+            <SuggestPopover
+              first={w.a}
+              second={w.b}
+              current={drafts[w.key]}
+              onPick={(word) => {
+                setDrafts((d) => ({ ...d, [w.key]: word }));
+                setEditing((s) => new Set(s).add(w.key));
+              }} /> :
+
+
+            <span />
+            }
               </li>
           )}
           </ul>

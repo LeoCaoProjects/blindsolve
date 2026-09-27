@@ -23,4 +23,5 @@ export const settingsSections = [
 { id: 'pairs', label: 'Letter pairs' },
 { id: 'timer', label: 'Timer' },
 { id: 'account', label: 'Account & sync' },
-{ id: 'backup', label: 'Backup' }];
+{ id: 'backup', label: 'Data' },
+{ id: 'support', label: 'Support' }];

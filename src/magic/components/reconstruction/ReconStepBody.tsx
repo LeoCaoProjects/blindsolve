@@ -67,6 +67,8 @@ export function ReconStepBody({ r, size = 'md', showOptions = true }: ReconStepB
           className={lg ? 'mt-14' : 'mt-10'}
           size={size}
           pair={step.pair}
+          first={step.first}
+          second={step.second}
           value={r.words[step.pair] ?? ''}
           onChange={(w) => r.setWord(step.pair, w)}
           onSubmit={r.next}
