@@ -1,4 +1,4 @@
--- CubeIQ initial schema. Apply only to a newly created, dedicated CubeIQ project.
+-- BlindSolve initial schema. Apply only to a newly created, dedicated BlindSolve project.
 create extension if not exists pgcrypto;
 
 create type public.solve_status as enum ('recording', 'uploaded', 'processing', 'complete', 'failed');
@@ -158,6 +158,7 @@ on conflict (id) do update set public = false;
 -- Object keys must be: <auth-user-uuid>/<solve-uuid>/<filename>.
 create policy solve_video_owner_select on storage.objects for select to authenticated
 using (bucket_id = 'solve-videos' and (storage.foldername(name))[1] = auth.uid()::text);
+
 create policy solve_video_owner_insert on storage.objects for insert to authenticated
 with check (bucket_id = 'solve-videos' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy solve_video_owner_update on storage.objects for update to authenticated
@@ -165,4 +166,3 @@ using (bucket_id = 'solve-videos' and (storage.foldername(name))[1] = auth.uid()
 with check (bucket_id = 'solve-videos' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy solve_video_owner_delete on storage.objects for delete to authenticated
 using (bucket_id = 'solve-videos' and (storage.foldername(name))[1] = auth.uid()::text);
-

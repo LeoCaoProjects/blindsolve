@@ -1,4 +1,4 @@
--- 3BLD training extension. Designed to coexist with the evidence-aware CubeIQ schema.
+-- BlindSolve 3BLD training extension.
 create type public.bld_solve_result as enum ('success', 'dnf');
 
 create table public.lettering_schemes (

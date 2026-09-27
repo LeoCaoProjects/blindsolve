@@ -73,6 +73,18 @@ test('flashcards use saved pairs, reveal, edit and persist an attempt', async ({
   expect(saved.attempts[0].kind).toBe('flashcard');
 });
 
+test('a held Flashcard shortcut reveals once and never records before release', async ({ page }) => {
+  await load(page, workspace(true));
+  await page.goto('/flashcards');
+  await page.keyboard.down('Space');
+  await page.waitForTimeout(700);
+  await expect(page.getByText('tow', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(0);
+  await page.keyboard.up('Space');
+  await page.getByRole('button', { name: 'Remembered', exact: false }).click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
+});
+
 test('all Training modes remain idle until hold-release and Next returns to idle', async ({ page }) => {
   await load(page);
   await page.goto('/training');
@@ -119,6 +131,25 @@ test('Default Cube View persists independently of the fixed scramble reference',
   await expect(page.getByRole('group', { name: 'Scrambled cube' })).toHaveAttribute('data-cube-view', 'white/orange');
 });
 
+test('Timer hold, memo split, execution stop and reconstruction save form one solve', async ({ page }) => {
+  await load(page);
+  await page.goto('/');
+  await holdSpace(page);
+  await expect(page.getByText('memo', { exact: true })).toBeVisible();
+  await page.keyboard.press('Space');
+  await expect(page.getByText('exec', { exact: true })).toBeVisible();
+  await page.waitForTimeout(30);
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('dialog', { name: 'Memo reconstruction' })).toBeVisible();
+  await page.getByRole('button', { name: 'Skip to save' }).click();
+  await expect(page.getByRole('dialog', { name: 'Memo reconstruction' })).toHaveCount(0);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);
+  expect(saved.solves).toHaveLength(1);
+  expect(saved.solves[0].memoMs).toBeGreaterThan(0);
+  expect(saved.solves[0].executionMs).toBeGreaterThanOrEqual(0);
+  expect(saved.solves[0].totalMs).toBeGreaterThanOrEqual(saved.solves[0].memoMs);
+});
+
 test('auth surface exposes only WCA and Google', async ({ page }) => {
   await load(page);
   await page.goto('/signin');
@@ -139,12 +170,14 @@ test('key latest screens pass automated WCAG checks', async ({ page }) => {
 
 test('requested desktop, tablet and mobile viewports stay horizontally contained', async ({ page }) => {
   await load(page, workspace(true));
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 1024, height: 768 }, { width: 390, height: 844 }]) {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 900, height: 560 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     for (const [name, path] of [['timer', '/'], ['pairs', '/pairs'], ['flashcards', '/flashcards'], ['training', '/training'], ['settings', '/settings'], ['auth', '/signin']] as const) {
       await page.goto(path);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${viewport.width}px ${name}`).toBe(true);
-      await page.screenshot({ path: `docs/screenshots/latest/${viewport.width}-${name}.png`, animations: 'disabled' });
+      if ([1440, 1024, 390].includes(viewport.width)) {
+        await page.screenshot({ path: `docs/screenshots/latest/${viewport.width}-${name}.png`, animations: 'disabled' });
+      }
     }
   }
 });
