@@ -52,11 +52,42 @@ test('latest pair browser saves primary and alternate and reveals suggestions on
   await expect(page.getByRole('button', { name: /tow/i })).toHaveCount(0);
   await page.getByLabel('Mnemonic').fill('tow');
   await page.getByLabel('Add alternate').fill('tower');
-  await page.getByRole('button', { name: "Can't think of one?" }).click();
+  await page.getByRole('button', { name: 'Suggest words' }).click();
   await expect(page.getByRole('button', { name: 'Hide suggestions' })).toBeVisible();
   await page.getByRole('button', { name: /^Save/ }).last().click();
   await page.reload();
   await expect(page.getByRole('gridcell', { name: /TW, tow/ })).toBeVisible();
+});
+
+test('Letter Pair deletion promotes alternates and destructive clears require confirmation', async ({ page }) => {
+  await load(page, workspace(true));
+  await page.goto('/pairs');
+  await page.getByRole('gridcell', { name: /TW, tow/ }).click();
+  await page.getByRole('button', { name: 'Remove', exact: true }).click();
+  await expect(page.getByLabel('Mnemonic')).toHaveValue('tower');
+  await page.getByRole('button', { name: /^Save/ }).last().click();
+  await page.getByRole('gridcell', { name: /TW, tower/ }).click();
+  await page.getByRole('button', { name: 'Clear pair' }).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByLabel('Mnemonic')).toHaveValue('tower');
+  await page.getByRole('button', { name: 'Clear pair' }).first().click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Clear pair' }).click();
+  await expect(page.getByRole('gridcell', { name: 'TW, empty' })).toBeVisible();
+});
+
+test('clearing a first-token section and clearing all pairs use destructive confirmation', async ({ page }) => {
+  await load(page, workspace(true));
+  await page.goto('/pairs');
+  await page.getByRole('button', { name: 'Clear T pairs' }).click();
+  await expect(page.getByRole('alertdialog')).toContainText('can’t be undone');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('gridcell', { name: /TW, tow/ })).toBeVisible();
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Clear all…' }).click();
+  await page.getByRole('button', { name: 'Clear all', exact: true }).click();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);
+  expect(Object.keys(saved.pairs)).toHaveLength(0);
 });
 
 test('flashcards use saved pairs, reveal, edit and persist an attempt', async ({ page }) => {
@@ -83,6 +114,14 @@ test('a held Flashcard shortcut reveals once and never records before release', 
   await page.keyboard.up('Space');
   await page.getByRole('button', { name: 'Remembered', exact: false }).click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
+});
+
+test('Flashcards expose one uniformly eligible piece card without a piece selector', async ({ page }) => {
+  await load(page, workspace(true));
+  await page.goto('/flashcards');
+  await expect(page.getByRole('radiogroup', { name: 'Pieces' })).toHaveCount(0);
+  await expect(page.getByText(/^(Edge|Corner)$/)).toBeVisible();
+  await expect(page.getByText('2 cards', { exact: true })).toBeVisible();
 });
 
 test('all Training modes remain idle until hold-release and Next returns to idle', async ({ page }) => {
@@ -115,6 +154,52 @@ test('Space in a Training input never starts or submits another attempt', async 
   await input.fill('A B');
   await input.press('Space');
   await expect(input).toBeFocused();
+});
+
+test('Memo Recall suggestions appear only after the recall is submitted', async ({ page }) => {
+  await load(page);
+  await page.goto('/training');
+  await expect(page.getByRole('button', { name: 'Suggest' })).toHaveCount(0);
+  await holdSpace(page);
+  await expect(page.getByRole('button', { name: 'Suggest' })).toHaveCount(0);
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('button', { name: 'Suggest' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Suggest' }).first()).toBeVisible();
+});
+
+test('Full Memo review retains extra submitted words and missing expected pairs', async ({ page }) => {
+  await load(page);
+  await page.goto('/training');
+  await page.getByRole('radio', { name: 'Full Memo' }).click();
+  await holdSpace(page);
+  const inputs = page.locator('input');
+  for (let i = 0; i < 20; i++) {
+    await inputs.first().fill(`word${i}`);
+    await inputs.first().press('Enter');
+  }
+  if (await inputs.count() > 1) {
+    for (const word of ['one', 'two']) {
+      await inputs.nth(1).fill(word);
+      await inputs.nth(1).press('Enter');
+    }
+  }
+  await page.getByRole('button', { name: /^Submit/ }).click();
+  await expect(page.getByText('Extra', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Missing', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/cycle break at|after the memo ended/i)).toHaveCount(0);
+});
+
+test('Settings Support scrollspy, feedback validation and signed-out optional contact match the final UI', async ({ page }) => {
+  await load(page);
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Support', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Support', exact: true })).toHaveAttribute('aria-current', 'true');
+  await page.getByRole('button', { name: 'Give feedback' }).click();
+  await expect(page.getByLabel('Email (optional)')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Send feedback' })).toBeDisabled();
+  await page.getByLabel('Message').fill('A local acceptance-test report');
+  await expect(page.getByRole('button', { name: 'Send feedback' })).toBeEnabled();
 });
 
 test('Default Cube View persists independently of the fixed scramble reference', async ({ page }) => {

@@ -1,6 +1,6 @@
 # Letter-pair suggestion provenance
 
-The bundled dataset is a small, manually curated starter set. It is intentionally hidden until the user presses **Show suggestions**.
+The bundled dataset covers the complete A-Z pair space and is intentionally hidden until the user presses **Show suggestions**.
 
 ## Sources consulted
 
@@ -10,4 +10,4 @@ The bundled dataset is a small, manually curated starter set. It is intentionall
 
 ## Original contribution and usage
 
-Suggestions in `src/data/letterPairSuggestions.json` were written and curated for this project from common words, public names, brands, and characters. The file does not reproduce a private spreadsheet or a copyrighted community list. It is a seed dataset, not a claim of exhaustive coverage. Users’ primary and alternate mnemonics are separate private data in Supabase.
+Suggestions in `src/magic/data/mnemonicSuggestions.ts` were written and curated for this project from common words, public names, brands, and characters. A deterministic set of pronounceable, image-oriented fallbacks completes sparse A-Z entries so every pair has at least five distinct choices. The resource does not reproduce a private spreadsheet or a copyrighted community list. Users’ primary and alternate mnemonics are separate private data in Supabase.
