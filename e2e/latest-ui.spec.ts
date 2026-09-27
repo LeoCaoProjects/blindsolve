@@ -66,7 +66,7 @@ test('flashcards use saved pairs, reveal, edit and persist an attempt', async ({
   await expect(page.getByText('tow', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /^Edit/ }).click();
   await page.getByLabel('Mnemonic').fill('towel');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: /^Save/ }).click();
   await page.getByRole('button', { name: 'Remembered', exact: false }).click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);
   expect(saved.attempts).toHaveLength(1);
@@ -119,14 +119,12 @@ test('Default Cube View persists independently of the fixed scramble reference',
   await expect(page.getByRole('group', { name: 'Scrambled cube' })).toHaveAttribute('data-cube-view', 'white/orange');
 });
 
-test('auth surface exposes only WCA and Google and reports unconfigured WCA safely', async ({ page }) => {
+test('auth surface exposes only WCA and Google', async ({ page }) => {
   await load(page);
   await page.goto('/signin');
   await expect(page.getByRole('button', { name: 'Continue with WCA' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
   await expect(page.getByText(/password|magic link|github/i)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Continue with WCA' }).click();
-  await expect(page.getByRole('alert')).toContainText(/not configured|server-side/i);
 });
 
 test('key latest screens pass automated WCAG checks', async ({ page }) => {

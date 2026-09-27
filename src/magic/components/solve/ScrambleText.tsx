@@ -14,13 +14,12 @@ export function ScrambleText({ scramble, className = '', align = 'start', animat
     <AnimatePresence mode="wait" initial={false}>
       <motion.p
         key={scramble}
-        aria-label={`Scramble ${scramble}`}
         initial={animate ? { opacity: 0 } : false}
         animate={{ opacity: 1 }}
         exit={animate ? { opacity: 0 } : undefined}
         transition={{ duration: 0.12, ease: 'easeOut' }}
         className={`flex flex-wrap font-mono ${align === 'center' ? 'justify-center' : ''} ${className}`}>
-        
+        <span className="sr-only">Scramble {scramble}</span>
         {moves.map((m, i) =>
         <span key={i} aria-hidden className="inline-block w-[3.7ch] whitespace-pre">
             {m}

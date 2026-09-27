@@ -96,7 +96,7 @@ export function CubeConfigurator({
             transition={{ duration: 0.14, ease: EASE_OUT }}>
             
             {mode === 'view' &&
-            <dl className="grid gap-0">
+            <div className="grid gap-0">
                 <SummaryRow label="Lettering" onChange={() => onModeChange('lettering')}>
                   <span className="text-ink">{speffz ? 'Speffz' : setup.schemeName || 'Custom'}</span>
                 </SummaryRow>
@@ -111,7 +111,7 @@ export function CubeConfigurator({
                     {COLOR_NAMES[view.top]} top · {COLOR_NAMES[view.front]} front
                   </span>
                 </SummaryRow>
-              </dl>
+              </div>
             }
 
             {mode === 'lettering' &&
@@ -180,8 +180,8 @@ function SummaryRow({ label, children, onChange }: {label: string;children: Reac
   return (
     <div className="flex items-center justify-between gap-4 border-b border-line py-3.5 first:pt-0 last:border-b-0">
       <div>
-        <dt className="text-[12px] text-ink-3">{label}</dt>
-        <dd className="mt-1 text-[13.5px]">{children}</dd>
+        <div className="text-[12px] text-ink-3">{label}</div>
+        <div className="mt-1 text-[13.5px]">{children}</div>
       </div>
       <button type="button" onClick={onChange} className="text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2">
         Change

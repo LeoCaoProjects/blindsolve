@@ -160,6 +160,7 @@ export function Cube3D({
     <div
       role="group"
       aria-label={label}
+      data-cube-view={`${camera.top}/${camera.front}`}
       tabIndex={0}
       onPointerDown={onPointerDown}
       onDoubleClick={() => setRot(initialRot)}
