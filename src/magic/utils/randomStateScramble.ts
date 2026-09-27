@@ -1,4 +1,4 @@
-import { TrainFilter, invert, makeScramble, parity, randomOri, randomPerm, seededRandom } from './bld';
+import { TrainFilter, invert, parity, randomOri, randomPerm, seededRandom } from './bld';
 import { CubeState, stateFromScramble } from './cube';
 import { KPattern } from 'cubing/kpuzzle';
 import { puzzles } from 'cubing/puzzles';
@@ -14,7 +14,8 @@ import { experimentalSolve3x3x3IgnoringCenters } from 'cubing/search';
  * prepared during browser idle time before the drill is opened.
  * Scrambles are prepared ahead of time and cached, so opening Execution Sprint or pressing
  * New scramble normally swaps in one that's already waiting. The page never blocks on it.
- * If the worker can't start, it falls back to the older (longer) move-sequence generator.
+ * A solver failure is retried with a fresh restricted state. It never falls back to stitching
+ * together commutators, because that would violate the exercise's random-state contract.
  */
 
 interface PieceState {
@@ -89,18 +90,18 @@ export function randomStateScramble(filter: TrainFilter, seed: number): Promise<
   const running = inflight.get(key);
   if (running) return running;
   const job = (async () => {
-    const rand = seededRandom(seed * 104729 + (filter === 'corners' ? 11 : filter === 'edges' ? 13 : 17));
-    const solution = await solveRestrictedState(pickState(filter, rand));
-    let scramble: string | null = null;
-    if (solution) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const rand = seededRandom((seed + attempt * 65537) * 104729 + (filter === 'corners' ? 11 : filter === 'edges' ? 13 : 17));
+      const solution = await solveRestrictedState(pickState(filter, rand));
+      if (!solution) continue;
       const candidate = invert(solution.trim().split(/\s+/).filter(Boolean)).join(' ');
-      if (candidate && respects(stateFromScramble(candidate), filter)) scramble = candidate;
+      if (candidate && respects(stateFromScramble(candidate), filter)) {
+        cache.set(key, candidate);
+        return candidate;
+      }
     }
-    const result = scramble ?? makeScramble(filter, seed);
-    cache.set(key, result);
-    inflight.delete(key);
-    return result;
-  })();
+    throw new Error(`Could not generate a legal ${filter} random-state scramble.`);
+  })().finally(() => inflight.delete(key));
   inflight.set(key, job);
   return job;
 }
@@ -111,7 +112,11 @@ export function prepareScrambles(requests: {filter: TrainFilter;seed: number;}[]
 }
 
 /** Seed that Execution Sprint opens with (matches useTrainingSession's default). */
-export const FIRST_EXEC_SEED = 12;
+export const FIRST_EXEC_SEED = (() => {
+  const value = new Uint32Array(1);
+  globalThis.crypto?.getRandomValues(value);
+  return value[0] || Math.floor(Math.random() * 0xffffffff);
+})();
 
 /**
  * Called once when the app loads: when the browser is idle, start the worker and prepare the

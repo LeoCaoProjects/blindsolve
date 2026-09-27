@@ -1,20 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useAppData } from '../../contexts/AppDataContext';
-import { ImportSummary, MergeStrategy, buildBackup, downloadJson, mergePairs, sampleBackup, summarize } from '../../utils/backup';
+import { useStore } from '../../../app/Store';
+import { ImportSummary, MergeStrategy, buildBackup, downloadJson, mergeBackup, summarize } from '../../utils/backup';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { RadioRows } from '../common/Toggle';
 import { SecondaryButton, SettingsRow } from './SettingsSection';
 
 export function BackupSection({ preview }: {preview?: 'valid' | 'invalid';}) {
-  const app = useAppData();
+  const store = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [strategy, setStrategy] = useState<MergeStrategy>('keep-mine');
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    if (preview === 'valid') setSummary(summarize('3bld-backup-2026-09-19.json', sampleBackup(app.pairs, app.setup), app.pairs));
-    if (preview === 'invalid') setSummary(summarize('cstimer_export.json', { properties: {}, session1: [] }, app.pairs));
+    if (preview === 'valid') setSummary(summarize('3bld-backup.json', buildBackup(store.data), store.data));
+    if (preview === 'invalid') setSummary(summarize('cstimer_export.json', { properties: {}, session1: [] }, store.data));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -26,7 +26,7 @@ export function BackupSection({ preview }: {preview?: 'valid' | 'invalid';}) {
   const onFile = async (file: File) => {
     try {
       const json = JSON.parse(await file.text());
-      setSummary(summarize(file.name, json, app.pairs));
+      setSummary(summarize(file.name, json, store.data));
     } catch {
       setSummary({ ok: false, fileName: file.name, problems: ['not valid JSON'] });
     }
@@ -34,9 +34,7 @@ export function BackupSection({ preview }: {preview?: 'valid' | 'invalid';}) {
 
   const doImport = () => {
     if (!summary?.ok) return;
-    const incoming = summary.file.pairs ?? {};
-    app.replacePairs(mergePairs(app.pairs, incoming, strategy));
-    if (strategy === 'replace' && summary.file.setup) app.saveSetup(summary.file.setup);
+    store.update((current) => mergeBackup(current, summary.file.data, strategy));
     setSummary(null);
     flash(`Imported ${summary.pairs.total} pairs`);
   };
@@ -46,7 +44,7 @@ export function BackupSection({ preview }: {preview?: 'valid' | 'invalid';}) {
       <SettingsRow label="Export backup" hint="Setup, lettering, letter pairs, solves and practice history">
         <SecondaryButton
           onClick={() => {
-            downloadJson(buildBackup(app.setup, app.prefs, app.pairs, app.solves), '3bld-backup-2026-09-25.json');
+            downloadJson(buildBackup(store.data), `3bld-backup-${new Date().toISOString().slice(0, 10)}.json`);
             flash('Backup saved to downloads');
           }}>
           
@@ -72,7 +70,7 @@ export function BackupSection({ preview }: {preview?: 'valid' | 'invalid';}) {
       </p>
       <button
         type="button"
-        onClick={() => setSummary(summarize('3bld-backup-2026-09-19.json', sampleBackup(app.pairs, app.setup), app.pairs))}
+        onClick={() => setSummary(summarize('3bld-backup.json', buildBackup(store.data), store.data))}
         className="sr-only focus:not-sr-only focus:text-[12px] focus:text-ink-3">
         
         Preview a sample backup
