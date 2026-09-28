@@ -332,6 +332,7 @@ export interface LocalEnvelope {
   data: AppData;
   dirty: boolean;
   revision: number;
+  pending?: Record<string, SyncChange>;
 }
 export function loadLocal(owner: string | null = null): LocalEnvelope {
   const raw = localStorage.getItem(storageKey(owner));
@@ -358,6 +359,168 @@ export function loadLocal(owner: string | null = null): LocalEnvelope {
 }
 export function saveLocal(owner: string | null, envelope: LocalEnvelope) {
   localStorage.setItem(storageKey(owner), JSON.stringify(envelope));
+}
+
+export type SyncRecordKind = "settings" | "pair" | "solve" | "attempt";
+export interface SyncChange {
+  kind: SyncRecordKind;
+  recordId: string;
+  payload: unknown | null;
+  deleted: boolean;
+  updatedAt: string;
+}
+
+interface SyncRecordRow {
+  kind: SyncRecordKind;
+  record_id: string;
+  payload: unknown | null;
+  deleted: boolean;
+  updated_at: string;
+}
+
+const syncKey = (change: Pick<SyncChange, "kind" | "recordId">) =>
+  `${change.kind}:${change.recordId}`;
+
+const settingsPayload = (data: AppData) => ({
+  schemeHistory: data.schemeHistory,
+  scheme: data.scheme,
+  timerSessions: data.timerSessions,
+  activeTimerSessionId: data.activeTimerSessionId,
+  onboarded: data.onboarded,
+  schemeUpdatedAt: data.schemeUpdatedAt,
+  multiphaseTiming: data.multiphaseTiming,
+  pairSharing: data.pairSharing,
+  flippedEdges: data.flippedEdges,
+  twistedCorners: data.twistedCorners,
+  defaultCubeView: data.defaultCubeView,
+  preferencesUpdatedAt: data.preferencesUpdatedAt,
+});
+
+export function coalesceSyncChanges(
+  current: Record<string, SyncChange> | undefined,
+  changes: SyncChange[],
+) {
+  const next = { ...(current ?? {}) };
+  for (const change of changes) next[syncKey(change)] = change;
+  return next;
+}
+
+export function diffSyncChanges(
+  before: AppData,
+  after: AppData,
+  updatedAt = new Date().toISOString(),
+): SyncChange[] {
+  const changes: SyncChange[] = [];
+  if (
+    JSON.stringify(settingsPayload(before)) !==
+    JSON.stringify(settingsPayload(after))
+  )
+    changes.push({
+      kind: "settings",
+      recordId: "settings",
+      payload: settingsPayload(after),
+      deleted: false,
+      updatedAt,
+    });
+  const diffMap = <T>(
+    kind: "pair" | "solve" | "attempt",
+    previous: Map<string, T>,
+    next: Map<string, T>,
+  ) => {
+    for (const [id, value] of next)
+      if (JSON.stringify(previous.get(id)) !== JSON.stringify(value))
+        changes.push({
+          kind,
+          recordId: id,
+          payload: value,
+          deleted: false,
+          updatedAt,
+        });
+    for (const id of previous.keys())
+      if (!next.has(id))
+        changes.push({
+          kind,
+          recordId: id,
+          payload: null,
+          deleted: true,
+          updatedAt,
+        });
+  };
+  diffMap(
+    "pair",
+    new Map(Object.entries(before.pairs)),
+    new Map(Object.entries(after.pairs)),
+  );
+  diffMap(
+    "solve",
+    new Map(before.solves.map((item) => [item.id, item])),
+    new Map(after.solves.map((item) => [item.id, item])),
+  );
+  diffMap(
+    "attempt",
+    new Map(before.attempts.map((item) => [item.id, item])),
+    new Map(after.attempts.map((item) => [item.id, item])),
+  );
+  return changes;
+}
+
+export function seedSyncChanges(
+  data: AppData,
+  updatedAt = new Date().toISOString(),
+) {
+  const changes: SyncChange[] = [
+    {
+      kind: "settings",
+      recordId: "settings",
+      payload: settingsPayload(data),
+      deleted: false,
+      updatedAt,
+    },
+  ];
+  for (const [recordId, payload] of Object.entries(data.pairs))
+    changes.push({
+      kind: "pair",
+      recordId,
+      payload,
+      deleted: false,
+      updatedAt,
+    });
+  for (const payload of data.solves)
+    changes.push({
+      kind: "solve",
+      recordId: payload.id,
+      payload,
+      deleted: false,
+      updatedAt,
+    });
+  for (const payload of data.attempts)
+    changes.push({
+      kind: "attempt",
+      recordId: payload.id,
+      payload,
+      deleted: false,
+      updatedAt,
+    });
+  return changes;
+}
+
+function dataFromSyncRecords(rows: SyncRecordRow[]) {
+  const data = emptyData();
+  const settings = rows.find(
+    (row) => row.kind === "settings" && !row.deleted,
+  )?.payload;
+  if (settings && typeof settings === "object") Object.assign(data, settings);
+  for (const row of rows) {
+    if (row.deleted || !row.payload) continue;
+    if (row.kind === "pair")
+      data.pairs[row.record_id] = row.payload as LetterPair;
+    if (row.kind === "solve") data.solves.push(row.payload as SolveRecord);
+    if (row.kind === "attempt")
+      data.attempts.push(row.payload as PracticeAttempt);
+  }
+  data.solves.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  data.attempts.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return parseData(data);
 }
 
 export function mergeData(
@@ -470,6 +633,22 @@ export function mergeData(
 
 export async function loadCloud(): Promise<LocalEnvelope> {
   if (!supabase) throw new Error("Cloud storage is not configured.");
+  const { data: snapshotData, error: snapshotError } = await supabase.rpc(
+    "get_bld_sync_snapshot",
+  );
+  if (snapshotError) throw new Error(snapshotError.message);
+  const snapshot = snapshotData as {
+    revision: number;
+    records: SyncRecordRow[];
+  } | null;
+  if (!snapshot) throw new Error("Authentication required.");
+  if (snapshot.records.length)
+    return {
+      data: dataFromSyncRecords(snapshot.records),
+      revision: snapshot.revision,
+      dirty: false,
+      pending: {},
+    };
   const { data, error } = await supabase.rpc("get_bld_workspace");
   if (error) throw new Error(error.message);
   const result = data as { data: unknown; revision: number };
@@ -477,6 +656,8 @@ export async function loadCloud(): Promise<LocalEnvelope> {
     data: result.data ? parseData(result.data) : await loadLegacyCloud(),
     revision: result.revision,
     dirty: false,
+    // An account without record-based data is seeded once after the safe merge.
+    pending: undefined,
   };
 }
 /** Read-only migration of V1 rows. Never remove the original normalized tables. */
@@ -486,12 +667,21 @@ async function loadLegacyCloud(): Promise<AppData> {
   const [pairs, solves, schemes] = await Promise.all([
     supabase
       .from("letter_pairs")
-      .select("*,letter_pair_aliases(mnemonic)")
+      .select(
+        "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,encounters,forgotten,updated_at,letter_pair_aliases(mnemonic)",
+      )
       .order("id"),
-    supabase.from("bld_solves").select("*").order("id"),
+    supabase
+      .from("bld_solves")
+      .select(
+        "id,scramble,memo_ms,execution_ms,total_ms,result,corner_memo,edge_memo,cycle_breaks,created_at,scheme_snapshot",
+      )
+      .order("id"),
     supabase
       .from("lettering_schemes")
-      .select("*,sticker_labels(*)")
+      .select(
+        "id,name,orientation,edge_buffer,corner_buffer,edge_method,corner_method,updated_at,sticker_labels(physical_sticker_id,token)",
+      )
       .eq("is_active", true)
       .maybeSingle(),
   ]);
@@ -503,7 +693,9 @@ async function loadLegacyCloud(): Promise<AppData> {
     for (let offset = 1000; ; offset += 1000) {
       const next = await supabase
         .from("letter_pairs")
-        .select("*,letter_pair_aliases(mnemonic)")
+        .select(
+          "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,encounters,forgotten,updated_at,letter_pair_aliases(mnemonic)",
+        )
         .order("id")
         .range(offset, offset + 999);
       if (next.error) throw new Error(next.error.message);
@@ -515,7 +707,9 @@ async function loadLegacyCloud(): Promise<AppData> {
     for (let offset = 1000; ; offset += 1000) {
       const next = await supabase
         .from("bld_solves")
-        .select("*")
+        .select(
+          "id,scramble,memo_ms,execution_ms,total_ms,result,corner_memo,edge_memo,cycle_breaks,created_at,scheme_snapshot",
+        )
         .order("id")
         .range(offset, offset + 999);
       if (next.error) throw new Error(next.error.message);
@@ -588,6 +782,34 @@ export async function saveCloud(
   if (error) throw new Error(error.message);
   return next as number;
 }
+
+export class SyncConflictError extends Error {}
+
+export async function saveCloudChanges(
+  changes: SyncChange[],
+  revision: number,
+): Promise<number> {
+  if (!supabase) throw new Error("Cloud storage is not configured.");
+  if (!changes.length) return revision;
+  const { data, error } = await supabase.rpc("apply_bld_sync_changes", {
+    changes: changes.map((change) => ({
+      kind: change.kind,
+      record_id: change.recordId,
+      payload: change.payload,
+      deleted: change.deleted,
+      updated_at: change.updatedAt,
+    })),
+    expected_revision: revision,
+  });
+  if (error) {
+    if (error.code === "40001") throw new SyncConflictError(error.message);
+    throw new Error(error.message);
+  }
+  return data as number;
+}
+
+export const syncRetryDelay = (attempt: number) =>
+  Math.min(60_000, 2_000 * 2 ** Math.max(0, attempt));
 export function downloadBackup(data: AppData) {
   const url = URL.createObjectURL(
     new Blob([JSON.stringify({ version: 3, data }, null, 2)], {

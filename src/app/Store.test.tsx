@@ -29,7 +29,7 @@ vi.mock("../lib/supabase", () => ({
 vi.mock("../lib/repository", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   loadCloud: mocks.load,
-  saveCloud: mocks.save,
+  saveCloudChanges: mocks.save,
 }));
 import { StoreProvider, useStore } from "./Store";
 import { emptyData, loadLocal } from "../lib/repository";
@@ -92,9 +92,18 @@ describe("account state and sync", () => {
   });
   beforeEach(() => {
     localStorage.clear();
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: true,
+    });
     mocks.load
       .mockReset()
-      .mockResolvedValue({ data: emptyData(), revision: 0, dirty: false });
+      .mockResolvedValue({
+        data: emptyData(),
+        revision: 0,
+        dirty: false,
+        pending: {},
+      });
     mocks.save.mockReset().mockResolvedValue(1);
   });
   afterEach(cleanup);
@@ -159,5 +168,48 @@ describe("account state and sync", () => {
     });
     expect(mocks.save).not.toHaveBeenCalled();
     expect(loadLocal("alice").data.scheme.name).toBe("Edited");
+  });
+  it("debounces and deduplicates rapid mutations into one record batch", async () => {
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice");
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.click(screen.getByText("Edit"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1), {
+      timeout: 2500,
+    });
+    expect(mocks.save.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ kind: "settings", recordId: "settings" }),
+    ]);
+  });
+  it("keeps offline edits local and resumes once when connectivity returns", async () => {
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice");
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: false,
+    });
+    act(() => window.dispatchEvent(new Event("offline")));
+    fireEvent.click(screen.getByText("Edit"));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(loadLocal("alice").dirty).toBe(true);
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: true,
+    });
+    act(() => window.dispatchEvent(new Event("online")));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1), {
+      timeout: 2500,
+    });
+    await waitFor(() => expect(loadLocal("alice").dirty).toBe(false));
   });
 });

@@ -7,6 +7,10 @@ import {
   loadLocal,
   saveLocal,
   validateScheme,
+  diffSyncChanges,
+  coalesceSyncChanges,
+  seedSyncChanges,
+  syncRetryDelay,
 } from "./repository";
 import { pairKey, type LetterPair } from "../domain/letterPairs";
 const pair = (word: string, time = "2026-09-25T00:00:00Z"): LetterPair => ({
@@ -151,5 +155,44 @@ describe("workspace integrity", () => {
     cloud.multiphaseTiming = false;
     cloud.preferencesUpdatedAt = "2026-09-25T02:00:00Z";
     expect(mergeData(local, cloud).data.multiphaseTiming).toBe(false);
+  });
+  it("creates only the changed record for one letter-pair edit", () => {
+    const before = emptyData();
+    const after = emptyData();
+    const key = pairKey("B:BR", "D:DB");
+    after.pairs[key] = pair("tow");
+    expect(diffSyncChanges(before, after, "2026-09-28T00:00:00Z")).toEqual([
+      expect.objectContaining({ kind: "pair", recordId: key, deleted: false }),
+    ]);
+  });
+  it("deduplicates repeated pending changes to the same record", () => {
+    const before = emptyData();
+    const first = emptyData();
+    const second = emptyData();
+    const key = pairKey("B:BR", "D:DB");
+    first.pairs[key] = pair("tow");
+    second.pairs[key] = pair("tower", "2026-09-28T00:01:00Z");
+    const pending = coalesceSyncChanges(
+      coalesceSyncChanges({}, diffSyncChanges(before, first)),
+      diffSyncChanges(first, second),
+    );
+    expect(Object.keys(pending)).toEqual([`pair:${key}`]);
+    expect(pending[`pair:${key}`].payload).toMatchObject({
+      primaryMnemonic: "tower",
+    });
+  });
+  it("seeds settings and each historical entity exactly once", () => {
+    const data = emptyData();
+    const key = pairKey("B:BR", "D:DB");
+    data.pairs[key] = pair("tow");
+    expect(seedSyncChanges(data).map((change) => change.kind)).toEqual([
+      "settings",
+      "pair",
+    ]);
+  });
+  it("uses bounded exponential retry delays without a tight loop", () => {
+    expect([0, 1, 2, 3, 4, 20].map(syncRetryDelay)).toEqual([
+      2000, 4000, 8000, 16000, 32000, 60000,
+    ]);
   });
 });

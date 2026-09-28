@@ -14,15 +14,20 @@ import {
   loadLocal,
   saveLocal,
   loadCloud,
-  saveCloud,
+  saveCloudChanges,
   mergeData,
+  coalesceSyncChanges,
+  diffSyncChanges,
+  seedSyncChanges,
+  syncRetryDelay,
+  SyncConflictError,
   type AppData,
   type LocalEnvelope,
 } from "../lib/repository";
 import type { LetterPair } from "../domain/letterPairs";
 import { pairKey } from "../domain/letterPairs";
 
-type SyncState = "local" | "loading" | "saving" | "saved" | "error";
+type SyncState = "local" | "loading" | "saving" | "saved" | "offline" | "error";
 interface StoreValue {
   data: AppData;
   user: User | null;
@@ -54,13 +59,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       data: emptyData(),
       dirty: false,
       revision: 0,
+      pending: {},
     }),
     owner = useRef<string | null>(null),
     epoch = useRef(0),
     saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
+    retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
+    retryAttempts = useRef(0),
     saving = useRef(false),
     connected = useRef(false),
     initialized = useRef(false);
+  const flushRef = useRef<() => Promise<void>>(async () => {});
   const storageReadable = useRef(true);
   const persist = useCallback(() => {
     try {
@@ -85,25 +94,80 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     )
       return;
     const generation = epoch.current,
-      snapshot = current.current;
+      snapshot = current.current,
+      batch = Object.values(snapshot.pending ?? {});
+    if (!batch.length) {
+      current.current = { ...current.current, dirty: false };
+      setSync("saved");
+      persist();
+      return;
+    }
     saving.current = true;
     setSync("saving");
     try {
-      const revision = await saveCloud(snapshot.data, snapshot.revision);
+      const revision = await saveCloudChanges(batch, snapshot.revision);
       if (generation !== epoch.current) return;
+      const sent = new Map(
+        batch.map((change) => [
+          `${change.kind}:${change.recordId}`,
+          JSON.stringify(change),
+        ]),
+      );
+      const pending = Object.fromEntries(
+        Object.entries(current.current.pending ?? {}).filter(
+          ([key, change]) => sent.get(key) !== JSON.stringify(change),
+        ),
+      );
       current.current = {
         ...current.current,
         revision,
-        dirty: current.current.data !== snapshot.data,
+        pending,
+        dirty: Object.keys(pending).length > 0,
       };
+      retryAttempts.current = 0;
       setSync(current.current.dirty ? "saving" : "saved");
       persist();
     } catch (e) {
       if (generation === epoch.current) {
-        setSync("error");
+        let failure = e;
+        if (e instanceof SyncConflictError) {
+          try {
+            const remote = await loadCloud();
+            if (generation !== epoch.current) return;
+            const merged = mergeData(current.current.data, remote.data);
+            const pending = coalesceSyncChanges(
+              current.current.pending,
+              diffSyncChanges(remote.data, merged.data),
+            );
+            current.current = {
+              data: merged.data,
+              revision: remote.revision,
+              pending,
+              dirty: Object.keys(pending).length > 0,
+            };
+            setData(merged.data);
+            persist();
+            if (merged.conflicts)
+              notify(
+                `${merged.conflicts} differing mnemonics were preserved as alternates.`,
+              );
+            retryAttempts.current = 0;
+            setSync(current.current.dirty ? "saving" : "saved");
+            return;
+          } catch (reloadError) {
+            failure = reloadError;
+          }
+        }
+        const offline = typeof navigator !== "undefined" && !navigator.onLine;
+        setSync(offline ? "offline" : "error");
         notify(
-          `Changes remain on this device. ${(e as Error).message}. Use Retry sync in Settings.`,
+          `Changes remain on this device. ${(failure as Error).message}.${offline ? " Sync resumes when you reconnect." : " Retrying safely in the background."}`,
         );
+        if (!offline && retryAttempts.current < 5) {
+          const delay = syncRetryDelay(retryAttempts.current++);
+          clearTimeout(retryTimer.current);
+          retryTimer.current = setTimeout(() => void flushRef.current(), delay);
+        }
       }
     } finally {
       if (generation === epoch.current) {
@@ -112,6 +176,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [persist]);
+  flushRef.current = flush;
   useEffect(() => {
     let disposed = false;
     const switchOwner = async (nextUser: User | null) => {
@@ -122,6 +187,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       saving.current = false;
       storageReadable.current = true;
       clearTimeout(saveTimer.current);
+      clearTimeout(retryTimer.current);
+      retryAttempts.current = 0;
       owner.current = nextUser?.id ?? null;
       notify("");
       setUser(nextUser);
@@ -131,6 +198,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         data: emptyData(),
         revision: 0,
         dirty: false,
+        pending: {},
       };
       try {
         local = loadLocal(owner.current);
@@ -147,14 +215,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const remote = await loadCloud();
           if (disposed || generation !== epoch.current) return;
           const merged = mergeData(local.data, remote.data);
+          const pending = coalesceSyncChanges(
+            local.pending,
+            remote.pending === undefined
+              ? seedSyncChanges(merged.data)
+              : diffSyncChanges(remote.data, merged.data),
+          );
           connected.current = true;
           current.current = {
             data: merged.data,
             revision: remote.revision,
-            dirty: local.dirty,
+            pending,
+            dirty: Object.keys(pending).length > 0,
           };
           setData(merged.data);
-          setSync(local.dirty ? "saving" : "saved");
+          setSync(Object.keys(pending).length ? "saving" : "saved");
           if (merged.conflicts)
             notify(
               `${merged.conflicts} differing mnemonics were preserved as alternates. Review them before continuing.`,
@@ -189,13 +264,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
     return () => {
       disposed = true;
+      clearTimeout(saveTimer.current);
+      clearTimeout(retryTimer.current);
       listener.subscription.unsubscribe();
     };
     // Auth owns account transitions. No data/effect dependency: subscriptions must stay stable.
   }, [persist]);
   useEffect(() => {
     if (sync === "saving" && !saving.current && current.current.dirty) {
-      saveTimer.current = setTimeout(() => void flush(), 500);
+      saveTimer.current = setTimeout(() => void flush(), 750);
       return () => clearTimeout(saveTimer.current);
     }
   }, [data, sync, flush]);
@@ -209,10 +286,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const incoming = loadLocal(owner.current);
         const merged = mergeData(current.current.data, incoming.data);
+        const pending = coalesceSyncChanges(
+          coalesceSyncChanges(
+            current.current.pending,
+            Object.values(incoming.pending ?? {}),
+          ),
+          diffSyncChanges(current.current.data, merged.data),
+        );
         current.current = {
           data: merged.data,
           revision: Math.max(current.current.revision, incoming.revision),
-          dirty: current.current.dirty || incoming.dirty,
+          pending,
+          dirty: Object.keys(pending).length > 0,
         };
         setData(merged.data);
         if (owner.current)
@@ -234,22 +319,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
   const update = useCallback(
     (fn: (d: AppData) => AppData) => {
-      const next = fn(current.current.data);
-      if (next.scheme !== current.current.data.scheme)
+      const previous = current.current.data;
+      const next = fn(previous);
+      if (next.scheme !== previous.scheme)
         next.schemeHistory = [
           ...(next.schemeHistory ?? []),
           {
-            scheme: current.current.data.scheme,
-            updatedAt: current.current.data.schemeUpdatedAt,
+            scheme: previous.scheme,
+            updatedAt: previous.schemeUpdatedAt,
           },
         ].slice(-20);
+      const changes = owner.current ? diffSyncChanges(previous, next) : [];
+      const pending = coalesceSyncChanges(current.current.pending, changes);
       current.current = {
         ...current.current,
         data: next,
-        dirty: !!owner.current,
+        pending,
+        dirty: !!owner.current && Object.keys(pending).length > 0,
       };
       setData(next);
-      if (owner.current) setSync(connected.current ? "saving" : "error");
+      if (owner.current)
+        setSync(
+          connected.current
+            ? navigator.onLine
+              ? "saving"
+              : "offline"
+            : "error",
+        );
       persist();
     },
     [persist],
@@ -262,11 +358,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const remote = await loadCloud();
       if (generation !== epoch.current) return;
       const merged = mergeData(current.current.data, remote.data);
+      const pending = coalesceSyncChanges(
+        current.current.pending,
+        remote.pending === undefined
+          ? seedSyncChanges(merged.data)
+          : diffSyncChanges(remote.data, merged.data),
+      );
       connected.current = true;
       current.current = {
         data: merged.data,
         revision: remote.revision,
-        dirty: true,
+        pending,
+        dirty: Object.keys(pending).length > 0,
       };
       setData(merged.data);
       persist();
@@ -274,7 +377,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         notify(
           `${merged.conflicts} differences preserved as alternate mnemonics.`,
         );
-      await flush();
+      retryAttempts.current = 0;
+      if (current.current.dirty) await flush();
+      else setSync("saved");
     } catch (e) {
       if (generation === epoch.current) {
         setSync("error");
@@ -282,6 +387,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
   };
+  useEffect(() => {
+    const online = () => {
+      retryAttempts.current = 0;
+      if (!owner.current) return;
+      if (connected.current) {
+        if (current.current.dirty) setSync("saving");
+      } else void retry();
+    };
+    const offline = () => {
+      clearTimeout(retryTimer.current);
+      if (owner.current && current.current.dirty) setSync("offline");
+    };
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    return () => {
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+    };
+    // Account ownership is held in refs so listeners remain stable.
+  }, [flush]);
   const upsertPair = useCallback(
     (pair: LetterPair) =>
       update((d) => ({
