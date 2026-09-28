@@ -34,45 +34,31 @@ export async function feedbackAdmin(): Promise<boolean> {
 
 export async function submitFeedback(input: NewFeedback, user: User | null): Promise<Feedback> {
   const client = requireClient();
-  const id = crypto.randomUUID();
-  let screenshotPath: string | null = null;
-  if (input.screenshot?.file) {
-    const safe = input.screenshot.name.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(-120) || 'screenshot.png';
-    screenshotPath = `${id}/${crypto.randomUUID()}-${safe}`;
-    const { error } = await client.storage.from('feedback-screenshots').upload(screenshotPath, input.screenshot.file, {
-      contentType: input.screenshot.file.type,
-      upsert: false,
-    });
-    if (error) throw error;
-  }
-  const provider = user?.user_metadata.auth_source === 'wca' ? 'wca' : user ? 'google' : null;
-  const row = {
-    id,
-    user_id: user?.id ?? null,
-    contact_email: user ? null : input.contact || null,
-    category: input.category,
-    message: input.message,
-    source_page: input.source,
-    technical_context: input.context ?? null,
-    screenshot_path: screenshotPath,
-    screenshot_name: input.screenshot?.name ?? null,
-    submitter_name: user ? String(user.user_metadata.full_name ?? user.user_metadata.name ?? user.email ?? 'Signed in') : null,
-    submitter_detail: user ? String(user.user_metadata.wca_id ?? user.email ?? '') : null,
-    submitter_provider: provider,
-  };
-  const { error } = await client.from('feedback').insert(row);
+  const form = new FormData();
+  form.set('category', input.category);
+  form.set('message', input.message);
+  form.set('contact', input.contact ?? '');
+  form.set('source', input.source);
+  form.set('context', input.context ? JSON.stringify(input.context) : '');
+  if (input.screenshot?.file) form.set('screenshot', input.screenshot.file, input.screenshot.name);
+  const { data, error } = await client.functions.invoke('submit-feedback', { body: form });
   if (error) throw error;
+  const response = data as { id?: string; createdAt?: string } | null;
+  if (!response?.id) throw new Error('Feedback could not be submitted');
+  const provider = user?.user_metadata.auth_source === 'wca' ? 'wca' : user ? 'google' : null;
+  const submitterName = user ? String(user.user_metadata.full_name ?? user.user_metadata.name ?? user.email ?? 'Signed in') : '';
+  const submitterDetail = user ? String(user.user_metadata.wca_id ?? user.email ?? '') : '';
   return {
-    id,
+    id: response.id,
     category: input.category,
     message: input.message,
     status: 'new',
-    createdAt: new Date().toISOString(),
+    createdAt: response.createdAt ?? new Date().toISOString(),
     contact: user ? undefined : input.contact,
     source: input.source,
     context: input.context,
     screenshot: input.screenshot ? { name: input.screenshot.name, url: input.screenshot.url } : undefined,
-    user: user && provider ? { name: row.submitter_name!, detail: row.submitter_detail!, provider } : undefined,
+    user: user && provider ? { name: submitterName, detail: submitterDetail, provider } : undefined,
   };
 }
 

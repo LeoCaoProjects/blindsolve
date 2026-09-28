@@ -36,6 +36,12 @@ Deno.serve(async (req) => {
   const callback = wcaOAuthCallbackUrl(required("SUPABASE_URL"));
 
   try {
+    if (req.method !== "GET") {
+      return new Response("Method not allowed", {
+        status: 405,
+        headers: { allow: "GET", "cache-control": "no-store" },
+      });
+    }
     if (!url.pathname.endsWith("/callback")) {
       const state = crypto.randomUUID();
       const authorize = new URL("/oauth/authorize", WCA);
@@ -95,8 +101,10 @@ Deno.serve(async (req) => {
     destination.hash = new URLSearchParams({ wca_token_hash: data.properties.hashed_token }).toString();
     return redirect(destination.toString(), "wca_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure");
   } catch (error) {
+    // Do not reflect provider, Supabase, or configuration details into the browser URL.
+    console.error("WCA OAuth failed", error instanceof Error ? error.name : "UnknownError");
     const destination = new URL("/signin", appUrl);
-    destination.searchParams.set("auth_error", error instanceof Error ? error.message : "WCA sign-in failed");
+    destination.searchParams.set("auth_error", "WCA sign-in failed. Please try again.");
     return redirect(destination.toString(), "wca_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure");
   }
 });

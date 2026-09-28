@@ -24,6 +24,10 @@ export function BackupSection({ preview }: {preview?: 'valid' | 'invalid';}) {
   };
 
   const onFile = async (file: File) => {
+    if (file.size > 25 * 1024 * 1024) {
+      setSummary({ ok: false, fileName: file.name, problems: ['backup is larger than 25 MB'] });
+      return;
+    }
     try {
       const json = JSON.parse(await file.text());
       setSummary(summarize(file.name, json, store.data));
