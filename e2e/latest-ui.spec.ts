@@ -145,6 +145,64 @@ test('all Training modes remain idle until hold-release and Next returns to idle
   }
 });
 
+test('production search worker serves the hashed module for timer and restricted scrambles', async ({ page }) => {
+  await load(page);
+  const workerResponses: { url: string; status: number; contentType: string }[] = [];
+  const runtimeErrors: string[] = [];
+  page.on('response', (response) => {
+    if (response.url().includes('search-worker-entry')) {
+      workerResponses.push({
+        url: response.url(),
+        status: response.status(),
+        contentType: response.headers()['content-type'] ?? '',
+      });
+    }
+  });
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  const timerScramble = page.getByRole('region', { name: 'Scramble' });
+  await expect(timerScramble).toBeVisible({ timeout: 45_000 });
+  await expect(timerScramble).toContainText(/[UDFBRL]/, { timeout: 15_000 });
+  const firstScramble = await timerScramble.innerText();
+  for (let i = 0; i < 2; i += 1) {
+    await page.getByRole('button', { name: 'New scramble' }).click();
+    await expect.poll(() => timerScramble.innerText(), { timeout: 45_000 }).not.toBe(firstScramble);
+  }
+
+  await page.goto('/training');
+  for (const mode of ['Memo Recall', 'Trace Sprint', 'Full Memo']) {
+    await page.getByRole('radio', { name: mode }).click();
+    await holdSpace(page);
+    await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toHaveCount(0);
+    if (mode === 'Memo Recall') {
+      await page.keyboard.press('Space');
+      await page.keyboard.press('Escape');
+    } else {
+      if (mode === 'Full Memo') await page.locator('input').first().fill('test');
+      await page.getByRole('button', { name: /^Submit/ }).click();
+    }
+    await page.getByRole('button', { name: /Next/ }).click();
+  }
+
+  await page.getByRole('radio', { name: 'Execution Sprint' }).click();
+  for (const scope of ['Both', 'Edges', 'Corners']) {
+    await page.getByRole('radio', { name: scope, exact: true }).click();
+    const scramble = page.getByRole('region', { name: 'Scramble' });
+    await expect(scramble.getByText('Preparing scramble…')).toHaveCount(0, { timeout: 45_000 });
+    await expect(scramble).toContainText(/[UDFBRL]/);
+  }
+
+  expect(workerResponses.length).toBeGreaterThan(0);
+  expect(workerResponses.every(({ url }) => /search-worker-entry-[\w-]+\.js$/.test(url))).toBe(true);
+  expect(workerResponses.every(({ status }) => status === 200 || status === 304)).toBe(true);
+  expect(workerResponses.filter(({ status }) => status === 200).every(({ contentType }) => /javascript/.test(contentType))).toBe(true);
+  expect(runtimeErrors.filter((message) => /worker|scramble|document is not defined/i.test(message))).toEqual([]);
+});
+
 test('Space in a Training input never starts or submits another attempt', async ({ page }) => {
   await load(page);
   await page.goto('/training');

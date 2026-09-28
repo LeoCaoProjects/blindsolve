@@ -1,7 +1,10 @@
 import { Alg } from "cubing/alg";
 import { puzzles } from "cubing/puzzles";
 import { randomScrambleForEvent } from "cubing/scramble";
+import { configureCubingSearchWorker } from "./configureCubingSearch";
 import type { CubeOrbitState } from "./types";
+
+configureCubingSearchWorker();
 
 const faces = ["U", "L", "F", "R", "B", "D"];
 export async function scrambleToState(

@@ -3,6 +3,9 @@ import { CubeState, stateFromScramble } from './cube';
 import { KPattern } from 'cubing/kpuzzle';
 import { puzzles } from 'cubing/puzzles';
 import { experimentalSolve3x3x3IgnoringCenters } from 'cubing/search';
+import { configureCubingSearchWorker } from '../../domain/bld/configureCubingSearch';
+
+configureCubingSearchWorker();
 
 /**
  * Random-state scrambles for Execution Sprint, including restricted states:
