@@ -333,6 +333,7 @@ export interface LocalEnvelope {
   dirty: boolean;
   revision: number;
   pending?: Record<string, SyncChange>;
+  lastAttemptAt?: string;
 }
 export function loadLocal(owner: string | null = null): LocalEnvelope {
   const raw = localStorage.getItem(storageKey(owner));
@@ -680,7 +681,7 @@ async function loadLegacyCloud(): Promise<AppData> {
     supabase
       .from("lettering_schemes")
       .select(
-        "id,name,orientation,edge_buffer,corner_buffer,edge_method,corner_method,updated_at,sticker_labels(physical_sticker_id,token)",
+        "id,name,orientation,edge_buffer,corner_buffer,edge_method,corner_method,updated_at",
       )
       .eq("is_active", true)
       .maybeSingle(),
@@ -747,6 +748,13 @@ async function loadLegacyCloud(): Promise<AppData> {
   }));
   const s = schemes.data;
   if (s) {
+    const labels = await supabase
+      .from("sticker_labels")
+      .select("physical_sticker_id,token")
+      .eq("scheme_id", s.id)
+      .order("physical_sticker_id");
+    if (labels.error)
+      throw new Error(`V1 labels could not be loaded: ${labels.error.message}`);
     data.scheme = {
       ...data.scheme,
       id: s.id,
@@ -757,7 +765,7 @@ async function loadLegacyCloud(): Promise<AppData> {
       edgeMethod: s.edge_method,
       cornerMethod: s.corner_method,
     };
-    for (const sticker of s.sticker_labels as Array<{
+    for (const sticker of labels.data as Array<{
       physical_sticker_id: string;
       token: string;
     }>) {
@@ -770,19 +778,6 @@ async function loadLegacyCloud(): Promise<AppData> {
     !!s || !!data.solves.length || !!Object.keys(data.pairs).length;
   return parseData(data);
 }
-export async function saveCloud(
-  data: AppData,
-  revision: number,
-): Promise<number> {
-  if (!supabase) throw new Error("Cloud storage is not configured.");
-  const { data: next, error } = await supabase.rpc("save_bld_workspace", {
-    payload: data,
-    expected_revision: revision,
-  });
-  if (error) throw new Error(error.message);
-  return next as number;
-}
-
 export class SyncConflictError extends Error {}
 
 export async function saveCloudChanges(

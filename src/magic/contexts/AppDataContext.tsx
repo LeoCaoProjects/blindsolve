@@ -56,12 +56,17 @@ interface AppDataValue {
   setPrefs: (p: Partial<Prefs>) => void;
   account: Account;
   setAccount: (a: Account) => void;
+  retrySync: () => void;
+  syncMessage: string;
   replacePairs: React.Dispatch<React.SetStateAction<PairDb>>;
   navGuard: NavGuard;
   setNavGuard: (g: NavGuard) => void;
   feedback: Feedback[];
   submitFeedback: (feedback: NewFeedback) => Promise<Feedback>;
-  updateFeedback: (id: string, patch: Partial<Pick<Feedback, 'status' | 'note'>>) => Promise<void>;
+  updateFeedback: (
+    id: string,
+    patch: Partial<Pick<Feedback, "status" | "note">>,
+  ) => Promise<void>;
   deleteFeedback: (id: string) => Promise<void>;
 }
 const AppDataContext = createContext<AppDataValue | null>(null);
@@ -245,7 +250,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setFeedback([]);
       }
     });
-    return () => { live = false; };
+    return () => {
+      live = false;
+    };
   }, [store.user?.id]);
   const writeEntry = useCallback(
     (key: string, entry: PairEntry | null) => {
@@ -480,6 +487,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             store.user.user_metadata.wca_id ?? store.user.email ?? "",
           ),
           status: accountStatus,
+          lastAttemptAt: store.lastAttemptAt,
           role: isAdmin ? "admin" : "user",
         }
       : {
@@ -493,15 +501,21 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       if (!account.provider) void supabase.auth.signOut();
       else if (account.status === "saving") store.retry();
     },
+    retrySync: store.retry,
+    syncMessage: store.message,
     replacePairs: (action) => {
-      const db = typeof action === 'function' ? action(pairs) : action;
+      const db = typeof action === "function" ? action(pairs) : action;
       store.update((current) => {
         const next: typeof current.pairs = {};
         Object.entries(db).forEach(([key, entry]) => {
           const [first, second] = splitKey(key);
           (["edge", "corner"] as const).forEach((type) => {
-            const a = Object.values(current.scheme.stickers).find((s) => s.pieceType === type && s.label === first);
-            const b = Object.values(current.scheme.stickers).find((s) => s.pieceType === type && s.label === second);
+            const a = Object.values(current.scheme.stickers).find(
+              (s) => s.pieceType === type && s.label === first,
+            );
+            const b = Object.values(current.scheme.stickers).find(
+              (s) => s.pieceType === type && s.label === second,
+            );
             if (!a || !b) return;
             const id = physicalPairKey(a.id, b.id);
             const scoped = type === "edge" ? entry.edges : entry.corners;
@@ -509,9 +523,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             if (!words.length) return;
             const old = current.pairs[id];
             next[id] = {
-              id: old?.id ?? crypto.randomUUID(), firstStickerId: a.id, secondStickerId: b.id,
-              firstToken: first, secondToken: second, primaryMnemonic: words[0], alternates: words.slice(1),
-              encounters: old?.encounters ?? 0, forgotten: old?.forgotten ?? 0, updatedAt: new Date().toISOString(),
+              id: old?.id ?? crypto.randomUUID(),
+              firstStickerId: a.id,
+              secondStickerId: b.id,
+              firstToken: first,
+              secondToken: second,
+              primaryMnemonic: words[0],
+              alternates: words.slice(1),
+              encounters: old?.encounters ?? 0,
+              forgotten: old?.forgotten ?? 0,
+              updatedAt: new Date().toISOString(),
             };
           });
         });
@@ -528,7 +549,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     },
     updateFeedback: async (id, patch) => {
       await updateFeedbackRemote(id, patch);
-      setFeedback((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
+      setFeedback((items) =>
+        items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+      );
     },
     deleteFeedback: async (id) => {
       await deleteFeedbackRemote(id);

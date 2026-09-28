@@ -1,5 +1,5 @@
-export type PairScope = 'shared' | 'edges' | 'corners';
-export type Sharing = 'shared' | 'separate';
+export type PairScope = "shared" | "edges" | "corners";
+export type Sharing = "shared" | "separate";
 
 /** Words are ordered: primary first, then alternates. Overrides only exist when set. */
 export interface PairEntry {
@@ -13,7 +13,8 @@ export type PairDb = Record<string, PairEntry>;
 
 export type LetterScheme = Record<string, string>;
 
-export type FaceColor = 'white' | 'yellow' | 'green' | 'blue' | 'red' | 'orange';
+export type FaceColor =
+  "white" | "yellow" | "green" | "blue" | "red" | "orange";
 
 /**
  * How a rendered cube initially faces the user. Presentation only:
@@ -24,9 +25,9 @@ export interface CubeViewPref {
   front: FaceColor;
 }
 
-export type EdgeMethod = 'm2' | 'op' | '3style';
-export type CornerMethod = 'op' | '3style';
-export type OrientationHandling = 'cycle' | 'separate';
+export type EdgeMethod = "m2" | "op" | "3style";
+export type CornerMethod = "op" | "3style";
+export type OrientationHandling = "cycle" | "separate";
 
 export interface BldSetup {
   scheme: LetterScheme;
@@ -45,8 +46,15 @@ export interface Prefs {
   defaultView: CubeViewPref;
 }
 
-export type SyncStatus = 'local' | 'unconfigured' | 'idle' | 'saving' | 'offline' | 'failed' | 'conflict';
-export type AuthProvider = 'wca' | 'google';
+export type SyncStatus =
+  | "local"
+  | "unconfigured"
+  | "idle"
+  | "saving"
+  | "offline"
+  | "failed"
+  | "conflict";
+export type AuthProvider = "wca" | "google";
 
 export interface Account {
   provider: AuthProvider | null;
@@ -54,8 +62,10 @@ export interface Account {
   /** WCA ID for WCA accounts, email for Google */
   detail: string;
   status: SyncStatus;
+  lastAttemptAt?: string | null;
   /** Granted by the database; never inferred from frontend identity fields. */
-  role?: 'user' | 'admin';
+  role?: "user" | "admin";
 }
 
-export type CubeMode = 'view' | 'lettering' | 'edge-buffer' | 'corner-buffer' | 'cube-view';
+export type CubeMode =
+  "view" | "lettering" | "edge-buffer" | "corner-buffer" | "cube-view";

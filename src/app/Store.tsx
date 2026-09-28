@@ -33,6 +33,7 @@ interface StoreValue {
   user: User | null;
   ready: boolean;
   sync: SyncState;
+  lastAttemptAt: string | null;
   message: string;
   notify: (s: string) => void;
   update: (fn: (d: AppData) => AppData) => void;
@@ -53,6 +54,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
     [sync, setSync] = useState<SyncState>("loading"),
+    [lastAttemptAt, setLastAttemptAt] = useState<string | null>(null),
     [message, notify] = useState(""),
     [focus, setFocus] = useState(false);
   const current = useRef<LocalEnvelope>({
@@ -85,6 +87,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return false;
     }
   }, []);
+  const markAttempt = useCallback(() => {
+    const attemptedAt = new Date().toISOString();
+    current.current = { ...current.current, lastAttemptAt: attemptedAt };
+    setLastAttemptAt(attemptedAt);
+    persist();
+    return attemptedAt;
+  }, [persist]);
   const flush = useCallback(async () => {
     if (
       !owner.current ||
@@ -103,6 +112,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return;
     }
     saving.current = true;
+    markAttempt();
     setSync("saving");
     try {
       const revision = await saveCloudChanges(batch, snapshot.revision);
@@ -175,7 +185,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setData({ ...current.current.data });
       }
     }
-  }, [persist]);
+  }, [markAttempt, persist]);
   flushRef.current = flush;
   useEffect(() => {
     let disposed = false;
@@ -209,9 +219,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       }
       current.current = local;
+      setLastAttemptAt(local.lastAttemptAt ?? null);
       setData(local.data);
       if (nextUser) {
         try {
+          markAttempt();
           const remote = await loadCloud();
           if (disposed || generation !== epoch.current) return;
           const merged = mergeData(local.data, remote.data);
@@ -269,7 +281,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       listener.subscription.unsubscribe();
     };
     // Auth owns account transitions. No data/effect dependency: subscriptions must stay stable.
-  }, [persist]);
+  }, [markAttempt, persist]);
   useEffect(() => {
     if (sync === "saving" && !saving.current && current.current.dirty) {
       saveTimer.current = setTimeout(() => void flush(), 750);
@@ -351,8 +363,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [persist],
   );
   const retry = async () => {
-    if (!owner.current || saving.current) return;
+    if (!owner.current) {
+      markAttempt();
+      setSync("error");
+      notify(
+        "Sync could not start because there is no authenticated account. Sign in again.",
+      );
+      return;
+    }
+    if (saving.current) {
+      notify("A sync attempt is already in progress.");
+      return;
+    }
     const generation = epoch.current;
+    markAttempt();
     setSync("loading");
     try {
       const remote = await loadCloud();
@@ -432,6 +456,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         user,
         ready,
         sync,
+        lastAttemptAt,
         message,
         notify,
         update,

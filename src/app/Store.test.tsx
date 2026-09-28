@@ -39,7 +39,7 @@ function Harness() {
     <>
       <span data-testid="state">
         {s.ready ? "ready" : "loading"}|{s.user?.id ?? "guest"}|
-        {s.data.scheme.name}|{s.sync}
+        {s.data.scheme.name}|{s.sync}|{s.lastAttemptAt ?? "never"}
       </span>
       <button
         onClick={() =>
@@ -96,14 +96,12 @@ describe("account state and sync", () => {
       configurable: true,
       value: true,
     });
-    mocks.load
-      .mockReset()
-      .mockResolvedValue({
-        data: emptyData(),
-        revision: 0,
-        dirty: false,
-        pending: {},
-      });
+    mocks.load.mockReset().mockResolvedValue({
+      data: emptyData(),
+      revision: 0,
+      dirty: false,
+      pending: {},
+    });
     mocks.save.mockReset().mockResolvedValue(1);
   });
   afterEach(cleanup);
@@ -211,5 +209,31 @@ describe("account state and sync", () => {
       timeout: 2500,
     });
     await waitFor(() => expect(loadLocal("alice").dirty).toBe(false));
+  });
+  it("manual retry performs a fresh cloud health snapshot even with no pending changes", async () => {
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice");
+    await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByText("Retry"));
+    await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("state").textContent).not.toContain("|never");
+    expect(loadLocal("alice").lastAttemptAt).toBeTruthy();
+  });
+  it("surfaces an explicit error when retry has no authenticated owner", async () => {
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth(null, "INITIAL_SESSION");
+    fireEvent.click(screen.getByText("Retry"));
+    expect(screen.getByRole("paragraph").textContent).toContain(
+      "no authenticated account",
+    );
+    expect(mocks.load).not.toHaveBeenCalled();
   });
 });
