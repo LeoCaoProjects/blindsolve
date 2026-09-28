@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { WCA_OAUTH_SCOPE, wcaOAuthCallbackUrl } from "./oauth.ts";
 
 const WCA = "https://www.worldcubeassociation.org";
 
@@ -32,8 +33,7 @@ function safeAppUrl() {
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const appUrl = safeAppUrl();
-  const functionPath = url.pathname.replace(/\/callback\/?$/, "").replace(/\/$/, "");
-  const callback = `${url.origin}${functionPath}/callback`;
+  const callback = wcaOAuthCallbackUrl(required("SUPABASE_URL"));
 
   try {
     if (!url.pathname.endsWith("/callback")) {
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
         client_id: required("WCA_CLIENT_ID"),
         redirect_uri: callback,
         response_type: "code",
-        scope: "public email",
+        scope: WCA_OAUTH_SCOPE,
         state,
       }).toString();
       const secure = url.protocol === "https:" ? "; Secure" : "";
