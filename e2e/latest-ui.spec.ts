@@ -200,7 +200,11 @@ test('production search worker serves the hashed module for timer and restricted
   expect(workerResponses.every(({ url }) => /search-worker-entry-[\w-]+\.js$/.test(url))).toBe(true);
   expect(workerResponses.every(({ status }) => status === 200 || status === 304)).toBe(true);
   expect(workerResponses.filter(({ status }) => status === 200).every(({ contentType }) => /javascript/.test(contentType))).toBe(true);
-  expect(runtimeErrors.filter((message) => /worker|scramble|document is not defined/i.test(message))).toEqual([]);
+  expect(
+    runtimeErrors.filter((message) =>
+      /worker|scramble|document is not defined|font-src|content security policy[^\n]*font/i.test(message),
+    ),
+  ).toEqual([]);
 });
 
 test('Space in a Training input never starts or submits another attempt', async ({ page }) => {
