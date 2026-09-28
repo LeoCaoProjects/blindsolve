@@ -146,6 +146,7 @@ test('all Training modes remain idle until hold-release and Next returns to idle
 });
 
 test('production search worker serves the hashed module for timer and restricted scrambles', async ({ page }) => {
+  test.skip(!process.env.PLAYWRIGHT_BASE_URL, 'Runs against an explicit production build or deployment.');
   await load(page);
   const workerResponses: { url: string; status: number; contentType: string }[] = [];
   const runtimeErrors: string[] = [];
