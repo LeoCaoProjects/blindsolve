@@ -190,7 +190,10 @@ const dataSchema = z.object({
     .max(100)
     .optional(),
   scheme: schemeSchema,
-  pairs: z.record(z.string(), pairSchema),
+  pairs: z.record(z.string(), pairSchema).refine(
+    (pairs) => Object.keys(pairs).length <= 2304,
+    "Backup contains too many letter pairs",
+  ),
   solves: z.array(solveSchema).max(100000),
   attempts: z
     .array(
@@ -207,7 +210,7 @@ const dataSchema = z.object({
         targets: z.number().int().nonnegative().optional(),
         pairs: z.number().int().nonnegative().optional(),
       }),
-    )
+    ).max(100000)
     .default([]),
   timerSessions: z
     .array(z.object({ id: text, name: text, createdAt: iso }))

@@ -21,6 +21,46 @@ function cookie(req: Request, name: string) {
   return value ? decodeURIComponent(value.slice(name.length + 1)) : null;
 }
 
+function clientIp(req: Request) {
+  return (
+    req.headers.get("cf-connecting-ip") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0] ??
+    req.headers.get("x-real-ip") ??
+    "unknown"
+  ).trim();
+}
+
+async function fingerprint(value: string) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(required("SUPABASE_SERVICE_ROLE_KEY")),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(value),
+  );
+  return [...new Uint8Array(signature)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function consumeRateLimit(
+  admin: ReturnType<typeof createClient>,
+  scope: "wca-start" | "wca-callback",
+  req: Request,
+) {
+  const { data, error } = await admin.rpc("consume_edge_rate_limit", {
+    p_scope: scope,
+    p_fingerprint: await fingerprint(clientIp(req)),
+  });
+  if (error) throw new Error("rate-limit-unavailable");
+  return data === true;
+}
+
 function safeAppUrl() {
   const value = required("APP_URL");
   const url = new URL(value);
@@ -42,7 +82,18 @@ Deno.serve(async (req) => {
         headers: { allow: "GET", "cache-control": "no-store" },
       });
     }
-    if (!url.pathname.endsWith("/callback")) {
+    const admin = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const isCallback = url.pathname.endsWith("/callback");
+    if (!await consumeRateLimit(admin, isCallback ? "wca-callback" : "wca-start", req)) {
+      return new Response("Too many requests. Please try again later.", {
+        status: 429,
+        headers: { "cache-control": "no-store", "retry-after": "600" },
+      });
+    }
+
+    if (!isCallback) {
       const state = crypto.randomUUID();
       const authorize = new URL("/oauth/authorize", WCA);
       authorize.search = new URLSearchParams({
@@ -52,8 +103,7 @@ Deno.serve(async (req) => {
         scope: WCA_OAUTH_SCOPE,
         state,
       }).toString();
-      const secure = url.protocol === "https:" ? "; Secure" : "";
-      return redirect(authorize.toString(), `wca_oauth_state=${encodeURIComponent(state)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600${secure}`);
+      return redirect(authorize.toString(), `wca_oauth_state=${encodeURIComponent(state)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600; Secure`);
     }
 
     const state = url.searchParams.get("state");
@@ -83,9 +133,6 @@ Deno.serve(async (req) => {
     const me = body.me;
     if (!me?.id || !me.email) throw new Error("The WCA account does not expose a verified email address");
 
-    const admin = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
     const { data, error } = await admin.auth.admin.generateLink({
       type: "magiclink",
       email: me.email,

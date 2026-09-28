@@ -64,7 +64,10 @@ export async function submitFeedback(input: NewFeedback, user: User | null): Pro
 
 export async function listFeedback(): Promise<Feedback[]> {
   const client = requireClient();
-  const { data, error } = await client.from('feedback').select('*').order('created_at', { ascending: false });
+  const { data, error } = await client.from('feedback')
+    .select('id,user_id,contact_email,category,message,status,source_page,technical_context,screenshot_path,screenshot_name,admin_note,submitter_name,submitter_detail,submitter_provider,created_at')
+    .order('created_at', { ascending: false })
+    .limit(100);
   if (error) throw error;
   return Promise.all((data as FeedbackRow[]).map(async (row) => {
     let url: string | undefined;
