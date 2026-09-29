@@ -17,6 +17,7 @@ import {
   saveCloudChanges,
   mergeData,
   coalesceSyncChanges,
+  pruneAcknowledgedSyncChanges,
   diffSyncChanges,
   seedSyncChanges,
   syncRetryDelay,
@@ -115,7 +116,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     markAttempt();
     setSync("saving");
     try {
-      const revision = await saveCloudChanges(batch, snapshot.revision);
+      const write = () => saveCloudChanges(batch, snapshot.revision);
+      const revision =
+        typeof navigator !== "undefined" && navigator.locks
+          ? await navigator.locks.request(
+              `blindsolve-sync:${owner.current}`,
+              write,
+            )
+          : await write();
       if (generation !== epoch.current) return;
       const sent = new Map(
         batch.map((change) => [
@@ -146,7 +154,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (generation !== epoch.current) return;
             const merged = mergeData(current.current.data, remote.data);
             const pending = coalesceSyncChanges(
-              current.current.pending,
+              pruneAcknowledgedSyncChanges(
+                remote.data,
+                current.current.pending,
+              ),
               diffSyncChanges(remote.data, merged.data),
             );
             current.current = {
@@ -161,8 +172,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               notify(
                 `${merged.conflicts} differing mnemonics were preserved as alternates.`,
               );
-            retryAttempts.current = 0;
-            setSync(current.current.dirty ? "saving" : "saved");
+            if (current.current.dirty) {
+              setSync("error");
+              if (retryAttempts.current < 5) {
+                const delay = syncRetryDelay(retryAttempts.current++);
+                clearTimeout(retryTimer.current);
+                retryTimer.current = setTimeout(
+                  () => void flushRef.current(),
+                  delay,
+                );
+              }
+            } else {
+              retryAttempts.current = 0;
+              setSync("saved");
+            }
             return;
           } catch (reloadError) {
             failure = reloadError;
@@ -228,7 +251,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (disposed || generation !== epoch.current) return;
           const merged = mergeData(local.data, remote.data);
           const pending = coalesceSyncChanges(
-            local.pending,
+            pruneAcknowledgedSyncChanges(remote.data, local.pending),
             remote.pending === undefined
               ? seedSyncChanges(merged.data)
               : diffSyncChanges(remote.data, merged.data),
@@ -298,11 +321,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const incoming = loadLocal(owner.current);
         const merged = mergeData(current.current.data, incoming.data);
+        const basePending =
+          incoming.revision > current.current.revision
+            ? incoming.pending
+            : coalesceSyncChanges(
+                current.current.pending,
+                Object.values(incoming.pending ?? {}),
+              );
         const pending = coalesceSyncChanges(
-          coalesceSyncChanges(
-            current.current.pending,
-            Object.values(incoming.pending ?? {}),
-          ),
+          basePending,
           diffSyncChanges(current.current.data, merged.data),
         );
         current.current = {
@@ -383,7 +410,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (generation !== epoch.current) return;
       const merged = mergeData(current.current.data, remote.data);
       const pending = coalesceSyncChanges(
-        current.current.pending,
+        pruneAcknowledgedSyncChanges(remote.data, current.current.pending),
         remote.pending === undefined
           ? seedSyncChanges(merged.data)
           : diffSyncChanges(remote.data, merged.data),

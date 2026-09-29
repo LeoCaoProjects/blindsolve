@@ -409,6 +409,31 @@ export function coalesceSyncChanges(
   return next;
 }
 
+/** Remove work that the server snapshot already contains.
+ *
+ * A successful write in another tab can leave this tab holding an older copy
+ * of the same pending record. Replaying that record forever creates revision
+ * conflicts without changing any data.
+ */
+export function pruneAcknowledgedSyncChanges(
+  remote: AppData,
+  pending: Record<string, SyncChange> | undefined,
+) {
+  const remoteRecords = new Map(
+    seedSyncChanges(remote, "").map((change) => [syncKey(change), change]),
+  );
+  return Object.fromEntries(
+    Object.entries(pending ?? {}).filter(([key, change]) => {
+      const remoteChange = remoteRecords.get(key);
+      if (change.deleted) return remoteChange !== undefined;
+      return (
+        !remoteChange ||
+        JSON.stringify(remoteChange.payload) !== JSON.stringify(change.payload)
+      );
+    }),
+  );
+}
+
 export function diffSyncChanges(
   before: AppData,
   after: AppData,

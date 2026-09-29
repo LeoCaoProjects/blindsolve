@@ -32,7 +32,7 @@ vi.mock("../lib/repository", async (importOriginal) => ({
   saveCloudChanges: mocks.save,
 }));
 import { StoreProvider, useStore } from "./Store";
-import { emptyData, loadLocal } from "../lib/repository";
+import { emptyData, loadLocal, SyncConflictError } from "../lib/repository";
 function Harness() {
   const s = useStore();
   return (
@@ -151,6 +151,42 @@ describe("account state and sync", () => {
       expect(screen.getByTestId("state").textContent).toContain("|saved"),
     );
     expect(loadLocal("alice").dirty).toBe(false);
+  });
+  it("converges after another tab already committed the same pending record", async () => {
+    const cloud = emptyData();
+    mocks.save.mockImplementationOnce(async (batch) => {
+      Object.assign(cloud, batch[0].payload);
+      throw new SyncConflictError("stale revision");
+    });
+    mocks.load
+      .mockResolvedValueOnce({
+        data: emptyData(),
+        revision: 0,
+        dirty: false,
+        pending: {},
+      })
+      .mockImplementationOnce(async () => ({
+        data: cloud,
+        revision: 1,
+        dirty: false,
+        pending: {},
+      }));
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice");
+    fireEvent.click(screen.getByText("Edit"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1), {
+      timeout: 2500,
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("state").textContent).toContain("|saved"),
+    );
+    expect(loadLocal("alice").dirty).toBe(false);
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 1000)));
+    expect(mocks.save).toHaveBeenCalledTimes(1);
   });
   it("does not upload changes before a failed initial download is resolved", async () => {
     mocks.load.mockRejectedValueOnce(new Error("Offline"));

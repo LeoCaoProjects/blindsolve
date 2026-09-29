@@ -9,6 +9,7 @@ import {
   validateScheme,
   diffSyncChanges,
   coalesceSyncChanges,
+  pruneAcknowledgedSyncChanges,
   seedSyncChanges,
   syncRetryDelay,
 } from "./repository";
@@ -180,6 +181,31 @@ describe("workspace integrity", () => {
     expect(pending[`pair:${key}`].payload).toMatchObject({
       primaryMnemonic: "tower",
     });
+  });
+  it("drops pending records already acknowledged by a cloud snapshot", () => {
+    const before = emptyData();
+    const cloud = emptyData();
+    const key = pairKey("B:BR", "D:DB");
+    cloud.pairs[key] = pair("tow");
+    const pending = coalesceSyncChanges(
+      {},
+      diffSyncChanges(before, cloud, "2026-09-28T00:00:00Z"),
+    );
+    expect(pruneAcknowledgedSyncChanges(cloud, pending)).toEqual({});
+  });
+  it("preserves a pending deletion until the cloud snapshot no longer has it", () => {
+    const cloud = emptyData();
+    const local = emptyData();
+    const key = pairKey("B:BR", "D:DB");
+    cloud.pairs[key] = pair("tow");
+    const pending = coalesceSyncChanges(
+      {},
+      diffSyncChanges(cloud, local, "2026-09-28T00:00:00Z"),
+    );
+    expect(Object.keys(pruneAcknowledgedSyncChanges(cloud, pending))).toEqual([
+      `pair:${key}`,
+    ]);
+    expect(pruneAcknowledgedSyncChanges(local, pending)).toEqual({});
   });
   it("seeds settings and each historical entity exactly once", () => {
     const data = emptyData();
