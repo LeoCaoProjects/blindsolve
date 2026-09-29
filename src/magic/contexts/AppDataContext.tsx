@@ -354,7 +354,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [activeSessionId, solves, store],
   );
   const setActiveSession = useCallback(
-    (id: string) => store.update((d) => ({ ...d, activeTimerSessionId: id })),
+    (id: string) =>
+      store.update((d) => ({
+        ...d,
+        activeTimerSessionId: id,
+        preferencesUpdatedAt: new Date().toISOString(),
+      })),
     [store],
   );
   const createSession = useCallback(
@@ -379,6 +384,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           },
         ],
         activeTimerSessionId: id,
+        preferencesUpdatedAt: new Date().toISOString(),
       }));
       return id;
     },
@@ -392,6 +398,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           timerSessions: (d.timerSessions ?? []).map((s) =>
             s.id === id ? { ...s, name: name.trim() } : s,
           ),
+          preferencesUpdatedAt: new Date().toISOString(),
         }));
     },
     [store],
@@ -414,6 +421,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           timerSessions: next,
           activeTimerSessionId:
             d.activeTimerSessionId === id ? next[0].id : d.activeTimerSessionId,
+          preferencesUpdatedAt: new Date().toISOString(),
           solves: d.solves.map((s) =>
             (s.sessionId ?? "today") === id
               ? { ...s, deleted: true, updatedAt: new Date().toISOString() }

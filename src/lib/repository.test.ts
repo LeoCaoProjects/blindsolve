@@ -157,6 +157,50 @@ describe("workspace integrity", () => {
     cloud.preferencesUpdatedAt = "2026-09-25T02:00:00Z";
     expect(mergeData(local, cloud).data.multiphaseTiming).toBe(false);
   });
+  it("does not create a settings diff when identical data is merged", () => {
+    const local = emptyData();
+    const cloud = structuredClone(local);
+    expect(diffSyncChanges(cloud, mergeData(local, cloud).data)).toEqual([]);
+  });
+  it("preserves timer sessions and active session through a cloud merge", () => {
+    const local = emptyData();
+    const cloud = emptyData();
+    cloud.timerSessions = [
+      { id: "cloud", name: "Cloud", createdAt: "2026-09-25T01:00:00Z" },
+    ];
+    cloud.activeTimerSessionId = "cloud";
+    cloud.preferencesUpdatedAt = "2026-09-25T02:00:00Z";
+    local.preferencesUpdatedAt = "2026-09-25T01:00:00Z";
+    const merged = mergeData(local, cloud).data;
+    expect(merged.timerSessions).toEqual(cloud.timerSessions);
+    expect(merged.activeTimerSessionId).toBe("cloud");
+  });
+  it("keeps newer local timer-session settings", () => {
+    const local = emptyData();
+    const cloud = emptyData();
+    local.timerSessions = [
+      { id: "local", name: "Local", createdAt: "2026-09-25T03:00:00Z" },
+    ];
+    local.activeTimerSessionId = "local";
+    local.preferencesUpdatedAt = "2026-09-25T03:00:00Z";
+    cloud.timerSessions = [
+      { id: "cloud", name: "Cloud", createdAt: "2026-09-25T02:00:00Z" },
+    ];
+    cloud.activeTimerSessionId = "cloud";
+    cloud.preferencesUpdatedAt = "2026-09-25T02:00:00Z";
+    const merged = mergeData(local, cloud).data;
+    expect(merged.timerSessions).toEqual(local.timerSessions);
+    expect(merged.activeTimerSessionId).toBe("local");
+  });
+  it("creates one settings change for one multiphase toggle", () => {
+    const before = emptyData();
+    const after = structuredClone(before);
+    after.multiphaseTiming = false;
+    after.preferencesUpdatedAt = "2026-09-25T03:00:00Z";
+    expect(diffSyncChanges(before, after)).toEqual([
+      expect.objectContaining({ kind: "settings", recordId: "settings" }),
+    ]);
+  });
   it("creates only the changed record for one letter-pair edit", () => {
     const before = emptyData();
     const after = emptyData();

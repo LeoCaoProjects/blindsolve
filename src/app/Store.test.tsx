@@ -53,6 +53,17 @@ function Harness() {
         Edit
       </button>
       <button onClick={s.retry}>Retry</button>
+      <button
+        onClick={() =>
+          s.update((d) => ({
+            ...d,
+            multiphaseTiming: !d.multiphaseTiming,
+            preferencesUpdatedAt: new Date().toISOString(),
+          }))
+        }
+      >
+        Toggle multiphase
+      </button>
       <p>{s.message}</p>
     </>
   );
@@ -219,6 +230,60 @@ describe("account state and sync", () => {
     expect(mocks.save.mock.calls[0][0]).toEqual([
       expect.objectContaining({ kind: "settings", recordId: "settings" }),
     ]);
+  });
+  it("opens an already-synced account without creating pending cloud work", async () => {
+    const synced = emptyData();
+    localStorage.setItem(
+      "cubeiq-bld-v2:alice",
+      JSON.stringify({ data: synced, revision: 7, dirty: false, pending: {} }),
+    );
+    mocks.load.mockResolvedValue({
+      data: synced,
+      revision: 7,
+      dirty: false,
+      pending: {},
+    });
+    const view = render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice");
+    await waitFor(() =>
+      expect(screen.getByTestId("state").textContent).toContain("|saved"),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
+    expect(mocks.save).not.toHaveBeenCalled();
+
+    view.unmount();
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice");
+    await waitFor(() =>
+      expect(screen.getByTestId("state").textContent).toContain("|saved"),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it("turns one multiphase toggle into exactly one settings write", async () => {
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice");
+    fireEvent.click(screen.getByText("Toggle multiphase"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1), {
+      timeout: 2500,
+    });
+    expect(mocks.save.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ kind: "settings", recordId: "settings" }),
+    ]);
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
+    expect(mocks.save).toHaveBeenCalledTimes(1);
   });
   it("keeps offline edits local and resumes once when connectivity returns", async () => {
     render(

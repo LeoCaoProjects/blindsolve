@@ -145,10 +145,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         let failure = e;
         if (e instanceof SyncConflictError) {
           try {
-            const remote = await withAccountCloudLock(
-              owner.current,
-              loadCloud,
-            );
+            const remote = await withAccountCloudLock(owner.current, loadCloud);
             if (generation !== epoch.current) return;
             const merged = mergeData(current.current.data, remote.data);
             const pending = coalesceSyncChanges(
@@ -163,6 +160,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               revision: remote.revision,
               pending,
               dirty: Object.keys(pending).length > 0,
+              lastAttemptAt: current.current.lastAttemptAt,
             };
             setData(merged.data);
             persist();
@@ -260,6 +258,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             revision: remote.revision,
             pending,
             dirty: Object.keys(pending).length > 0,
+            lastAttemptAt: current.current.lastAttemptAt,
           };
           setData(merged.data);
           setSync(Object.keys(pending).length ? "saving" : "saved");
@@ -335,6 +334,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           revision: Math.max(current.current.revision, incoming.revision),
           pending,
           dirty: Object.keys(pending).length > 0,
+          lastAttemptAt: current.current.lastAttemptAt,
         };
         setData(merged.data);
         if (owner.current)
@@ -419,6 +419,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         revision: remote.revision,
         pending,
         dirty: Object.keys(pending).length > 0,
+        lastAttemptAt: current.current.lastAttemptAt,
       };
       setData(merged.data);
       persist();

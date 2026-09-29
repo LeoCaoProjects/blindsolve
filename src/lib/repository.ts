@@ -190,10 +190,12 @@ const dataSchema = z.object({
     .max(100)
     .optional(),
   scheme: schemeSchema,
-  pairs: z.record(z.string(), pairSchema).refine(
-    (pairs) => Object.keys(pairs).length <= 2304,
-    "Backup contains too many letter pairs",
-  ),
+  pairs: z
+    .record(z.string(), pairSchema)
+    .refine(
+      (pairs) => Object.keys(pairs).length <= 2304,
+      "Backup contains too many letter pairs",
+    ),
   solves: z.array(solveSchema).max(100000),
   attempts: z
     .array(
@@ -210,7 +212,8 @@ const dataSchema = z.object({
         targets: z.number().int().nonnegative().optional(),
         pairs: z.number().int().nonnegative().optional(),
       }),
-    ).max(100000)
+    )
+    .max(100000)
     .default([]),
   timerSessions: z
     .array(z.object({ id: text, name: text, createdAt: iso }))
@@ -386,7 +389,7 @@ const syncKey = (change: Pick<SyncChange, "kind" | "recordId">) =>
   `${change.kind}:${change.recordId}`;
 
 const settingsPayload = (data: AppData) => ({
-  schemeHistory: data.schemeHistory,
+  schemeHistory: data.schemeHistory ?? [],
   scheme: data.scheme,
   timerSessions: data.timerSessions,
   activeTimerSessionId: data.activeTimerSessionId,
@@ -637,6 +640,15 @@ export function mergeData(
           [...local.attempts, ...incoming.attempts].map((a) => [a.id, a]),
         ).values(),
       ],
+      // Timer-session metadata is part of the settings record and must follow
+      // the same last-writer timestamp as the other preferences. Omitting it
+      // here made a read-only cloud merge look like a settings deletion.
+      timerSessions: incomingPreferences
+        ? incoming.timerSessions
+        : local.timerSessions,
+      activeTimerSessionId: incomingPreferences
+        ? incoming.activeTimerSessionId
+        : local.activeTimerSessionId,
       onboarded: local.onboarded || incoming.onboarded,
       multiphaseTiming: incomingPreferences
         ? incoming.multiphaseTiming
