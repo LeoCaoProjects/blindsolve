@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { withAccountCloudLock } from "../lib/cloudLock";
 import {
   emptyData,
   loadLocal,
@@ -117,13 +118,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSync("saving");
     try {
       const write = () => saveCloudChanges(batch, snapshot.revision);
-      const revision =
-        typeof navigator !== "undefined" && navigator.locks
-          ? await navigator.locks.request(
-              `blindsolve-sync:${owner.current}`,
-              write,
-            )
-          : await write();
+      const revision = await withAccountCloudLock(owner.current, write);
       if (generation !== epoch.current) return;
       const sent = new Map(
         batch.map((change) => [
@@ -150,7 +145,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         let failure = e;
         if (e instanceof SyncConflictError) {
           try {
-            const remote = await loadCloud();
+            const remote = await withAccountCloudLock(
+              owner.current,
+              loadCloud,
+            );
             if (generation !== epoch.current) return;
             const merged = mergeData(current.current.data, remote.data);
             const pending = coalesceSyncChanges(
@@ -247,7 +245,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (nextUser) {
         try {
           markAttempt();
-          const remote = await loadCloud();
+          const remote = await withAccountCloudLock(nextUser.id, loadCloud);
           if (disposed || generation !== epoch.current) return;
           const merged = mergeData(local.data, remote.data);
           const pending = coalesceSyncChanges(
@@ -406,7 +404,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     markAttempt();
     setSync("loading");
     try {
-      const remote = await loadCloud();
+      const remote = await withAccountCloudLock(owner.current, loadCloud);
       if (generation !== epoch.current) return;
       const merged = mergeData(current.current.data, remote.data);
       const pending = coalesceSyncChanges(

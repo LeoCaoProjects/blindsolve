@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import sql from "../../supabase/migrations/202609290001_abuse_limits.sql?raw";
 import videoSql from "../../supabase/migrations/202609290002_solve_video_quota.sql?raw";
+import serializedSyncSql from "../../supabase/migrations/202609290003_serialize_sync_rpc.sql?raw";
 
 describe("application abuse limits", () => {
   it("keeps edge counters private and callable only by the service role", () => {
@@ -21,6 +22,17 @@ describe("application abuse limits", () => {
     expect(sql).toContain("if sync_requests > 120 then");
     expect(sql).toContain("Sync rate limit exceeded");
     expect(sql).toContain("octet_length(changes::text) > 5000000");
+  });
+
+  it("rejects concurrent sync work without waiting and accepts acknowledged retries", () => {
+    expect(serializedSyncSql).toContain("pg_try_advisory_xact_lock");
+    expect(serializedSyncSql).toContain("using errcode = '55P03'");
+    expect(serializedSyncSql).toContain("when serialization_failure");
+    expect(serializedSyncSql).toMatch(
+      /r\.deleted is distinct from x\.deleted[\s\S]*r\.payload is distinct from x\.payload/i,
+    );
+    expect(serializedSyncSql).toContain("if already_applied then");
+    expect(serializedSyncSql).toContain("to authenticated");
   });
 
   it("caps aggregate private solve-video storage per account", () => {

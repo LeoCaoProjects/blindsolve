@@ -236,7 +236,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   };
   useEffect(() => {
     let live = true;
-    void feedbackAdmin().then(async (allowed) => {
+    void feedbackAdmin(store.user?.id).then(async (allowed) => {
       if (!live) return;
       setIsAdmin(allowed);
       if (allowed) {

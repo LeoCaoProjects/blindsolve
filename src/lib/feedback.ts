@@ -1,6 +1,7 @@
 import type { User } from '@supabase/supabase-js';
 import type { Feedback, FeedbackStatus, NewFeedback } from '../magic/types/feedback';
 import { supabase } from './supabase';
+import { withAccountCloudLock } from './cloudLock';
 
 type FeedbackRow = {
   id: string;
@@ -25,9 +26,13 @@ const requireClient = () => {
   return supabase;
 };
 
-export async function feedbackAdmin(): Promise<boolean> {
+export async function feedbackAdmin(userId?: string): Promise<boolean> {
   if (!supabase) return false;
-  const { data, error } = await supabase.rpc('is_feedback_admin');
+  const client = supabase;
+  const request = async () => await client.rpc('is_feedback_admin');
+  const { data, error } = userId
+    ? await withAccountCloudLock(userId, request)
+    : await request();
   if (error) return false;
   return data === true;
 }
