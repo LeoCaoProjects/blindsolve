@@ -19,7 +19,7 @@ function workspace(withPair = false) {
   }
   return {
     scheme, pairs, solves: [], attempts: [], onboarded: true, schemeUpdatedAt: stamp,
-    multiphaseTiming: true, pairSharing: 'shared', flippedEdges: 'cycle', twistedCorners: 'cycle',
+    multiphaseTiming: true, showLiveTimer: true, pairSharing: 'shared', flippedEdges: 'cycle', twistedCorners: 'cycle',
     defaultCubeView: { top: 'white', front: 'green' }, preferencesUpdatedAt: stamp,
   };
 }
@@ -337,6 +337,30 @@ test('Timer hold, memo split, execution stop and reconstruction save form one so
   expect(saved.solves[0].memoMs).toBeGreaterThan(0);
   expect(saved.solves[0].executionMs).toBeGreaterThanOrEqual(0);
   expect(saved.solves[0].totalMs).toBeGreaterThanOrEqual(saved.solves[0].memoMs);
+});
+
+test('hidden live timer masks active total and split times but reveals the final result', async ({ page }) => {
+  await load(page);
+  await page.goto('/settings');
+  const toggle = page.getByRole('switch', { name: 'Show live timer' });
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  await page.reload();
+  await expect(page.getByRole('switch', { name: 'Show live timer' })).toHaveAttribute('aria-checked', 'false');
+
+  await page.goto('/');
+  await holdSpace(page);
+  await expect(page.getByRole('timer')).toHaveText('Solve');
+  await page.waitForTimeout(80);
+  await expect(page.getByRole('timer')).toHaveText('Solve');
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('timer')).toHaveText('Solve');
+  await expect(page.getByText('memo', { exact: true }).locator('..')).not.toContainText(/\d/);
+  await page.waitForTimeout(40);
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('timer')).not.toHaveText('Solve');
+  await expect(page.getByRole('timer')).toContainText(/\d/);
 });
 
 test('auth surface exposes only WCA and Google', async ({ page }) => {

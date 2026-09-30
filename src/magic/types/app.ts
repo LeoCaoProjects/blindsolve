@@ -43,6 +43,7 @@ export interface BldSetup {
 export interface Prefs {
   sharing: Sharing;
   multiphase: boolean;
+  showLiveTimer: boolean;
   defaultView: CubeViewPref;
 }
 

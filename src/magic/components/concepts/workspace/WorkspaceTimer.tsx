@@ -29,7 +29,7 @@ import { useScreenInit } from '../../../useScreenInit.js';
  * a reference column at right (cube, session readout, times). Hairlines, no cards.
  * Sizes follow the viewport (clamp on vw/vh) so zoom and short windows keep everything reachable.
  */
-export function WorkspaceTimer({ multiphase, stage }: ConceptProps) {
+export function WorkspaceTimer({ multiphase, showLiveTimer, stage }: ConceptProps & {showLiveTimer: boolean;}) {
   const init = useScreenInit() as {sessions?: 'open' | 'confirm';letters?: boolean;};
   const s = useTimerSession({ multiphase, stage, initialSessionsOpen: !!init.sessions });
   const { sessions, activeSessionId } = useAppData();
@@ -103,10 +103,11 @@ export function WorkspaceTimer({ multiphase, stage }: ConceptProps) {
               <TimerReadout
                 phase={phase}
                 value={s.timer.display}
+                showLiveTimer={showLiveTimer}
                 penalty={s.lastPenalty}
                 className="-ml-[0.06em] font-timer text-[clamp(56px,min(12.5vw,19vh),176px)] font-extralight leading-[0.9] tracking-[-0.06em]" />
               
-              <WorkspacePhase phase={phase} split={s.timer.split} elapsed={s.timer.elapsed} multiphase={multiphase} />
+              <WorkspacePhase phase={phase} split={s.timer.split} elapsed={s.timer.elapsed} multiphase={multiphase} showLiveTimer={showLiveTimer} />
             </div>
           </div>
 
@@ -193,18 +194,19 @@ function WorkspacePhase({
   phase,
   split,
   elapsed,
-  multiphase
+  multiphase,
+  showLiveTimer
 
 
 
 
 
-}: {phase: TimerPhase;split: number | null;elapsed: number;multiphase: boolean;}) {
+}: {phase: TimerPhase;split: number | null;elapsed: number;multiphase: boolean;showLiveTimer: boolean;}) {
   const live = phase === 'memo' || phase === 'exec' || phase === 'running';
   const done = phase === 'stopped' && split !== null;
   if (!multiphase || !live && !done) return <div className="mt-[clamp(12px,3vh,28px)] h-7" />;
   const segs: {key: 'memo' | 'exec';value: number | null;}[] = [
-  { key: 'memo', value: split },
+  { key: 'memo', value: !live || showLiveTimer ? split : null },
   { key: 'exec', value: done && split !== null ? elapsed - split : null }];
 
   return (

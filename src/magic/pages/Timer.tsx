@@ -8,5 +8,5 @@ export function Timer({ stage: stageProp }: {stage: DemoStage;}) {
   const init = useScreenInit() as {stage?: DemoStage;};
   const { prefs } = useAppData();
   const stage = init.stage ?? stageProp;
-  return <WorkspaceTimer key={`${stage}-${prefs.multiphase}`} multiphase={prefs.multiphase} stage={stage} />;
+  return <WorkspaceTimer key={`${stage}-${prefs.multiphase}`} multiphase={prefs.multiphase} showLiveTimer={prefs.showLiveTimer} stage={stage} />;
 }

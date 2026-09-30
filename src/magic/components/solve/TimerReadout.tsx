@@ -9,6 +9,7 @@ interface TimerReadoutProps {
   penalty?: Penalty | null;
   className?: string;
   tones?: Partial<Record<TimerPhase, string>>;
+  showLiveTimer?: boolean;
 }
 
 const DEFAULT_TONES: Record<TimerPhase, string> = {
@@ -21,9 +22,10 @@ const DEFAULT_TONES: Record<TimerPhase, string> = {
   stopped: 'text-ink'
 };
 
-export function TimerReadout({ phase, value, penalty, className = '', tones }: TimerReadoutProps) {
+export function TimerReadout({ phase, value, penalty, className = '', tones, showLiveTimer = true }: TimerReadoutProps) {
   const tone = { ...DEFAULT_TONES, ...tones }[phase];
   let content: React.ReactNode = formatTime(value);
+  if (!showLiveTimer && (phase === 'memo' || phase === 'exec' || phase === 'running')) content = 'Solve';
   if (phase === 'stopped' && penalty === 'dnf') content = 'DNF';
   if (phase === 'stopped' && penalty === '+2')
   content =

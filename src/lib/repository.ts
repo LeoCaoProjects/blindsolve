@@ -62,6 +62,7 @@ export interface AppData {
   onboarded: boolean;
   schemeUpdatedAt: string;
   multiphaseTiming: boolean;
+  showLiveTimer: boolean;
   pairSharing?: "shared" | "separate";
   flippedEdges?: "cycle" | "separate";
   twistedCorners?: "cycle" | "separate";
@@ -83,6 +84,7 @@ export const emptyData = (): AppData => ({
   onboarded: false,
   schemeUpdatedAt: new Date(0).toISOString(),
   multiphaseTiming: true,
+  showLiveTimer: true,
   pairSharing: "shared",
   flippedEdges: "cycle",
   twistedCorners: "cycle",
@@ -100,6 +102,7 @@ export function hasMeaningfulData(data: AppData): boolean {
     data.attempts.length > 0 ||
     JSON.stringify(data.scheme) !== JSON.stringify(defaults.scheme) ||
     data.multiphaseTiming !== defaults.multiphaseTiming ||
+    data.showLiveTimer !== defaults.showLiveTimer ||
     (data.pairSharing ?? "shared") !== defaults.pairSharing ||
     (data.flippedEdges ?? "cycle") !== defaults.flippedEdges ||
     (data.twistedCorners ?? "cycle") !== defaults.twistedCorners ||
@@ -246,6 +249,7 @@ const dataSchema = z.object({
   onboarded: z.boolean().default(true),
   schemeUpdatedAt: iso.default(new Date(0).toISOString()),
   multiphaseTiming: z.boolean().default(true),
+  showLiveTimer: z.boolean().default(true),
   pairSharing: z.enum(["shared", "separate"]).default("shared"),
   flippedEdges: z.enum(["cycle", "separate"]).default("cycle"),
   twistedCorners: z.enum(["cycle", "separate"]).default("cycle"),
@@ -417,6 +421,7 @@ const settingsPayload = (data: AppData) => ({
   onboarded: data.onboarded,
   schemeUpdatedAt: data.schemeUpdatedAt,
   multiphaseTiming: data.multiphaseTiming,
+  showLiveTimer: data.showLiveTimer,
   pairSharing: data.pairSharing,
   flippedEdges: data.flippedEdges,
   twistedCorners: data.twistedCorners,
@@ -674,6 +679,9 @@ export function mergeData(
       multiphaseTiming: incomingPreferences
         ? incoming.multiphaseTiming
         : local.multiphaseTiming,
+      showLiveTimer: incomingPreferences
+        ? incoming.showLiveTimer
+        : local.showLiveTimer,
       pairSharing: incomingPreferences
         ? incoming.pairSharing
         : local.pairSharing,

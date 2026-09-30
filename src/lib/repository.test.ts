@@ -157,6 +157,21 @@ describe("workspace integrity", () => {
     cloud.preferencesUpdatedAt = "2026-09-25T02:00:00Z";
     expect(mergeData(local, cloud).data.multiphaseTiming).toBe(false);
   });
+  it("defaults show-live-timer on and round-trips the disabled preference", () => {
+    expect(emptyData().showLiveTimer).toBe(true);
+    const data = emptyData();
+    data.showLiveTimer = false;
+    data.preferencesUpdatedAt = "2026-09-25T03:00:00Z";
+    expect(parseBackup(JSON.stringify({ version: 3, data })).showLiveTimer).toBe(false);
+  });
+  it("merges show-live-timer with the shared preference timestamp", () => {
+    const local = emptyData();
+    const cloud = emptyData();
+    local.preferencesUpdatedAt = "2026-09-25T01:00:00Z";
+    cloud.showLiveTimer = false;
+    cloud.preferencesUpdatedAt = "2026-09-25T02:00:00Z";
+    expect(mergeData(local, cloud).data.showLiveTimer).toBe(false);
+  });
   it("does not create a settings diff when identical data is merged", () => {
     const local = emptyData();
     const cloud = structuredClone(local);
@@ -196,6 +211,15 @@ describe("workspace integrity", () => {
     const before = emptyData();
     const after = structuredClone(before);
     after.multiphaseTiming = false;
+    after.preferencesUpdatedAt = "2026-09-25T03:00:00Z";
+    expect(diffSyncChanges(before, after)).toEqual([
+      expect.objectContaining({ kind: "settings", recordId: "settings" }),
+    ]);
+  });
+  it("creates one settings change for one show-live-timer toggle", () => {
+    const before = emptyData();
+    const after = structuredClone(before);
+    after.showLiveTimer = false;
     after.preferencesUpdatedAt = "2026-09-25T03:00:00Z";
     expect(diffSyncChanges(before, after)).toEqual([
       expect.objectContaining({ kind: "settings", recordId: "settings" }),

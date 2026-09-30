@@ -329,6 +329,9 @@ export function Settings() {
             </SettingsSection>
 
             <SettingsSection id="timer" title="Timer">
+              <SettingsRow label="Show live timer" hint="Show elapsed time while solving">
+                <Toggle label="Show live timer" checked={app.prefs.showLiveTimer} onChange={(showLiveTimer) => app.setPrefs({ showLiveTimer })} />
+              </SettingsRow>
               <SettingsRow label="Multiphase timing" hint="Record memo and execution separately">
                 <Toggle label="Multiphase timing" checked={app.prefs.multiphase} onChange={(multiphase) => app.setPrefs({ multiphase })} />
               </SettingsRow>

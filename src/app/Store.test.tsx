@@ -63,6 +63,7 @@ function Harness() {
         {s.guestMigration ? "choose" : "none"}
       </span>
       <span data-testid="multiphase">{String(s.data.multiphaseTiming)}</span>
+      <span data-testid="show-live">{String(s.data.showLiveTimer)}</span>
       <button
         onClick={() =>
           s.update((d) => ({
@@ -73,6 +74,17 @@ function Harness() {
         }
       >
         Toggle multiphase
+      </button>
+      <button
+        onClick={() =>
+          s.update((d) => ({
+            ...d,
+            showLiveTimer: !d.showLiveTimer,
+            preferencesUpdatedAt: new Date().toISOString(),
+          }))
+        }
+      >
+        Toggle live timer
       </button>
       <p>{s.message}</p>
     </>
@@ -406,6 +418,7 @@ describe("account state and sync", () => {
     const cloud = emptyData();
     cloud.onboarded = true;
     cloud.multiphaseTiming = false;
+    cloud.showLiveTimer = false;
     cloud.preferencesUpdatedAt = new Date().toISOString();
     mocks.load.mockResolvedValue({
       data: cloud,
@@ -422,9 +435,40 @@ describe("account state and sync", () => {
     await waitFor(() =>
       expect(screen.getByTestId("multiphase").textContent).toBe("false"),
     );
+    expect(screen.getByTestId("show-live").textContent).toBe("false");
     await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
     expect(mocks.save).not.toHaveBeenCalled();
     expect(loadLocal("alice").data.multiphaseTiming).toBe(false);
+  });
+  it("syncs one live-timer preference mutation as one settings write", async () => {
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice");
+    fireEvent.click(screen.getByText("Toggle live timer"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1), {
+      timeout: 2500,
+    });
+    expect(mocks.save.mock.calls[0][0]).toEqual([
+      expect.objectContaining({
+        kind: "settings",
+        payload: expect.objectContaining({ showLiveTimer: false }),
+      }),
+    ]);
+  });
+  it("keeps the live-timer preference in the guest workspace without syncing", async () => {
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth(null, "INITIAL_SESSION");
+    fireEvent.click(screen.getByText("Toggle live timer"));
+    expect(loadLocal(null).data.showLiveTimer).toBe(false);
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
+    expect(mocks.save).not.toHaveBeenCalled();
   });
   it("turns one multiphase toggle into exactly one settings write", async () => {
     render(
