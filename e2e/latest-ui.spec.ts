@@ -142,6 +142,7 @@ test('Trace Sprint submits once, freezes time, and Enter review advances without
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
   await page.keyboard.press('Enter');
   await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toBeVisible();
+  await expect(review).toBeHidden();
   await page.keyboard.press('Enter');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
   await holdSpace(page);
