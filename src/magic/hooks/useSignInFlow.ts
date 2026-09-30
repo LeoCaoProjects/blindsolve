@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppData } from '../contexts/AppDataContext';
 import { AuthProvider } from '../types/app';
 import { supabase, supabaseUrl } from '../../lib/supabase';
+import { useStore } from '../../app/Store';
 
 export type SignInStep = 'idle' | 'redirecting' | 'merge';
 export type MergeChoice = 'merge' | 'account';
@@ -9,7 +10,8 @@ export type MergeChoice = 'merge' | 'account';
 /** OAuth UI backed by Supabase. Secret-bearing WCA exchange stays server-side. */
 export function useSignInFlow(opts: {initial?: SignInStep;provider?: AuthProvider;onDone?: () => void;} = {}) {
   const app = useAppData();
-  const [step, setStep] = useState<SignInStep>('idle');
+  const store = useStore();
+  const [internalStep, setStep] = useState<SignInStep>('idle');
   const [provider, setProvider] = useState<AuthProvider | null>(null);
   const [choice, setChoice] = useState<MergeChoice>('merge');
   const [error, setError] = useState<string | null>(null);
@@ -17,8 +19,8 @@ export function useSignInFlow(opts: {initial?: SignInStep;provider?: AuthProvide
   onDone.current = opts.onDone;
 
   useEffect(() => {
-    if (app.account.provider) onDone.current?.();
-  }, [app.account.provider]);
+    if (store.ready && app.account.provider && !store.guestMigration) onDone.current?.();
+  }, [app.account.provider, store.guestMigration, store.ready]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -73,10 +75,13 @@ export function useSignInFlow(opts: {initial?: SignInStep;provider?: AuthProvide
     setProvider(null);
   }, []);
 
+  const step: SignInStep = store.guestMigration ? 'merge' : internalStep;
+
   return {
     step, provider, start: (p: AuthProvider) => { void start(p); }, cancel,
-    choice, setChoice, confirmMerge: cancel, error,
-    localCounts: { pairs: Object.keys(app.pairs).length, solves: app.solves.length },
+    choice, setChoice, confirmMerge: () => store.resolveGuestMigration(choice), error,
+    continueWithAccount: () => store.resolveGuestMigration('account'),
+    localCounts: store.guestMigration ?? { pairs: 0, solves: 0 },
   };
 }
 

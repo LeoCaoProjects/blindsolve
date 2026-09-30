@@ -21,6 +21,7 @@ import { sameView } from '../utils/view';
 import { EASE_OUT } from '../utils/keyboard';
 import { isSpeffz, speffzScheme } from '../utils/scheme';
 import { useScreenInit } from '../useScreenInit.js';
+import { useStore } from '../../app/Store';
 
 interface ScreenState {
   section?: string;
@@ -42,6 +43,7 @@ interface ScreenState {
 export function Settings() {
   const init = useScreenInit() as ScreenState;
   const app = useAppData();
+  const store = useStore();
   const navigate = useNavigate();
   const sheet = useShortcutSheet();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -62,7 +64,8 @@ export function Settings() {
   const failNext = useRef(!!init.saveFails);
   const [feedbackOpen, setFeedbackOpen] = useState(!!init.feedback);
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify(app.setup) || !sameView(draftView, app.prefs.defaultView);
+  const ownerKey = store.user?.id ?? 'guest';
+  const dirty = store.ready && (JSON.stringify(draft) !== JSON.stringify(app.setup) || !sameView(draftView, app.prefs.defaultView));
   const patch = (p: Partial<BldSetup>) => setDraft((d) => ({ ...d, ...p }));
 
   // Guard navigation away from unsaved setup.
@@ -71,6 +74,15 @@ export function Settings() {
     return () => app.setNavGuard(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty]);
+
+  // Reset the editable draft only after the new guest/account workspace is hydrated.
+  useEffect(() => {
+    if (!store.ready) return;
+    setDraft(app.setup);
+    setDraftView(app.prefs.defaultView);
+    setSaveState('idle');
+    setPendingNav(null);
+  }, [ownerKey, store.ready]);
 
   useEffect(() => {
     if (init.section) document.getElementById(init.section)?.scrollIntoView();
@@ -173,6 +185,11 @@ export function Settings() {
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar onShortcuts={sheet.openSheet} />
+
+      {!store.ready ?
+      <main className="flex min-h-0 flex-1 items-center justify-center px-5" aria-busy="true">
+        <p className="text-[13px] text-ink-3" role="status">Loading account settings…</p>
+      </main> :
 
       <div ref={scrollRef} className="scroll-quiet relative min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto grid max-w-[1180px] gap-10 px-5 md:grid-cols-[180px_minmax(0,1fr)] md:gap-16 md:px-10">
@@ -370,7 +387,7 @@ export function Settings() {
             </motion.div>
           }
         </AnimatePresence>
-      </div>
+      </div>}
 
       <ConfirmDialog
         open={speffzConfirm}

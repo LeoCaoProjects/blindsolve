@@ -53,6 +53,16 @@ function Harness() {
         Edit
       </button>
       <button onClick={s.retry}>Retry</button>
+      <button onClick={() => s.resolveGuestMigration("merge")}>
+        Merge guest
+      </button>
+      <button onClick={() => s.resolveGuestMigration("account")}>
+        Use account
+      </button>
+      <span data-testid="migration">
+        {s.guestMigration ? "choose" : "none"}
+      </span>
+      <span data-testid="multiphase">{String(s.data.multiphaseTiming)}</span>
       <button
         onClick={() =>
           s.update((d) => ({
@@ -141,6 +151,130 @@ describe("account state and sync", () => {
       "ready|guest|Speffz|local",
     );
     expect(loadLocal("alice").data.scheme.name).toBe("Edited");
+  });
+  it("automatically migrates meaningful guest data into a new empty account once", async () => {
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth(null, "INITIAL_SESSION");
+    fireEvent.click(screen.getByText("Edit"));
+    expect(loadLocal(null).data.scheme.name).toBe("Edited");
+
+    await auth("alice");
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1), {
+      timeout: 2500,
+    });
+    await waitFor(() => expect(loadLocal("alice").dirty).toBe(false));
+    expect(loadLocal("alice").data.scheme.name).toBe("Edited");
+    expect(loadLocal(null).data.scheme.name).toBe("Speffz");
+
+    const syncedAccount = loadLocal("alice").data;
+    mocks.load.mockResolvedValue({
+      data: syncedAccount,
+      revision: 1,
+      dirty: false,
+      pending: {},
+    });
+    await auth(null, "SIGNED_OUT");
+    await auth("alice");
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
+    expect(mocks.save).toHaveBeenCalledTimes(1);
+  });
+  it("requires an explicit choice before merging guest data into an existing account", async () => {
+    const cloud = emptyData();
+    cloud.onboarded = true;
+    mocks.load.mockResolvedValue({
+      data: cloud,
+      revision: 4,
+      dirty: false,
+      pending: {},
+    });
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth(null, "INITIAL_SESSION");
+    fireEvent.click(screen.getByText("Edit"));
+    await auth("alice");
+    await waitFor(() =>
+      expect(screen.getByTestId("migration").textContent).toBe("choose"),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(loadLocal(null).data.scheme.name).toBe("Edited");
+
+    fireEvent.click(screen.getByText("Merge guest"));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1), {
+      timeout: 2500,
+    });
+    expect(mocks.save.mock.calls[0][0]).toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: "settings" })]),
+    );
+  });
+  it("keeps the guest copy until a failed automatic migration is retried successfully", async () => {
+    mocks.save
+      .mockRejectedValueOnce(new Error("Offline"))
+      .mockResolvedValueOnce(1);
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth(null, "INITIAL_SESSION");
+    fireEvent.click(screen.getByText("Edit"));
+    await auth("alice");
+    await waitFor(() => expect(mocks.save).toHaveBeenCalled(), {
+      timeout: 2500,
+    });
+    expect(loadLocal(null).data.scheme.name).toBe("Edited");
+    expect(loadLocal("alice").dirty).toBe(true);
+    fireEvent.click(screen.getByText("Retry"));
+    await waitFor(() => expect(loadLocal("alice").dirty).toBe(false));
+    expect(loadLocal(null).data.scheme.name).toBe("Speffz");
+  });
+  it("keeps guest and account workspaces isolated across sign out and sign in", async () => {
+    const guest = emptyData();
+    guest.onboarded = true;
+    guest.multiphaseTiming = false;
+    localStorage.setItem(
+      "cubeiq-bld-v2:guest",
+      JSON.stringify({ data: guest, revision: 0, dirty: false, pending: {} }),
+    );
+    const cloud = emptyData();
+    cloud.onboarded = true;
+    cloud.scheme.name = "Account scheme";
+    cloud.schemeUpdatedAt = new Date().toISOString();
+    mocks.load.mockResolvedValue({
+      data: cloud,
+      revision: 8,
+      dirty: false,
+      pending: {},
+    });
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice", "INITIAL_SESSION");
+    fireEvent.click(screen.getByText("Use account"));
+    await auth(null, "SIGNED_OUT");
+    expect(screen.getByTestId("state").textContent).toContain(
+      "guest|Speffz|local",
+    );
+    expect(loadLocal(null).data.multiphaseTiming).toBe(false);
+    fireEvent.click(screen.getByText("Toggle multiphase"));
+    expect(loadLocal(null).data.multiphaseTiming).toBe(true);
+    expect(mocks.save).not.toHaveBeenCalled();
+    await auth("alice");
+    await waitFor(() =>
+      expect(screen.getByTestId("state").textContent).toContain(
+        "alice|Account scheme",
+      ),
+    );
+    expect(mocks.save).not.toHaveBeenCalled();
   });
   it("retains failed cloud writes locally and retries safely", async () => {
     mocks.save.mockRejectedValueOnce(new Error("Offline"));
@@ -267,6 +401,30 @@ describe("account state and sync", () => {
     );
     await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
     expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it("hydrates non-default cloud settings without writing defaults back", async () => {
+    const cloud = emptyData();
+    cloud.onboarded = true;
+    cloud.multiphaseTiming = false;
+    cloud.preferencesUpdatedAt = new Date().toISOString();
+    mocks.load.mockResolvedValue({
+      data: cloud,
+      revision: 12,
+      dirty: false,
+      pending: {},
+    });
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice", "INITIAL_SESSION");
+    await waitFor(() =>
+      expect(screen.getByTestId("multiphase").textContent).toBe("false"),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(loadLocal("alice").data.multiphaseTiming).toBe(false);
   });
   it("turns one multiphase toggle into exactly one settings write", async () => {
     render(

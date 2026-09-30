@@ -17,6 +17,7 @@ import {
   loadCloud,
   saveCloudChanges,
   mergeData,
+  hasMeaningfulData,
   coalesceSyncChanges,
   pruneAcknowledgedSyncChanges,
   diffSyncChanges,
@@ -44,6 +45,8 @@ interface StoreValue {
   importData: (data: AppData) => void;
   focus: boolean;
   setFocus: (focus: boolean) => void;
+  guestMigration: { pairs: number; solves: number } | null;
+  resolveGuestMigration: (choice: "merge" | "account") => void;
 }
 const Context = createContext<StoreValue | null>(null);
 export function useStore() {
@@ -58,7 +61,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [sync, setSync] = useState<SyncState>("loading"),
     [lastAttemptAt, setLastAttemptAt] = useState<string | null>(null),
     [message, notify] = useState(""),
-    [focus, setFocus] = useState(false);
+    [focus, setFocus] = useState(false),
+    [guestMigration, setGuestMigration] =
+      useState<StoreValue["guestMigration"]>(null);
   const current = useRef<LocalEnvelope>({
       data: emptyData(),
       dirty: false,
@@ -73,6 +78,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     saving = useRef(false),
     connected = useRef(false),
     initialized = useRef(false);
+  const guestForMigration = useRef<AppData | null>(null),
+    clearGuestAfterSync = useRef(false);
   const flushRef = useRef<() => Promise<void>>(async () => {});
   const storageReadable = useRef(true);
   const persist = useCallback(() => {
@@ -140,6 +147,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       retryAttempts.current = 0;
       setSync(current.current.dirty ? "saving" : "saved");
       persist();
+      if (!current.current.dirty && clearGuestAfterSync.current) {
+        saveLocal(null, {
+          data: emptyData(),
+          dirty: false,
+          revision: 0,
+          pending: {},
+        });
+        clearGuestAfterSync.current = false;
+        guestForMigration.current = null;
+      }
     } catch (e) {
       if (generation === epoch.current) {
         let failure = e;
@@ -219,6 +236,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       clearTimeout(retryTimer.current);
       retryAttempts.current = 0;
       owner.current = nextUser?.id ?? null;
+      setGuestMigration(null);
       notify("");
       setUser(nextUser);
       setReady(false);
@@ -240,12 +258,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       current.current = local;
       setLastAttemptAt(local.lastAttemptAt ?? null);
       setData(local.data);
+      if (!nextUser) {
+        guestForMigration.current = null;
+        clearGuestAfterSync.current = false;
+      }
       if (nextUser) {
         try {
           markAttempt();
           const remote = await withAccountCloudLock(nextUser.id, loadCloud);
           if (disposed || generation !== epoch.current) return;
-          const merged = mergeData(local.data, remote.data);
+          let merged = mergeData(local.data, remote.data);
+          const guest = loadLocal(null).data;
+          const guestHasData = hasMeaningfulData(guest);
+          const accountHasData =
+            hasMeaningfulData(local.data) || hasMeaningfulData(remote.data);
+          if (guestHasData && !accountHasData) {
+            merged = mergeData(merged.data, guest);
+            guestForMigration.current = guest;
+            clearGuestAfterSync.current = true;
+          } else if (guestHasData && accountHasData) {
+            guestForMigration.current = guest;
+            setGuestMigration({
+              pairs: Object.keys(guest.pairs).length,
+              solves: guest.solves.filter((solve) => !solve.deleted).length,
+            });
+          } else {
+            guestForMigration.current = null;
+            clearGuestAfterSync.current = false;
+          }
           const pending = coalesceSyncChanges(
             pruneAcknowledgedSyncChanges(remote.data, local.pending),
             remote.pending === undefined
@@ -475,6 +515,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       `Backup merged. ${result.conflicts} differing mnemonics preserved as alternates.`,
     );
   };
+  const resolveGuestMigration = useCallback(
+    (choice: "merge" | "account") => {
+      const guest = guestForMigration.current;
+      setGuestMigration(null);
+      if (choice !== "merge" || !guest || !owner.current) return;
+      const merged = mergeData(current.current.data, guest);
+      clearGuestAfterSync.current = true;
+      update(() => merged.data);
+      if (merged.conflicts)
+        notify(
+          `${merged.conflicts} differing mnemonics were preserved as alternates.`,
+        );
+    },
+    [update],
+  );
   return (
     <Context.Provider
       value={{
@@ -491,6 +546,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         importData,
         focus,
         setFocus,
+        guestMigration,
+        resolveGuestMigration,
       }}
     >
       {children}

@@ -89,6 +89,27 @@ export const emptyData = (): AppData => ({
   defaultCubeView: { top: "white", front: "green" },
   preferencesUpdatedAt: new Date(0).toISOString(),
 });
+
+/** Whether a workspace contains user-created state rather than untouched defaults. */
+export function hasMeaningfulData(data: AppData): boolean {
+  const defaults = emptyData();
+  return (
+    data.onboarded ||
+    Object.keys(data.pairs).length > 0 ||
+    data.solves.length > 0 ||
+    data.attempts.length > 0 ||
+    JSON.stringify(data.scheme) !== JSON.stringify(defaults.scheme) ||
+    data.multiphaseTiming !== defaults.multiphaseTiming ||
+    (data.pairSharing ?? "shared") !== defaults.pairSharing ||
+    (data.flippedEdges ?? "cycle") !== defaults.flippedEdges ||
+    (data.twistedCorners ?? "cycle") !== defaults.twistedCorners ||
+    JSON.stringify(data.defaultCubeView ?? defaults.defaultCubeView) !==
+      JSON.stringify(defaults.defaultCubeView) ||
+    JSON.stringify(data.timerSessions ?? defaults.timerSessions) !==
+      JSON.stringify(defaults.timerSessions) ||
+    (data.activeTimerSessionId ?? "today") !== defaults.activeTimerSessionId
+  );
+}
 const text = z.string().max(1000),
   tokens = z.array(z.string().max(12)).max(200);
 const iso = z

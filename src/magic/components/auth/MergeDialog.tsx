@@ -16,8 +16,8 @@ export function MergeDialog({ flow }: {flow: SignInFlow;}) {
           {pairs} letter pairs and {solves} solves are stored here.
         </>
       }
-      onCancel={flow.cancel}
-      cancelLabel="Stay signed out"
+      onCancel={flow.continueWithAccount}
+      cancelLabel="Continue with account data"
       confirm={{ label: 'Continue', onClick: flow.confirmMerge }}>
       
       <RadioRows
