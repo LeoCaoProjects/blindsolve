@@ -116,12 +116,52 @@ test('a held Flashcard shortcut reveals once and never records before release', 
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
 });
 
-test('Flashcards expose one uniformly eligible piece card without a piece selector', async ({ page }) => {
+test('Flashcards keep physical variants but count a shared mnemonic once', async ({ page }) => {
   await load(page, workspace(true));
   await page.goto('/flashcards');
   await expect(page.getByRole('radiogroup', { name: 'Pieces' })).toHaveCount(0);
   await expect(page.getByText(/^(Edge|Corner)$/)).toBeVisible();
-  await expect(page.getByText('2 cards', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 card', { exact: true })).toBeVisible();
+});
+
+test('Trace Sprint submits once, freezes time, and Enter review advances without another record', async ({ page }) => {
+  await load(page);
+  await page.goto('/training');
+  await page.getByRole('radio', { name: 'Trace Sprint' }).click();
+  await holdSpace(page);
+  await page.getByRole('button', { name: /^Submit/ }).evaluate((button) => {
+    (button as HTMLButtonElement).click();
+    (button as HTMLButtonElement).click();
+  });
+  const review = page.getByRole('dialog', { name: 'Trace Sprint review' });
+  await expect(review).toBeVisible();
+  const time = review.locator('.font-timer').first();
+  const frozen = await time.textContent();
+  await page.waitForTimeout(150);
+  expect(await time.textContent()).toBe(frozen);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toBeVisible();
+  await page.keyboard.press('Enter');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
+  await holdSpace(page);
+  await page.getByRole('button', { name: /^Submit/ }).click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(2);
+});
+
+test('Full Memo submits once and repeated Enter in review never persists it again', async ({ page }) => {
+  await load(page);
+  await page.goto('/training');
+  await page.getByRole('radio', { name: 'Full Memo' }).click();
+  await holdSpace(page);
+  const input = page.locator('input').first();
+  await input.fill('test');
+  await page.getByRole('button', { name: /^Submit/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Full Memo review' })).toBeVisible();
+  await page.keyboard.down('Enter');
+  await page.waitForTimeout(100);
+  await page.keyboard.up('Enter');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
 });
 
 test('all Training modes remain idle until hold-release and Next returns to idle', async ({ page }) => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppData } from "../contexts/AppDataContext";
 import { suggestionsFor } from "../utils/suggestions";
 import { TrainMode } from "../data/trainingModes";
@@ -92,6 +92,14 @@ export function useTrainingSession(init: TrainInit) {
     init.display ?? "letters",
   );
   const [report, setReport] = useState<ExecResult>(init.report ?? "solved");
+  // React state updates are asynchronous. Keep the lifecycle guard synchronous so two
+  // Enter/click events in the same frame cannot persist the same challenge twice.
+  const phaseRef = useRef<TrainPhase>(init.phase ?? "idle");
+  const submittedChallengeRef = useRef<string | null>(
+    init.phase === "review"
+      ? `${init.mode ?? "recall"}:${init.filter ?? "both"}:${init.seed ?? FIRST_EXEC_SEED}`
+      : null,
+  );
 
   // Execution Sprint: the scramble shown during setup IS the challenge — same seed, same state.
   const preparedScramble = useExecScramble(filter, seed, mode === "exec");
@@ -151,14 +159,18 @@ export function useTrainingSession(init: TrainInit) {
     const t = performance.now();
     setTimes({ start: t, split: null, end: null });
     setNow(t);
+    submittedChallengeRef.current = null;
+    phaseRef.current = "active";
     setPhase("active");
   }, [groups, mode]);
 
   const hold = useHoldStart({ enabled: phase === "idle" && scrambleReady, onStart: start });
 
   const toRecall = useCallback(() => {
+    if (phaseRef.current !== "active") return;
     setTimes((t) => ({ ...t, split: performance.now() }));
     setInputs(groups.map(() => ""));
+    phaseRef.current = "recall";
     setPhase("recall");
   }, [groups]);
 
@@ -168,9 +180,20 @@ export function useTrainingSession(init: TrainInit) {
   );
 
   const submit = useCallback(() => {
+    const expectedPhase = mode === "recall" ? "recall" : "active";
+    const challengeId = `${mode}:${filter}:${seed}`;
+    if (
+      phaseRef.current !== expectedPhase ||
+      submittedChallengeRef.current === challengeId
+    )
+      return;
+    submittedChallengeRef.current = challengeId;
+    phaseRef.current = "review";
     const end = performance.now();
     setTimes((t) => ({ ...t, end }));
     setPhase("review");
+    if (document.activeElement instanceof HTMLElement)
+      document.activeElement.blur();
     const r = compareGroups(groups, inputs, vocabulary);
     const ms =
       mode === "recall"
@@ -223,6 +246,8 @@ export function useTrainingSession(init: TrainInit) {
     inputs,
     vocabulary,
     mode,
+    filter,
+    seed,
     times,
     targets,
     words,
@@ -275,15 +300,20 @@ export function useTrainingSession(init: TrainInit) {
 
   const next = useCallback(() => {
     if (mode === "exec") setSeed((s) => s + 1);
+    phaseRef.current = "idle";
     setPhase("idle");
   }, [mode]);
 
   const setMode = (m: TrainMode) => {
     setModeState(m);
+    submittedChallengeRef.current = null;
+    phaseRef.current = "idle";
     setPhase("idle");
   };
   const setFilter = (f: TrainFilter) => {
     setFilterState(f);
+    submittedChallengeRef.current = null;
+    phaseRef.current = "idle";
     setPhase("idle");
   };
 

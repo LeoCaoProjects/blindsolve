@@ -3,8 +3,8 @@ import sql from "../../supabase/migrations/202609290004_sync_noop_batches.sql?ra
 
 describe("sync no-op database hardening", () => {
   it("returns before rate limiting and revision advancement for identical batches", () => {
-    const noOpReturn = sql.indexOf(
-      "if not has_changes then\n    return current_revision",
+    const noOpReturn = sql.search(
+      /if not has_changes then\r?\n    return current_revision/,
     );
     const limiter = sql.indexOf("insert into public.bld_sync_rate_limits");
     const revision = sql.indexOf("set revision = revision + 1");

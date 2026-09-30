@@ -48,7 +48,9 @@ export function Flashcards() {
         <main className="flex min-h-0 min-w-0 flex-col">
           <section className="flex shrink-0 items-center gap-6 border-b border-line px-5 py-2 md:px-10">
             <span className="hidden w-8 shrink-0 font-mono text-[11px] text-ink-3 tnum md:block">#{f.stats.seen + 1}</span>
-            <span className="ml-auto font-mono text-[11.5px] text-ink-3 tnum">{f.eligibleCount} cards</span>
+            <span className="ml-auto font-mono text-[11.5px] text-ink-3 tnum">
+              {f.eligibleCount} {f.eligibleCount === 1 ? 'card' : 'cards'}
+            </span>
           </section>
 
           {!f.card || !f.cardTokens ?

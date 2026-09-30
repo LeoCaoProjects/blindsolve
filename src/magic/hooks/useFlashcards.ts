@@ -32,6 +32,20 @@ interface Options {
 const PIECES: CardPiece[] = ['edges', 'corners'];
 const idOf = (c: Card) => `${c.key}#${c.piece}`;
 
+/** User-visible cards are distinct pair/answer associations, not piece render variants. */
+export function distinctMnemonicCardCount(
+  cards: Card[],
+  wordsFor: (key: string, piece: CardPiece) => string[]
+) {
+  return new Set(
+    cards.map(({ key, piece }) =>
+      `${key}\u0000${wordsFor(key, piece)
+        .map((word) => word.trim().toLocaleLowerCase())
+        .join('\u0001')}`
+    )
+  ).size;
+}
+
 /**
  * Uniform random practice over every eligible (pair, piece) card: a pair usable for both edges
  * and corners is two cards, each with the same chance as any other. "Forgot" is recorded,
@@ -78,6 +92,11 @@ export function useFlashcards(opts: Options) {
       return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
     },
     [eligible]
+  );
+
+  const visibleCount = useMemo(
+    () => distinctMnemonicCardCount(eligible, wordsFor),
+    [eligible, wordsFor]
   );
 
   const [card, setCard] = useState<Card | null>(() =>
@@ -213,7 +232,7 @@ export function useFlashcards(opts: Options) {
     editPrimary,
     addAlternate,
     review,
-    eligibleCount: eligible.length,
+    eligibleCount: visibleCount,
     log,
     removeLog: (id: number) => {
       setLog((l) => l.filter((x) => x.id !== id));
