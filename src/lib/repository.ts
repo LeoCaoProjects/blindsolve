@@ -70,7 +70,9 @@ export interface AppData {
   m2SecondTargetSwap: boolean;
   memoOrder: "corners-first" | "edges-first";
   pairSharing?: "shared" | "separate";
+  /** @deprecated Retained only so old settings records round-trip unchanged. */
   flippedEdges?: "cycle" | "separate";
+  /** @deprecated Retained only so old settings records round-trip unchanged. */
   twistedCorners?: "cycle" | "separate";
   defaultCubeView?: {
     top: "white" | "yellow" | "green" | "blue" | "red" | "orange";

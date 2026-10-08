@@ -59,7 +59,7 @@ also solved. A literally isolated single flipped edge cannot exist in a legal
 
 - The verified swap convention is the classic one-target-at-a-time M2 method. A direct pair/commutator M2 variant must leave the convenience toggle off.
 - The verified physical frame uses the standard DF M2 buffer. Custom sticker labels and cube-view orientation do not change physical identities.
-- `Solve within cycles` is what the current trace engine executes and what this audit verifies. A distinct, separately executed edge-orientation memo is a different convention and must not be inferred from these targets.
+- BlindSolve uses its existing within-cycle orientation tracing for flipped edges and twisted corners. It does not expose a separate-at-end orientation memo convention.
 - The raw target trace, cube state, cycle structure, and saved raw sticker identity are unchanged by M2 presentation settings.
 
 ## Regression examples

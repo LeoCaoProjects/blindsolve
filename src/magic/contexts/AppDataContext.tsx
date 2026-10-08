@@ -92,8 +92,6 @@ export const defaultSetup = (): BldSetup => ({
   cornerBuffer: PHYSICAL_TO_MAGIC[canonical.cornerBuffer],
   edgeMethod: "m2",
   cornerMethod: "op",
-  flippedEdges: "cycle",
-  twistedCorners: "cycle",
 });
 function setupFromStore(data: ReturnType<typeof useStore>["data"]): BldSetup {
   const s = data.scheme;
@@ -115,8 +113,6 @@ function setupFromStore(data: ReturnType<typeof useStore>["data"]): BldSetup {
           ? "3style"
           : "op",
     cornerMethod: s.cornerMethod === "3style" ? "3style" : "op",
-    flippedEdges: data.flippedEdges ?? "cycle",
-    twistedCorners: data.twistedCorners ?? "cycle",
   };
 }
 function pairsFromStore(data: ReturnType<typeof useStore>["data"]): PairDb {
@@ -362,8 +358,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             cornerMethod:
               draft.cornerMethod === "op" ? "old-pochmann" : draft.cornerMethod,
           },
-          flippedEdges: draft.flippedEdges,
-          twistedCorners: draft.twistedCorners,
           schemeUpdatedAt: new Date().toISOString(),
           onboarded: true,
         };

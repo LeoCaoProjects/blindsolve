@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDownIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PrimaryButton, QuietButton } from '../components/common/PrimaryButton';
@@ -32,7 +31,6 @@ interface ScreenState {
   speffzConfirm?: boolean;
   leaveConfirm?: boolean;
   import?: 'valid' | 'invalid';
-  conventions?: boolean;
   draftView?: 'orange';
   signin?: 'merge';
   feedback?: FeedbackCategory;
@@ -57,7 +55,6 @@ export function Settings() {
   const [mode, setMode] = useState<CubeMode>(init.mode ?? 'view');
   const [selected, setSelected] = useState<string | null>(init.selected ?? null);
   const [active, setActive] = useState(init.section ?? 'cube');
-  const [conventions, setConventions] = useState(!!init.conventions);
   const [speffzConfirm, setSpeffzConfirm] = useState(!!init.speffzConfirm);
   const [pendingNav, setPendingNav] = useState<string | null>(init.leaveConfirm ? '/flashcards' : null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'failed'>('idle');
@@ -265,55 +262,6 @@ export function Settings() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                aria-expanded={conventions}
-                onClick={() => setConventions((v) => !v)}
-                className="mt-8 flex items-center gap-1.5 text-[13px] text-ink-2 transition-colors duration-150 hover:text-ink">
-                
-                Memo conventions
-                <ChevronDownIcon size={14} strokeWidth={1.75} className={`transition-transform duration-150 ease-out ${conventions ? 'rotate-180' : ''}`} />
-              </button>
-              <AnimatePresence initial={false}>
-                {conventions &&
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2, ease: EASE_OUT }}
-                  className="overflow-hidden">
-                  
-                    <div className="grid gap-10 pt-5 md:grid-cols-2">
-                      <div>
-                        <h3 className="text-[12px] text-ink-3">Flipped edges</h3>
-                        <RadioRows
-                        className="mt-2"
-                        name="Flipped edges"
-                        value={draft.flippedEdges}
-                        onChange={(flippedEdges) => patch({ flippedEdges })}
-                        options={[
-                        { value: 'cycle', label: 'Solve within cycles' },
-                        { value: 'separate', label: 'Memo separately, at the end' }]
-                        } />
-                      
-                      </div>
-                      <div>
-                        <h3 className="text-[12px] text-ink-3">Twisted corners</h3>
-                        <RadioRows
-                        className="mt-2"
-                        name="Twisted corners"
-                        value={draft.twistedCorners}
-                        onChange={(twistedCorners) => patch({ twistedCorners })}
-                        options={[
-                        { value: 'cycle', label: 'Solve within cycles' },
-                        { value: 'separate', label: 'Memo separately, at the end' }]
-                        } />
-                      
-                      </div>
-                    </div>
-                  </motion.div>
-                }
-              </AnimatePresence>
               {draft.edgeMethod === 'm2' &&
               <SettingsRow label="M2 second-target swap" hint="Swap UF/DB targets in the second position of each edge pair">
                 <Toggle label="M2 second-target swap" checked={app.prefs.m2SecondTargetSwap} onChange={(m2SecondTargetSwap) => app.setPrefs({ m2SecondTargetSwap })} />

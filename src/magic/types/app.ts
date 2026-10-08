@@ -27,7 +27,6 @@ export interface CubeViewPref {
 
 export type EdgeMethod = "m2" | "op" | "3style";
 export type CornerMethod = "op" | "3style";
-export type OrientationHandling = "cycle" | "separate";
 
 export interface BldSetup {
   scheme: LetterScheme;
@@ -36,8 +35,6 @@ export interface BldSetup {
   cornerBuffer: string;
   edgeMethod: EdgeMethod;
   cornerMethod: CornerMethod;
-  flippedEdges: OrientationHandling;
-  twistedCorners: OrientationHandling;
 }
 
 export interface Prefs {

@@ -363,9 +363,13 @@ test('hidden live timer masks active total and split times but reveals the final
   await expect(page.getByRole('timer')).toContainText(/\d/);
 });
 
-test('memo convention preferences persist and put edges first in training', async ({ page }) => {
+test('M2 and memo-order preferences persist without unfinished orientation controls', async ({ page }) => {
   await load(page);
   await page.goto('/settings');
+  await expect(page.getByText('Memo conventions', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'Memo separately, at the end' })).toHaveCount(0);
+  await expect(page.getByText('Flipped edges', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Twisted corners', { exact: true })).toHaveCount(0);
   const m2 = page.getByRole('switch', { name: 'M2 second-target swap' });
   await expect(m2).toHaveAttribute('aria-checked', 'false');
   await m2.click();

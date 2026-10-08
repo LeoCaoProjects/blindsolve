@@ -215,7 +215,7 @@ describe("workspace integrity", () => {
     cloud.preferencesUpdatedAt = "2026-09-25T02:00:00Z";
     expect(mergeData(local, cloud).data.showLiveTimer).toBe(false);
   });
-  it("defaults and round-trips memo convention preferences", () => {
+  it("defaults and round-trips M2 and memo-order preferences", () => {
     expect(emptyData()).toMatchObject({
       m2SecondTargetSwap: false,
       memoOrder: "corners-first",
@@ -228,7 +228,7 @@ describe("workspace integrity", () => {
       memoOrder: "edges-first",
     });
   });
-  it("merges memo conventions with the shared preference timestamp", () => {
+  it("merges M2 and memo order with the shared preference timestamp", () => {
     const local = emptyData();
     const cloud = emptyData();
     local.preferencesUpdatedAt = "2026-09-25T01:00:00Z";
@@ -239,6 +239,22 @@ describe("workspace integrity", () => {
       m2SecondTargetSwap: true,
       memoOrder: "edges-first",
     });
+  });
+  it("accepts and preserves deprecated orientation fields without a sync diff", () => {
+    const cloud = emptyData();
+    cloud.flippedEdges = "separate";
+    cloud.twistedCorners = "separate";
+    cloud.preferencesUpdatedAt = "2026-09-25T02:00:00Z";
+    const hydrated = parseData(structuredClone(cloud));
+
+    expect(hydrated).toMatchObject({
+      flippedEdges: "separate",
+      twistedCorners: "separate",
+    });
+    expect(diffSyncChanges(cloud, hydrated)).toEqual([]);
+    expect(diffSyncChanges(cloud, mergeData(emptyData(), cloud).data)).toEqual(
+      [],
+    );
   });
   it("does not create a settings diff when identical data is merged", () => {
     const local = emptyData();
