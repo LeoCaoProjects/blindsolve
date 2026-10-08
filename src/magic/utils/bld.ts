@@ -241,12 +241,51 @@ export interface Challenge {
   seed: number;
   filter: TrainFilter;
   state: CubeState;
-  corners: string[];
-  edges: string[];
+  rawTargets: ChallengeTargetSet;
+  executionTargets: ChallengeTargetSet;
   cornerBreaks: number[];
   edgeBreaks: number[];
   /** Odd target-by-target M2 execution requires the configured corner-method parity case. */
-  m2Parity: boolean;
+  hasM2Parity: boolean;
+}
+
+export interface ChallengeTargetSection {
+  physicalStickerIds: string[];
+  tokens: string[];
+}
+
+export interface ChallengeTargetSet {
+  corners: ChallengeTargetSection;
+  edges: ChallengeTargetSection;
+}
+
+function challengeTargets(
+  cornerIds: string[],
+  edgeIds: string[],
+  setup: TraceSetup,
+) {
+  const token = (id: string) => setup.scheme[id] || "?";
+  const executionEdgeIds = applyM2Targets(edgeIds, setup);
+  return {
+    rawTargets: {
+      corners: {
+        physicalStickerIds: [...cornerIds],
+        tokens: cornerIds.map(token),
+      },
+      edges: { physicalStickerIds: [...edgeIds], tokens: edgeIds.map(token) },
+    },
+    executionTargets: {
+      corners: {
+        physicalStickerIds: [...cornerIds],
+        tokens: cornerIds.map(token),
+      },
+      edges: {
+        physicalStickerIds: executionEdgeIds,
+        tokens: executionEdgeIds.map(token),
+      },
+    },
+    hasM2Parity: setup.edgeMethod === "m2" && edgeIds.length % 2 === 1,
+  };
 }
 
 interface TraceSetup {
@@ -259,7 +298,7 @@ interface TraceSetup {
 
 /** Convert a raw physical edge trace to the target-by-target M2 memo convention. */
 export function applyM2Targets(ids: string[], setup: TraceSetup): string[] {
-  if (setup.edgeMethod !== "m2" || !setup.m2SecondTargetSwap) return ids;
+  if (setup.edgeMethod !== "m2" || !setup.m2SecondTargetSwap) return [...ids];
   return ids.map((id, index) => {
     if (index % 2 === 0) return id;
     const sticker = stickerById(id);
@@ -298,16 +337,13 @@ export function makeChallenge(
       (filter !== "edges" && c.ids.length < 2) ||
       (filter !== "corners" && e.ids.length < 2);
     if (empty && attempt < 8) continue;
-    const token = (id: string) => setup.scheme[id] || "?";
     return {
       seed,
       filter,
       state,
-      corners: c.ids.map(token),
-      edges: applyM2Targets(e.ids, setup).map(token),
+      ...challengeTargets(c.ids, e.ids, setup),
       cornerBreaks: c.breaks,
       edgeBreaks: e.breaks,
-      m2Parity: setup.edgeMethod === "m2" && e.ids.length % 2 === 1,
     };
   }
 }
@@ -392,16 +428,13 @@ export function challengeFromScramble(
     filter === "corners"
       ? { ids: [], breaks: [] }
       : trace(state, "edge", setup.edgeBuffer);
-  const token = (id: string) => setup.scheme[id] || "?";
   return {
     seed,
     filter,
     state,
-    corners: c.ids.map(token),
-    edges: applyM2Targets(e.ids, setup).map(token),
+    ...challengeTargets(c.ids, e.ids, setup),
     cornerBreaks: c.breaks,
     edgeBreaks: e.breaks,
-    m2Parity: setup.edgeMethod === "m2" && e.ids.length % 2 === 1,
   };
 }
 

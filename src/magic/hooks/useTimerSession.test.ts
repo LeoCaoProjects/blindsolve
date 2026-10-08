@@ -10,7 +10,7 @@ const target = (
 ): TraceTarget => ({ stickerId, token, cycleBreak, pieceIndex: 0 });
 
 describe("timer memo snapshots", () => {
-  it("keeps raw sticker identity while persisting transformed display tokens", () => {
+  it("persists factual identity/tokens separately from M2 execution targets", () => {
     const scheme = createSpeffzScheme();
     const raw = [target("D:DR", "V"), target("F:UF", "I", true)];
     const presented = [target("D:DR", "V"), target("B:DB", "S", true)];
@@ -19,7 +19,9 @@ describe("timer memo snapshots", () => {
         firstStickerId: "D:DR",
         secondStickerId: "F:UF",
         firstToken: "V",
-        secondToken: "S",
+        secondToken: "I",
+        secondExecutionStickerId: "B:DB",
+        secondExecutionToken: "S",
         mnemonic: "verse",
         firstCycleBreak: false,
         secondCycleBreak: true,

@@ -139,14 +139,48 @@ function pairsFromStore(data: ReturnType<typeof useStore>["data"]): PairDb {
   });
   return out;
 }
-function solveFromStore(s: SolveRecord, index: number): Solve {
+export function solveFromStore(s: SolveRecord, index: number): Solve {
+  let hasExecutionTargets = false;
   const make = (kind: "corners" | "edges") => {
     const snapshot = s.memoSnapshot?.[kind];
-    if (snapshot)
-      return snapshot.map((p) => ({
-        pair: `${p.firstToken}${p.secondToken ?? ""}`,
-        word: p.mnemonic,
-      }));
+    if (snapshot) {
+      const sectionHasExecution =
+        kind === "edges" &&
+        snapshot.some((p) => {
+          const rawFirst =
+              s.schemeSnapshot?.stickers[p.firstStickerId]?.label ??
+              p.firstToken,
+            rawSecond = p.secondStickerId
+              ? (s.schemeSnapshot?.stickers[p.secondStickerId]?.label ??
+                p.secondToken ??
+                "")
+              : "";
+          return Boolean(
+            p.firstExecutionStickerId ||
+            p.secondExecutionStickerId ||
+            (p.firstExecutionToken ?? p.firstToken) !== rawFirst ||
+            (p.secondExecutionToken ?? p.secondToken ?? "") !== rawSecond,
+          );
+        });
+      hasExecutionTargets ||= sectionHasExecution;
+      return snapshot.map((p) => {
+        const rawFirst =
+            s.schemeSnapshot?.stickers[p.firstStickerId]?.label ?? p.firstToken,
+          rawSecond = p.secondStickerId
+            ? (s.schemeSnapshot?.stickers[p.secondStickerId]?.label ??
+              p.secondToken ??
+              "")
+            : "",
+          first = p.firstExecutionToken ?? p.firstToken,
+          second = p.secondExecutionToken ?? p.secondToken ?? "";
+        return {
+          pair: `${sectionHasExecution ? first : rawFirst}${
+            sectionHasExecution ? second : rawSecond
+          }`,
+          word: p.mnemonic,
+        };
+      });
+    }
     const tokens = kind === "corners" ? s.cornerMemo : s.edgeMemo;
     return Array.from({ length: Math.ceil(tokens.length / 2) }, (_, i) => ({
       pair: (tokens[i * 2] ?? "") + (tokens[i * 2 + 1] ?? ""),
@@ -171,8 +205,9 @@ function solveFromStore(s: SolveRecord, index: number): Solve {
       ...(cb >= 0 ? { cornerBreakAt: cb * 2 } : {}),
       ...(eb >= 0 ? { edgeBreakAt: eb * 2 } : {}),
       ...(s.schemeSnapshot?.edgeMethod === "m2" && s.edgeMemo.length % 2 === 1
-        ? { m2Parity: true }
+        ? { hasM2Parity: true }
         : {}),
+      targetRepresentation: hasExecutionTargets ? "m2-execution" : "raw",
     },
   };
 }

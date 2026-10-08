@@ -200,8 +200,13 @@ export function WorkspaceTimer({
                   }
                 />
               ))}
-              {latest.memo.m2Parity && (
+              {latest.memo.hasM2Parity && (
                 <M2ParityNotice className="col-span-2 col-start-2" />
+              )}
+              {latest.memo.targetRepresentation === "m2-execution" && (
+                <p className="col-span-2 col-start-2 text-[11px] text-ink-3">
+                  M2 execution targets
+                </p>
               )}
             </section>
           )}

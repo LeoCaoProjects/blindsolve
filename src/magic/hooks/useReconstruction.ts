@@ -11,7 +11,7 @@ import {
 } from "../types/solve";
 import { isTypingTarget } from "../utils/keyboard";
 import {
-  applyM2SecondTargetSwap,
+  m2ExecutionRepresentation,
   m2SecondTargetStickerId,
 } from "../../domain/bld/memoConventions";
 
@@ -57,19 +57,21 @@ export function useReconstruction({ draft, db, onSave }: Options) {
         : null,
     [draft.engine, choices],
   );
-  const presented = useMemo(
-    () =>
-      traced &&
-      draft.engine &&
-      draft.memoPrefs?.m2SecondTargetSwap &&
-      draft.engine.scheme.edgeMethod === "m2"
-        ? {
-            ...traced,
-            edges: applyM2SecondTargetSwap(traced.edges, draft.engine.scheme),
-          }
-        : traced,
-    [draft.engine, draft.memoPrefs?.m2SecondTargetSwap, traced],
-  );
+  const presented = useMemo(() => {
+    if (!traced || !draft.engine) return traced;
+    const edgeExecution = m2ExecutionRepresentation(
+      traced.edges,
+      draft.engine.scheme,
+      Boolean(
+        draft.memoPrefs?.m2SecondTargetSwap &&
+        draft.engine.scheme.edgeMethod === "m2",
+      ),
+    );
+    return {
+      ...traced,
+      edges: { ...traced.edges, targets: edgeExecution.executionTargets },
+    };
+  }, [draft.engine, draft.memoPrefs?.m2SecondTargetSwap, traced]);
   const pieceOrder: Piece[] =
     draft.memoPrefs?.memoOrder === "edges-first"
       ? ["edges", "corners"]
@@ -118,7 +120,8 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     return {
       corners: corners.pairs,
       edges: edges.pairs,
-      m2Parity: draft.sample.m2Parity,
+      hasM2Parity: draft.sample.hasM2Parity,
+      targetRepresentation: draft.sample.targetRepresentation,
       ...(corners.break ? { cornerBreak: corners.break } : {}),
       ...(edges.break ? { edgeBreak: edges.break } : {}),
     };
@@ -135,7 +138,8 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     return {
       corners: pairTokens(presented.corners.targets.map((t) => t.token)),
       edges: pairTokens(presented.edges.targets.map((t) => t.token)),
-      m2Parity: draft.sample.m2Parity,
+      hasM2Parity: draft.sample.hasM2Parity,
+      targetRepresentation: draft.sample.targetRepresentation,
     };
   }, [presented, sample, traced]);
 
@@ -281,7 +285,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
       memo: {
         corners: toPairs(completedSample.corners),
         edges: toPairs(completedSample.edges),
-        m2Parity: completedSample.m2Parity,
+        hasM2Parity: completedSample.hasM2Parity,
       },
       dbUpdates: updates,
       cycleBreaks: choices,

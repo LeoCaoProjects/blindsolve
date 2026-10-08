@@ -71,7 +71,10 @@ export function SolveMemoView({
           </section>
         ) : null,
       )}
-      {memo.m2Parity && <M2ParityNotice />}
+      {memo.targetRepresentation === "m2-execution" && (
+        <p className="text-[12px] text-ink-3">M2 execution targets</p>
+      )}
+      {memo.hasM2Parity && <M2ParityNotice />}
     </div>
   );
 }

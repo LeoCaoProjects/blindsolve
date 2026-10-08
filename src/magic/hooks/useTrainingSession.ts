@@ -21,6 +21,7 @@ import { useHoldStart } from "./useHoldStart";
 import { useStore } from "../../app/Store";
 import { useExecScramble } from "./useExecScramble";
 import { FIRST_EXEC_SEED } from "../utils/randomStateScramble";
+import { orderedChallengeGroups } from "../utils/challengeTargets";
 
 export type { TrainMode };
 /** idle → (hold Space) → active → [recall] → review → idle */
@@ -108,22 +109,27 @@ export function useTrainingSession(init: TrainInit) {
   const challenge: Challenge = useMemo(
     () =>
       mode === "exec" && preparedScramble
-        ? challengeFromScramble(scramble, filter, seed, { ...setup, m2SecondTargetSwap: prefs.m2SecondTargetSwap })
-        : makeChallenge(filter, seed, { ...setup, m2SecondTargetSwap: prefs.m2SecondTargetSwap }),
-    [mode, preparedScramble, scramble, filter, seed, setup, prefs.m2SecondTargetSwap],
+        ? challengeFromScramble(scramble, filter, seed, {
+            ...setup,
+            m2SecondTargetSwap: prefs.m2SecondTargetSwap,
+          })
+        : makeChallenge(filter, seed, {
+            ...setup,
+            m2SecondTargetSwap: prefs.m2SecondTargetSwap,
+          }),
+    [
+      mode,
+      preparedScramble,
+      scramble,
+      filter,
+      seed,
+      setup,
+      prefs.m2SecondTargetSwap,
+    ],
   );
   const groups: TrainGroup[] = useMemo(() => {
-    const g: TrainGroup[] = [];
-    const add = (piece: "corners" | "edges") => {
-      if (piece === "corners" && filter !== "edges") g.push({ piece, tokens: challenge.corners });
-      if (piece === "edges" && filter !== "corners") g.push({ piece, tokens: challenge.edges });
-    };
-    const order: Array<"corners" | "edges"> = prefs.memoOrder === "edges-first"
-      ? ["edges", "corners"]
-      : ["corners", "edges"];
-    order.forEach(add);
-    return g;
-  }, [challenge, filter, prefs.memoOrder]);
+    return orderedChallengeGroups(challenge, mode, filter, prefs.memoOrder);
+  }, [challenge, filter, mode, prefs.memoOrder]);
 
   const storedFor = useCallback(
     (a: string, b: string, piece: "corners" | "edges") =>
@@ -168,7 +174,10 @@ export function useTrainingSession(init: TrainInit) {
     setPhase("active");
   }, [groups, mode]);
 
-  const hold = useHoldStart({ enabled: phase === "idle" && scrambleReady, onStart: start });
+  const hold = useHoldStart({
+    enabled: phase === "idle" && scrambleReady,
+    onStart: start,
+  });
 
   const toRecall = useCallback(() => {
     if (phaseRef.current !== "active") return;
@@ -213,7 +222,10 @@ export function useTrainingSession(init: TrainInit) {
           ? true
           : mode === "full"
             ? gradeFullMemo(groups, words, storedFor).every(
-                (row) => row.status === "main" || row.status === "alternate" || row.status === "new",
+                (row) =>
+                  row.status === "main" ||
+                  row.status === "alternate" ||
+                  row.status === "new",
               )
             : r.every((g) => g.correct),
       pairs: mode === "full" || mode === "exec" ? pairCount : undefined,
@@ -230,7 +242,10 @@ export function useTrainingSession(init: TrainInit) {
           accuracy:
             mode === "full"
               ? rows.filter(
-                  (row) => row.status === "main" || row.status === "alternate" || row.status === "new",
+                  (row) =>
+                    row.status === "main" ||
+                    row.status === "alternate" ||
+                    row.status === "new",
                 ).length / Math.max(1, pairCount)
               : r.reduce(
                   (sum, group) => sum + group.actual.length - group.wrong,
@@ -260,25 +275,32 @@ export function useTrainingSession(init: TrainInit) {
     store,
   ]);
 
-  const removeAttempt = useCallback((id: number) => {
-    setHistory((h) => h.filter((a) => a.id !== id));
-    store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => Date.parse(attempt.createdAt) !== id) }));
-  }, [store]);
-  const removeLatestAttempt = useCallback(
-    () => {
-      const latest = history.find((attempt) => attempt.mode === mode);
-      if (!latest) return;
-      removeAttempt(latest.id);
+  const removeAttempt = useCallback(
+    (id: number) => {
+      setHistory((h) => h.filter((a) => a.id !== id));
+      store.update((data) => ({
+        ...data,
+        attempts: data.attempts.filter(
+          (attempt) => Date.parse(attempt.createdAt) !== id,
+        ),
+      }));
     },
-    [history, mode, removeAttempt],
+    [store],
   );
-  const clearAttempts = useCallback(
-    () => {
-      setHistory((h) => h.filter((a) => a.mode !== mode));
-      store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => attempt.trainingMode !== mode) }));
-    },
-    [mode, store],
-  );
+  const removeLatestAttempt = useCallback(() => {
+    const latest = history.find((attempt) => attempt.mode === mode);
+    if (!latest) return;
+    removeAttempt(latest.id);
+  }, [history, mode, removeAttempt]);
+  const clearAttempts = useCallback(() => {
+    setHistory((h) => h.filter((a) => a.mode !== mode));
+    store.update((data) => ({
+      ...data,
+      attempts: data.attempts.filter(
+        (attempt) => attempt.trainingMode !== mode,
+      ),
+    }));
+  }, [mode, store]);
 
   /** Execution Sprint setup: swap the scramble before starting, like the Timer's N. */
   const newScramble = useCallback(() => {
@@ -286,21 +308,30 @@ export function useTrainingSession(init: TrainInit) {
   }, [phase]);
 
   /** Execution Sprint is self-reported; the latest attempt follows the Solved/DNF choice. */
-  const setExecResult = useCallback((r: ExecResult) => {
-    setReport(r);
-    setHistory((h) =>
-      h[0]?.mode === "exec"
-        ? [{ ...h[0], correct: r === "solved" }, ...h.slice(1)]
-        : h,
-    );
-    store.update((data) => {
-      const index = data.attempts.findIndex((attempt) => attempt.trainingMode === "exec");
-      if (index < 0) return data;
-      const attempts = [...data.attempts];
-      attempts[index] = { ...attempts[index], correct: r === "solved", accuracy: r === "solved" ? 1 : 0 };
-      return { ...data, attempts };
-    });
-  }, [store]);
+  const setExecResult = useCallback(
+    (r: ExecResult) => {
+      setReport(r);
+      setHistory((h) =>
+        h[0]?.mode === "exec"
+          ? [{ ...h[0], correct: r === "solved" }, ...h.slice(1)]
+          : h,
+      );
+      store.update((data) => {
+        const index = data.attempts.findIndex(
+          (attempt) => attempt.trainingMode === "exec",
+        );
+        if (index < 0) return data;
+        const attempts = [...data.attempts];
+        attempts[index] = {
+          ...attempts[index],
+          correct: r === "solved",
+          accuracy: r === "solved" ? 1 : 0,
+        };
+        return { ...data, attempts };
+      });
+    },
+    [store],
+  );
 
   const next = useCallback(() => {
     if (mode === "exec") setSeed((s) => s + 1);
@@ -470,8 +501,7 @@ function seededWords(
   return groups.map((g) =>
     fullPairs(g.tokens).map(([a, b], i) => {
       const word = stored(a, b, g.piece);
-      if (!word)
-        return suggestionsFor(a, b)[0] ?? `${a}${b}`.toLowerCase();
+      if (!word) return suggestionsFor(a, b)[0] ?? `${a}${b}`.toLowerCase();
       if (i === 1 && changed < 2) return CHANGED_WORDS[changed++];
       if (i === 3 && !skipped) {
         skipped = true;

@@ -82,7 +82,7 @@ export function MemoRecallWorkspace({
             </Fade>
           )}
         </AnimatePresence>
-        {!recalling && t.challenge.m2Parity && (
+        {!recalling && t.challenge.hasM2Parity && (
           <M2ParityNotice className="mt-5" />
         )}
       </div>

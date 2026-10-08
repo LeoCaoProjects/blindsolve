@@ -6,6 +6,7 @@ import { createSpeffzScheme } from "./speffz";
 import { traceSection } from "./trace";
 import {
   applyM2SecondTargetSwap,
+  m2ExecutionRepresentation,
   m2SecondTargetStickerId,
 } from "./memoConventions";
 import type { CubeOrbitState, LetteringScheme, TraceSection } from "./types";
@@ -251,7 +252,10 @@ describe("M2 execution audit", () => {
       );
       const state = orbitState(pattern);
       const raw = canonicalTrace(state, scheme);
-      const converted = applyM2SecondTargetSwap(raw, scheme);
+      const rawBefore = structuredClone(raw.targets);
+      const off = m2ExecutionRepresentation(raw, scheme, false);
+      const on = m2ExecutionRepresentation(raw, scheme, true);
+      const converted = { ...raw, targets: on.executionTargets };
       const customRaw = canonicalTrace(state, custom);
       const customConverted = applyM2SecondTargetSwap(customRaw, custom);
       const manualIds = raw.targets.map((target, targetIndex) =>
@@ -271,6 +275,10 @@ describe("M2 execution audit", () => {
         (target) => target.stickerId,
       );
 
+      expect(on.rawTargets).toEqual(off.rawTargets);
+      expect(on.rawTargets).toEqual(rawBefore);
+      expect(raw.targets).toEqual(rawBefore);
+      expect(on.hasM2Parity).toBe(raw.targets.length % 2 === 1);
       expect(convertedIds).toEqual(manualIds);
       expect(customIds).toEqual(manualIds);
       expect(customConverted.targets.map((target) => target.token)).toEqual(
@@ -483,9 +491,10 @@ describe("M2 execution audit", () => {
         orbitState(kpuzzle.defaultPattern().applyAlg(scramble)),
         scheme,
       );
-      const domainTokens = applyM2SecondTargetSwap(domainRaw, scheme).targets.map(
-        (target) => target.token,
-      );
+      const domainTokens = applyM2SecondTargetSwap(
+        domainRaw,
+        scheme,
+      ).targets.map((target) => target.token);
       const trainingRaw = traceTraining(
         trainingStateFromScramble(scramble),
         "edge",

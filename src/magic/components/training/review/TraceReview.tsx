@@ -41,7 +41,7 @@ export function TraceReview({ t }: { t: TrainingSession }) {
           <PairDiff key={g.piece} result={g} label={LABEL[g.piece]} />
         ))}
       </div>
-      {t.challenge.m2Parity && <M2ParityNotice className="mt-5" />}
+      {t.challenge.hasM2Parity && <M2ParityNotice className="mt-5" />}
     </ReviewPanel>
   );
 }

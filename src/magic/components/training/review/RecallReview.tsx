@@ -99,7 +99,7 @@ export function RecallReview({ t }: { t: TrainingSession }) {
           <PairDiff key={g.piece} result={g} label={LABEL[g.piece]} />
         ))}
       </div>
-      {t.challenge.m2Parity && <M2ParityNotice className="mt-5" />}
+      {t.challenge.hasM2Parity && <M2ParityNotice className="mt-5" />}
 
       <section className="mt-9 border-t border-line pt-6">
         <header className="flex items-baseline justify-between gap-4">

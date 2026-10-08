@@ -137,6 +137,8 @@ describe("workspace integrity", () => {
               secondStickerId: "B:BU",
               firstToken: "CH",
               secondToken: "1",
+              secondExecutionStickerId: "D:DB",
+              secondExecutionToken: "7X",
               mnemonic: "church",
             },
           ],
@@ -147,6 +149,45 @@ describe("workspace integrity", () => {
     expect(parsed.multiphaseTiming).toBe(false);
     expect(parsed.solves[0].result).toBe("+2");
     expect(parsed.solves[0].memoSnapshot?.edges[0].mnemonic).toBe("church");
+    expect(parsed.solves[0].memoSnapshot?.edges[0].secondExecutionToken).toBe(
+      "7X",
+    );
+  });
+  it("does not create a sync diff after execution-target snapshot hydration", () => {
+    const cloud = emptyData();
+    cloud.solves = [
+      {
+        id: crypto.randomUUID(),
+        scramble: "R U",
+        memoMs: 1_000,
+        executionMs: 2_000,
+        totalMs: 3_000,
+        result: "success",
+        edgeMemo: ["ALPHA", "foo"],
+        cornerMemo: [],
+        cycleBreaks: { edges: [], corners: [] },
+        createdAt: "2026-10-09T00:00:00.000Z",
+        updatedAt: "2026-10-09T00:00:01.000Z",
+        memoSnapshot: {
+          corners: [],
+          edges: [
+            {
+              firstStickerId: "U:UF",
+              secondStickerId: "F:UF",
+              firstToken: "ALPHA",
+              secondToken: "foo",
+              secondExecutionStickerId: "B:DB",
+              secondExecutionToken: "BAR-2",
+              mnemonic: "custom image",
+            },
+          ],
+        },
+      },
+    ];
+    const hydrated = parseData(structuredClone(cloud));
+
+    expect(diffSyncChanges(cloud, hydrated)).toEqual([]);
+    expect(diffSyncChanges(cloud, mergeData(cloud, hydrated).data)).toEqual([]);
   });
   it("uses the newest persisted timer preference during conflict merge", () => {
     const local = emptyData();
@@ -162,7 +203,9 @@ describe("workspace integrity", () => {
     const data = emptyData();
     data.showLiveTimer = false;
     data.preferencesUpdatedAt = "2026-09-25T03:00:00Z";
-    expect(parseBackup(JSON.stringify({ version: 3, data })).showLiveTimer).toBe(false);
+    expect(
+      parseBackup(JSON.stringify({ version: 3, data })).showLiveTimer,
+    ).toBe(false);
   });
   it("merges show-live-timer with the shared preference timestamp", () => {
     const local = emptyData();
@@ -256,7 +299,10 @@ describe("workspace integrity", () => {
   ] as const)("creates one settings change for %s", (key, value) => {
     const before = emptyData();
     const after = structuredClone(before);
-    Object.assign(after, { [key]: value, preferencesUpdatedAt: "2026-09-25T03:00:00Z" });
+    Object.assign(after, {
+      [key]: value,
+      preferencesUpdatedAt: "2026-09-25T03:00:00Z",
+    });
     expect(diffSyncChanges(before, after)).toEqual([
       expect.objectContaining({ kind: "settings", recordId: "settings" }),
     ]);

@@ -8,8 +8,7 @@ import {
 import { traceMemo, traceWithCanonicalBreaks } from "../../domain/bld/trace";
 import type { MemoTrace, TraceTarget } from "../../domain/bld/types";
 import {
-  applyM2SecondTargetSwap,
-  m2NeedsParity,
+  m2ExecutionRepresentation,
   m2SecondTargetStickerId,
 } from "../../domain/bld/memoConventions";
 import type { MemoPair } from "../types/solve";
@@ -60,10 +59,15 @@ export function useTimerSession({
         // Scramble notation is always interpreted in the fixed white-top/green-front frame.
         const state = await scrambleToState(scrambleRef.current);
         const { trace, choices } = traceWithCanonicalBreaks(state, scheme);
-        const presentedTrace =
-          prefs.m2SecondTargetSwap && scheme.edgeMethod === "m2"
-            ? { ...trace, edges: applyM2SecondTargetSwap(trace.edges, scheme) }
-            : trace;
+        const edgeExecution = m2ExecutionRepresentation(
+          trace.edges,
+          scheme,
+          prefs.m2SecondTargetSwap && scheme.edgeMethod === "m2",
+        );
+        const presentedTrace = {
+          ...trace,
+          edges: { ...trace.edges, targets: edgeExecution.executionTargets },
+        };
         traceRef.current = trace;
         const pair = (tokens: string[]) =>
           Array.from(
@@ -134,7 +138,11 @@ export function useTimerSession({
           sample: {
             corners: corners.pairs,
             edges: edges.pairs,
-            m2Parity: scheme.edgeMethod === "m2" && m2NeedsParity(trace.edges),
+            hasM2Parity: edgeExecution.hasM2Parity,
+            targetRepresentation:
+              prefs.m2SecondTargetSwap && scheme.edgeMethod === "m2"
+                ? "m2-execution"
+                : "raw",
             ...(corners.break ? { cornerBreak: corners.break } : {}),
             ...(edges.break ? { edgeBreak: edges.break } : {}),
           },
@@ -182,14 +190,25 @@ export function useTimerSession({
       const rawTrace = d.engine
         ? traceMemo(d.engine.state, d.engine.scheme, result.cycleBreaks)
         : traceRef.current;
+      const edgeExecution =
+        rawTrace && d.engine
+          ? m2ExecutionRepresentation(
+              rawTrace.edges,
+              d.engine.scheme,
+              Boolean(
+                d.memoPrefs?.m2SecondTargetSwap &&
+                d.engine.scheme.edgeMethod === "m2",
+              ),
+            )
+          : null;
       const trace =
-        rawTrace &&
-        d.engine &&
-        d.memoPrefs?.m2SecondTargetSwap &&
-        d.engine.scheme.edgeMethod === "m2"
+        rawTrace && edgeExecution
           ? {
               ...rawTrace,
-              edges: applyM2SecondTargetSwap(rawTrace.edges, d.engine.scheme),
+              edges: {
+                ...rawTrace.edges,
+                targets: edgeExecution.executionTargets,
+              },
             }
           : rawTrace;
       if (d.solveId && trace)
@@ -200,8 +219,8 @@ export function useTimerSession({
               ? {
                   ...solve,
                   result: result.penalty === "ok" ? "success" : result.penalty,
-                  cornerMemo: trace.corners.targets.map((t) => t.token),
-                  edgeMemo: trace.edges.targets.map((t) => t.token),
+                  cornerMemo: rawTrace!.corners.targets.map((t) => t.token),
+                  edgeMemo: rawTrace!.edges.targets.map((t) => t.token),
                   cycleBreaks: result.cycleBreaks,
                   memoSnapshot: {
                     corners: snapshot(
@@ -332,8 +351,20 @@ export function snapshot(
       return {
         firstStickerId: rawFirst.stickerId,
         ...(rawSecond ? { secondStickerId: rawSecond.stickerId } : {}),
-        firstToken: first.token,
-        ...(second ? { secondToken: second.token } : {}),
+        firstToken: rawFirst.token,
+        ...(rawSecond ? { secondToken: rawSecond.token } : {}),
+        ...(first.stickerId !== rawFirst.stickerId
+          ? {
+              firstExecutionStickerId: first.stickerId,
+              firstExecutionToken: first.token,
+            }
+          : {}),
+        ...(rawSecond && second && second.stickerId !== rawSecond.stickerId
+          ? {
+              secondExecutionStickerId: second.stickerId,
+              secondExecutionToken: second.token,
+            }
+          : {}),
         mnemonic: words[index]?.word ?? "",
         firstCycleBreak: rawFirst.cycleBreak,
         ...(rawSecond ? { secondCycleBreak: rawSecond.cycleBreak } : {}),

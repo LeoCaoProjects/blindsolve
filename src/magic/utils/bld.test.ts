@@ -61,25 +61,26 @@ describe("Magic training state adapter", () => {
 
   it("derives displayed facelets and target tokens from one challenge", () => {
     const challenge = makeChallenge("both", 9472, setup);
-    expect(challenge.corners.length).toBeGreaterThan(1);
-    expect(challenge.edges.length).toBeGreaterThan(1);
+    expect(challenge.rawTargets.corners.tokens.length).toBeGreaterThan(1);
+    expect(challenge.rawTargets.edges.tokens.length).toBeGreaterThan(1);
     expect(Object.values(challenge.state).flat()).toHaveLength(54);
     expect(
-      [...challenge.corners, ...challenge.edges].every((token) =>
-        /^[A-X]$/.test(token),
-      ),
+      [
+        ...challenge.rawTargets.corners.tokens,
+        ...challenge.rawTargets.edges.tokens,
+      ].every((token) => /^[A-X]$/.test(token)),
     ).toBe(true);
-    expect(challenge.m2Parity).toBe(false);
+    expect(challenge.hasM2Parity).toBe(false);
   });
 
   it("marks odd target-by-target M2 sequences without changing their targets", () => {
     const m2 = { ...setup, edgeMethod: "m2" };
     const raw = Array.from({ length: 100 }, (_, seed) =>
       makeChallenge("both", seed + 1, m2),
-    ).find((challenge) => challenge.edges.length % 2 === 1)!;
-    expect(raw.m2Parity).toBe(true);
+    ).find((challenge) => challenge.rawTargets.edges.tokens.length % 2 === 1)!;
+    expect(raw.hasM2Parity).toBe(true);
     expect(
-      makeChallenge("both", raw.seed, { ...m2, edgeMethod: "op" }).m2Parity,
+      makeChallenge("both", raw.seed, { ...m2, edgeMethod: "op" }).hasM2Parity,
     ).toBe(false);
   });
 

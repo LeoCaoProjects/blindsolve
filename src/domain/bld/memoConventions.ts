@@ -79,3 +79,27 @@ export function applyM2SecondTargetSwap(
 export function m2NeedsParity(section: TraceSection) {
   return section.targets.length % 2 === 1;
 }
+
+export interface M2ExecutionRepresentation {
+  /** Canonical factual trace; this is the original array by design. */
+  rawTargets: readonly TraceTarget[];
+  /** Presentation-only targets used to select classic M2 execution algorithms. */
+  executionTargets: TraceTarget[];
+  /** Execution metadata only. It never changes either target array. */
+  hasM2Parity: boolean;
+}
+
+export function m2ExecutionRepresentation(
+  section: TraceSection,
+  scheme: LetteringScheme,
+  transformEnabled: boolean,
+): M2ExecutionRepresentation {
+  return {
+    rawTargets: section.targets,
+    executionTargets:
+      transformEnabled && scheme.edgeMethod === "m2"
+        ? applyM2SecondTargetSwap(section, scheme).targets
+        : [...section.targets],
+    hasM2Parity: scheme.edgeMethod === "m2" && m2NeedsParity(section),
+  };
+}

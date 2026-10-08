@@ -34,6 +34,10 @@ export interface MemoPairSnapshot {
   secondStickerId?: string;
   firstToken: string;
   secondToken?: string;
+  firstExecutionStickerId?: string;
+  secondExecutionStickerId?: string;
+  firstExecutionToken?: string;
+  secondExecutionToken?: string;
   mnemonic: string;
   firstCycleBreak?: boolean;
   secondCycleBreak?: boolean;
@@ -193,6 +197,10 @@ const solveSchema = z
             secondStickerId: text.optional(),
             firstToken: text,
             secondToken: text.optional(),
+            firstExecutionStickerId: text.optional(),
+            secondExecutionStickerId: text.optional(),
+            firstExecutionToken: text.optional(),
+            secondExecutionToken: text.optional(),
             mnemonic: text,
             firstCycleBreak: z.boolean().optional(),
             secondCycleBreak: z.boolean().optional(),
@@ -204,7 +212,13 @@ const solveSchema = z
             secondStickerId: text.optional(),
             firstToken: text,
             secondToken: text.optional(),
+            firstExecutionStickerId: text.optional(),
+            secondExecutionStickerId: text.optional(),
+            firstExecutionToken: text.optional(),
+            secondExecutionToken: text.optional(),
             mnemonic: text,
+            firstCycleBreak: z.boolean().optional(),
+            secondCycleBreak: z.boolean().optional(),
           }),
         ),
       })
@@ -695,9 +709,7 @@ export function mergeData(
       m2SecondTargetSwap: incomingPreferences
         ? incoming.m2SecondTargetSwap
         : local.m2SecondTargetSwap,
-      memoOrder: incomingPreferences
-        ? incoming.memoOrder
-        : local.memoOrder,
+      memoOrder: incomingPreferences ? incoming.memoOrder : local.memoOrder,
       pairSharing: incomingPreferences
         ? incoming.pairSharing
         : local.pairSharing,

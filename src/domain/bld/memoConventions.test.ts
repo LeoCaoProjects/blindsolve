@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyM2SecondTargetSwap, m2NeedsParity } from "./memoConventions";
+import {
+  applyM2SecondTargetSwap,
+  m2ExecutionRepresentation,
+  m2NeedsParity,
+} from "./memoConventions";
 import { createSpeffzScheme } from "./speffz";
 import type { LetteringScheme, TraceSection } from "./types";
 
@@ -108,5 +112,34 @@ describe("M2 second-target convention", () => {
     const raw = section(["D:DR", "F:UF"], scheme);
     applyM2SecondTargetSwap(raw, scheme);
     expect(raw.targets[1]).toMatchObject({ stickerId: "F:UF", token: "I" });
+  });
+
+  it("keeps raw targets, execution targets, and parity as separate values", () => {
+    const scheme = createSpeffzScheme();
+    const raw = section(["D:DR", "F:UF", "U:UF"], scheme, [2]);
+    const before = structuredClone(raw.targets);
+    const off = m2ExecutionRepresentation(raw, scheme, false);
+    const on = m2ExecutionRepresentation(raw, scheme, true);
+
+    expect(off.rawTargets).toBe(raw.targets);
+    expect(on.rawTargets).toBe(raw.targets);
+    expect(off.rawTargets).toEqual(on.rawTargets);
+    expect(on.executionTargets.map((target) => target.stickerId)).toEqual([
+      "D:DR",
+      "B:DB",
+      "U:UF",
+    ]);
+    expect(on.hasM2Parity).toBe(true);
+    expect(raw.targets).toEqual(before);
+  });
+
+  it("cannot apply the M2 representation to a non-M2 scheme", () => {
+    const scheme = createSpeffzScheme();
+    scheme.edgeMethod = "3style";
+    const raw = section(["D:DR", "F:UF", "U:UF"], scheme);
+    const representation = m2ExecutionRepresentation(raw, scheme, true);
+
+    expect(representation.executionTargets).toEqual(raw.targets);
+    expect(representation.hasM2Parity).toBe(false);
   });
 });

@@ -38,7 +38,7 @@ export function FullMemoWorkspace({
             }
           />
         ))}
-        {t.challenge.m2Parity && <M2ParityNotice />}
+        {t.challenge.hasM2Parity && <M2ParityNotice />}
       </div>
     </SplitStage>
   );

@@ -197,7 +197,7 @@ export function FullMemoReview({ t }: { t: TrainingSession }) {
           </section>
         );
       })}
-      {t.challenge.m2Parity && <M2ParityNotice className="mt-5" />}
+      {t.challenge.hasM2Parity && <M2ParityNotice className="mt-5" />}
     </ReviewPanel>
   );
 }

@@ -12,7 +12,8 @@ export interface SolveMemo {
   /** Flat letter index where a new cycle began */
   cornerBreakAt?: number;
   edgeBreakAt?: number;
-  m2Parity?: boolean;
+  hasM2Parity?: boolean;
+  targetRepresentation?: "raw" | "m2-execution";
 }
 
 export interface Solve {
@@ -37,7 +38,8 @@ export interface MemoSample {
   edges: string[];
   cornerBreak?: CycleBreak;
   edgeBreak?: CycleBreak;
-  m2Parity?: boolean;
+  hasM2Parity?: boolean;
+  targetRepresentation?: "raw" | "m2-execution";
 }
 
 export interface SolveDraft {
