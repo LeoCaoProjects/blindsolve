@@ -108,18 +108,22 @@ export function useTrainingSession(init: TrainInit) {
   const challenge: Challenge = useMemo(
     () =>
       mode === "exec" && preparedScramble
-        ? challengeFromScramble(scramble, filter, seed, setup)
-        : makeChallenge(filter, seed, setup),
-    [mode, preparedScramble, scramble, filter, seed, setup],
+        ? challengeFromScramble(scramble, filter, seed, { ...setup, m2SecondTargetSwap: prefs.m2SecondTargetSwap })
+        : makeChallenge(filter, seed, { ...setup, m2SecondTargetSwap: prefs.m2SecondTargetSwap }),
+    [mode, preparedScramble, scramble, filter, seed, setup, prefs.m2SecondTargetSwap],
   );
   const groups: TrainGroup[] = useMemo(() => {
     const g: TrainGroup[] = [];
-    if (filter !== "edges")
-      g.push({ piece: "corners", tokens: challenge.corners });
-    if (filter !== "corners")
-      g.push({ piece: "edges", tokens: challenge.edges });
+    const add = (piece: "corners" | "edges") => {
+      if (piece === "corners" && filter !== "edges") g.push({ piece, tokens: challenge.corners });
+      if (piece === "edges" && filter !== "corners") g.push({ piece, tokens: challenge.edges });
+    };
+    const order: Array<"corners" | "edges"> = prefs.memoOrder === "edges-first"
+      ? ["edges", "corners"]
+      : ["corners", "edges"];
+    order.forEach(add);
     return g;
-  }, [challenge, filter]);
+  }, [challenge, filter, prefs.memoOrder]);
 
   const storedFor = useCallback(
     (a: string, b: string, piece: "corners" | "edges") =>

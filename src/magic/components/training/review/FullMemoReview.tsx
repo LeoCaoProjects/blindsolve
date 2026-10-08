@@ -14,7 +14,6 @@ import { ReviewSummary } from './ReviewSummary';
 
 type Decision = 'keep' | 'replace' | 'alternate' | 'save';
 
-const PIECE_ORDER: Piece[] = ['corners', 'edges'] as Piece[];
 const PIECE_LABEL: Record<string, string> = { corners: 'Corners', edges: 'Edges' };
 const ROW = 'grid grid-cols-[18px_44px_minmax(0,1fr)_auto] items-start gap-x-3 border-b border-line py-2 pl-2.5';
 /** Wrong / Missing / Extra: a thin red rule on the left, nothing louder. */
@@ -69,7 +68,7 @@ export function FullMemoReview({ t }: {t: TrainingSession;}) {
   };
 
   const breakdown = [wrong && `${wrong} wrong`, missing && `${missing} missing`, extra && `${extra} extra`].filter(Boolean).join(' · ');
-  const groups = PIECE_ORDER.map((p) => t.groups.find((g) => g.piece === p)).filter((g): g is NonNullable<typeof g> => !!g);
+  const groups = t.groups;
 
   return (
     <ReviewPanel

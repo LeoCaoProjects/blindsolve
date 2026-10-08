@@ -363,6 +363,24 @@ test('hidden live timer masks active total and split times but reveals the final
   await expect(page.getByRole('timer')).toContainText(/\d/);
 });
 
+test('memo convention preferences persist and put edges first in training', async ({ page }) => {
+  await load(page);
+  await page.goto('/settings');
+  const m2 = page.getByRole('switch', { name: 'M2 second-target swap' });
+  await expect(m2).toHaveAttribute('aria-checked', 'false');
+  await m2.click();
+  await page.getByRole('radio', { name: 'Edges first' }).click();
+  await page.reload();
+  await expect(page.getByRole('switch', { name: 'M2 second-target swap' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: 'Edges first' })).toHaveAttribute('aria-checked', 'true');
+
+  await page.goto('/training');
+  await holdSpace(page);
+  const headings = page.locator('main h2');
+  await expect(headings.first()).toHaveText('Edges');
+  await expect(headings.nth(1)).toHaveText('Corners');
+});
+
 test('auth surface exposes only WCA and Google', async ({ page }) => {
   await load(page);
   await page.goto('/signin');

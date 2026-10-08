@@ -63,6 +63,8 @@ export interface AppData {
   schemeUpdatedAt: string;
   multiphaseTiming: boolean;
   showLiveTimer: boolean;
+  m2SecondTargetSwap: boolean;
+  memoOrder: "corners-first" | "edges-first";
   pairSharing?: "shared" | "separate";
   flippedEdges?: "cycle" | "separate";
   twistedCorners?: "cycle" | "separate";
@@ -85,6 +87,8 @@ export const emptyData = (): AppData => ({
   schemeUpdatedAt: new Date(0).toISOString(),
   multiphaseTiming: true,
   showLiveTimer: true,
+  m2SecondTargetSwap: false,
+  memoOrder: "corners-first",
   pairSharing: "shared",
   flippedEdges: "cycle",
   twistedCorners: "cycle",
@@ -103,6 +107,8 @@ export function hasMeaningfulData(data: AppData): boolean {
     JSON.stringify(data.scheme) !== JSON.stringify(defaults.scheme) ||
     data.multiphaseTiming !== defaults.multiphaseTiming ||
     data.showLiveTimer !== defaults.showLiveTimer ||
+    data.m2SecondTargetSwap !== defaults.m2SecondTargetSwap ||
+    data.memoOrder !== defaults.memoOrder ||
     (data.pairSharing ?? "shared") !== defaults.pairSharing ||
     (data.flippedEdges ?? "cycle") !== defaults.flippedEdges ||
     (data.twistedCorners ?? "cycle") !== defaults.twistedCorners ||
@@ -250,6 +256,8 @@ const dataSchema = z.object({
   schemeUpdatedAt: iso.default(new Date(0).toISOString()),
   multiphaseTiming: z.boolean().default(true),
   showLiveTimer: z.boolean().default(true),
+  m2SecondTargetSwap: z.boolean().default(false),
+  memoOrder: z.enum(["corners-first", "edges-first"]).default("corners-first"),
   pairSharing: z.enum(["shared", "separate"]).default("shared"),
   flippedEdges: z.enum(["cycle", "separate"]).default("cycle"),
   twistedCorners: z.enum(["cycle", "separate"]).default("cycle"),
@@ -422,6 +430,8 @@ const settingsPayload = (data: AppData) => ({
   schemeUpdatedAt: data.schemeUpdatedAt,
   multiphaseTiming: data.multiphaseTiming,
   showLiveTimer: data.showLiveTimer,
+  m2SecondTargetSwap: data.m2SecondTargetSwap,
+  memoOrder: data.memoOrder,
   pairSharing: data.pairSharing,
   flippedEdges: data.flippedEdges,
   twistedCorners: data.twistedCorners,
@@ -682,6 +692,12 @@ export function mergeData(
       showLiveTimer: incomingPreferences
         ? incoming.showLiveTimer
         : local.showLiveTimer,
+      m2SecondTargetSwap: incomingPreferences
+        ? incoming.m2SecondTargetSwap
+        : local.m2SecondTargetSwap,
+      memoOrder: incomingPreferences
+        ? incoming.memoOrder
+        : local.memoOrder,
       pairSharing: incomingPreferences
         ? incoming.pairSharing
         : local.pairSharing,

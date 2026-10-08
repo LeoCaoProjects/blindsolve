@@ -3,6 +3,7 @@ import { Decision, Reconstruction } from '../../hooks/useReconstruction';
 import { Piece } from '../../types/solve';
 import { MemoTrace } from '../solve/MemoTrace';
 import { EditableWord } from './EditableWord';
+import { useAppData } from '../../contexts/AppDataContext';
 
 interface ReviewMemoProps {
   r: Reconstruction;
@@ -10,9 +11,11 @@ interface ReviewMemoProps {
 }
 
 export function ReviewMemo({ r, size = 'md' }: ReviewMemoProps) {
-  const rows: {piece: Piece;label: string;pairs: string[];breakAt?: number;}[] = [
-  { piece: 'corners', label: 'Corners', pairs: r.sample.corners, breakAt: r.sample.cornerBreak?.at },
-  { piece: 'edges', label: 'Edges', pairs: r.sample.edges, breakAt: r.sample.edgeBreak?.at }];
+  const { prefs } = useAppData();
+  const rowsByPiece: Record<Piece, {piece: Piece;label: string;pairs: string[];breakAt?: number;}> = {
+  corners: { piece: 'corners', label: 'Corners', pairs: r.sample.corners, breakAt: r.sample.cornerBreak?.at },
+  edges: { piece: 'edges', label: 'Edges', pairs: r.sample.edges, breakAt: r.sample.edgeBreak?.at }};
+  const rows = (prefs.memoOrder === 'edges-first' ? ['edges', 'corners'] : ['corners', 'edges']).map((piece) => rowsByPiece[piece as Piece]);
 
 
   return (

@@ -3,6 +3,7 @@ import { traceMemo } from '../../domain/bld/trace';
 import type { TraceSection } from '../../domain/bld/types';
 import { LetterPairDb, MemoSample, Penalty, Piece, SolveDraft, SolveMemo } from '../types/solve';
 import { isTypingTarget } from '../utils/keyboard';
+import { applyM2SecondTargetSwap, m2SecondTargetStickerId } from '../../domain/bld/memoConventions';
 
 export type ReconStep =
   {kind: 'break';piece: Piece;options: string[];answer: string;} |
@@ -33,40 +34,47 @@ export function useReconstruction({ draft, db, onSave }: Options) {
   const [optionFocus, setOptionFocus] = useState(0);
 
   const traced = useMemo(() => draft.engine ? traceMemo(draft.engine.state, draft.engine.scheme, choices) : null, [draft.engine, choices]);
-  const pending = traced?.corners.status === 'cycle-break' ? { piece: 'corners' as const, section: traced.corners } :
-    traced?.edges.status === 'cycle-break' ? { piece: 'edges' as const, section: traced.edges } : null;
+  const presented = useMemo(() => traced && draft.engine && draft.memoPrefs?.m2SecondTargetSwap && draft.engine.scheme.edgeMethod === 'm2'
+    ? { ...traced, edges: applyM2SecondTargetSwap(traced.edges, draft.engine.scheme) }
+    : traced, [draft.engine, draft.memoPrefs?.m2SecondTargetSwap, traced]);
+  const pieceOrder: Piece[] = draft.memoPrefs?.memoOrder === 'edges-first' ? ['edges', 'corners'] : ['corners', 'edges'];
+  const pending = pieceOrder.map((piece) => ({ piece, section: traced?.[piece] })).find((item) => item.section?.status === 'cycle-break') as { piece: Piece; section: TraceSection } | undefined;
+  const presentedBreakId = useCallback((id: string) =>
+    pending?.piece === 'edges' && draft.memoPrefs?.m2SecondTargetSwap && draft.engine?.scheme.edgeMethod === 'm2'
+      ? m2SecondTargetStickerId(id, pending.section.targets.length)
+      : id, [draft.engine?.scheme.edgeMethod, draft.memoPrefs?.m2SecondTargetSwap, pending]);
 
   const sample = useMemo<MemoSample>(() => {
-    if (!traced || !draft.engine) return draft.sample;
+    if (!traced || !presented || !draft.engine) return draft.sample;
     const make = (piece: Piece, section: TraceSection) => {
       const tokens = section.targets.map((target) => target.token);
       const pairs = pairTokens(tokens);
       if (section.status !== 'cycle-break') return { pairs };
-      const options = section.validCycleBreaks.map((id) => draft.engine!.scheme.stickers[id].label);
+      const options = section.validCycleBreaks.map((id) => draft.engine!.scheme.stickers[piece === 'edges' ? presentedBreakId(id) : id].label);
       const at = tokens.length;
       const withSlot = [...pairs];
       if (tokens.length % 2) withSlot[withSlot.length - 1] += '·'; else withSlot.push('··');
       return { pairs: withSlot, break: { at, options, answer: options[0] ?? '' } };
     };
-    const corners = make('corners', traced.corners), edges = make('edges', traced.edges);
+    const corners = make('corners', presented.corners), edges = make('edges', presented.edges);
     return { corners: corners.pairs, edges: edges.pairs,
       ...(corners.break ? { cornerBreak: corners.break } : {}),
       ...(edges.break ? { edgeBreak: edges.break } : {}) };
-  }, [draft.engine, draft.sample, traced]);
+  }, [draft.engine, draft.sample, presented, presentedBreakId, traced]);
 
   const completedSample = useMemo<MemoSample>(() => {
-    if (!traced || traced.corners.status !== 'complete' || traced.edges.status !== 'complete') return sample;
-    return { corners: pairTokens(traced.corners.targets.map((t) => t.token)), edges: pairTokens(traced.edges.targets.map((t) => t.token)) };
-  }, [sample, traced]);
+    if (!presented || !traced || traced.corners.status !== 'complete' || traced.edges.status !== 'complete') return sample;
+    return { corners: pairTokens(presented.corners.targets.map((t) => t.token)), edges: pairTokens(presented.edges.targets.map((t) => t.token)) };
+  }, [presented, sample, traced]);
 
   const steps = useMemo<ReconStep[]>(() => {
     if (pending) {
-      const options = pending.section.validCycleBreaks.map((id) => draft.engine!.scheme.stickers[id].label);
+      const options = pending.section.validCycleBreaks.map((id) => draft.engine!.scheme.stickers[presentedBreakId(id)].label);
       return [{ kind: 'break', piece: pending.piece, options, answer: options[0] ?? '' }];
     }
     const result: ReconStep[] = [];
     const seen = new Set<string>();
-    ([['corners', traced?.corners.targets.map((target) => target.token) ?? []], ['edges', traced?.edges.targets.map((target) => target.token) ?? []]] as [Piece, string[]][]).forEach(([piece, tokens]) => {
+    pieceOrder.map((piece) => [piece, presented?.[piece].targets.map((target) => target.token) ?? []] as [Piece, string[]]).forEach(([piece, tokens]) => {
       for (let index = 0; index + 1 < tokens.length; index += 2) {
         const first = tokens[index], second = tokens[index + 1], pair = first + second;
         if (db[pair] || seen.has(pair) || pair.includes('·')) continue;
@@ -76,7 +84,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     });
     result.push({ kind: 'review' });
     return result;
-  }, [db, draft.engine, pending, traced]);
+  }, [db, draft.engine, pending, pieceOrder, presented, presentedBreakId]);
   const step = steps[Math.min(index, steps.length - 1)];
 
   useEffect(() => setOptionFocus(0), [index, pending?.piece, pending?.section.targets.length]);
@@ -85,12 +93,12 @@ export function useReconstruction({ draft, db, onSave }: Options) {
 
   const pickBreak = useCallback((token: string) => {
     if (!pending || !draft.engine) return;
-    const id = pending.section.validCycleBreaks.find((candidate) => draft.engine!.scheme.stickers[candidate].label === token);
+    const id = pending.section.validCycleBreaks.find((candidate) => draft.engine!.scheme.stickers[presentedBreakId(candidate)].label === token);
     if (!id) return;
     setBreaks((current) => ({ ...current, [pending.piece]: token }));
     setChoices((current) => ({ ...current, [pending.piece]: [...current[pending.piece], id] }));
     setIndex(0);
-  }, [draft.engine, pending]);
+  }, [draft.engine, pending, presentedBreakId]);
 
   const setWord = useCallback((pair: string, word: string) => setWords((current) => ({ ...current, [pair]: word })), []);
   const decide = useCallback((pair: string, decision: Decision) => setDecisions((current) => ({ ...current, [pair]: decision })), []);

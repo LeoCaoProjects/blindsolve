@@ -1,6 +1,6 @@
 import { LetterScheme } from '../types/app';
 import { CubeState, FACES, Face, stateFromScramble } from './cube';
-import { CORNER_STICKERS, EDGE_STICKERS } from './scheme';
+import { CORNER_STICKERS, EDGE_STICKERS, stickerById } from './scheme';
 
 /**
  * Piece-level cube model and BLD tracing.
@@ -205,6 +205,29 @@ interface TraceSetup {
   scheme: LetterScheme;
   edgeBuffer: string;
   cornerBuffer: string;
+  edgeMethod?: string;
+  m2SecondTargetSwap?: boolean;
+}
+
+const M2_SPECIAL_TARGETS: Record<string, { face: string; piece: string }> = {
+  'U:UF': { face: 'D', piece: 'DB' },
+  'D:DB': { face: 'U', piece: 'UF' },
+  'F:FU': { face: 'B', piece: 'BD' },
+  'B:BD': { face: 'F', piece: 'FU' }
+};
+
+/** Convert a raw physical edge trace to the target-by-target M2 memo convention. */
+export function applyM2Targets(ids: string[], setup: TraceSetup): string[] {
+  if (setup.edgeMethod !== 'm2' || !setup.m2SecondTargetSwap) return ids;
+  return ids.map((id, index) => {
+    if (index % 2 === 0) return id;
+    const sticker = stickerById(id);
+    if (!sticker) return id;
+    const opposite = M2_SPECIAL_TARGETS[`${sticker.face}:${sticker.piece}`];
+    return opposite
+      ? EDGE_STICKERS.find((candidate) => candidate.face === opposite.face && candidate.piece === opposite.piece)?.id ?? id
+      : id;
+  });
 }
 
 export function makeChallenge(filter: TrainFilter, seed: number, setup: TraceSetup): Challenge {
@@ -221,7 +244,7 @@ export function makeChallenge(filter: TrainFilter, seed: number, setup: TraceSet
       filter,
       state,
       corners: c.ids.map(token),
-      edges: e.ids.map(token),
+      edges: applyM2Targets(e.ids, setup).map(token),
       cornerBreaks: c.breaks,
       edgeBreaks: e.breaks
     };
@@ -298,7 +321,7 @@ export function challengeFromScramble(scramble: string, filter: TrainFilter, see
     filter,
     state,
     corners: c.ids.map(token),
-    edges: e.ids.map(token),
+    edges: applyM2Targets(e.ids, setup).map(token),
     cornerBreaks: c.breaks,
     edgeBreaks: e.breaks
   };

@@ -314,6 +314,21 @@ export function Settings() {
                   </motion.div>
                 }
               </AnimatePresence>
+              {draft.edgeMethod === 'm2' &&
+              <SettingsRow label="M2 second-target swap" hint="Swap UF/DB targets in the second position of each edge pair">
+                <Toggle label="M2 second-target swap" checked={app.prefs.m2SecondTargetSwap} onChange={(m2SecondTargetSwap) => app.setPrefs({ m2SecondTargetSwap })} />
+              </SettingsRow>
+              }
+              <div className="mt-8">
+                <RadioRows
+                  name="Memo order"
+                  value={app.prefs.memoOrder}
+                  onChange={(memoOrder) => app.setPrefs({ memoOrder })}
+                  options={[
+                    { value: 'corners-first', label: 'Corners first' },
+                    { value: 'edges-first', label: 'Edges first' }]
+                  } />
+              </div>
             </SettingsSection>
 
             <SettingsSection id="pairs" title="Letter pairs">

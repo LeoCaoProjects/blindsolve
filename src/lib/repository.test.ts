@@ -172,6 +172,31 @@ describe("workspace integrity", () => {
     cloud.preferencesUpdatedAt = "2026-09-25T02:00:00Z";
     expect(mergeData(local, cloud).data.showLiveTimer).toBe(false);
   });
+  it("defaults and round-trips memo convention preferences", () => {
+    expect(emptyData()).toMatchObject({
+      m2SecondTargetSwap: false,
+      memoOrder: "corners-first",
+    });
+    const data = emptyData();
+    data.m2SecondTargetSwap = true;
+    data.memoOrder = "edges-first";
+    expect(parseBackup(JSON.stringify({ version: 3, data }))).toMatchObject({
+      m2SecondTargetSwap: true,
+      memoOrder: "edges-first",
+    });
+  });
+  it("merges memo conventions with the shared preference timestamp", () => {
+    const local = emptyData();
+    const cloud = emptyData();
+    local.preferencesUpdatedAt = "2026-09-25T01:00:00Z";
+    cloud.preferencesUpdatedAt = "2026-09-25T02:00:00Z";
+    cloud.m2SecondTargetSwap = true;
+    cloud.memoOrder = "edges-first";
+    expect(mergeData(local, cloud).data).toMatchObject({
+      m2SecondTargetSwap: true,
+      memoOrder: "edges-first",
+    });
+  });
   it("does not create a settings diff when identical data is merged", () => {
     const local = emptyData();
     const cloud = structuredClone(local);
@@ -221,6 +246,17 @@ describe("workspace integrity", () => {
     const after = structuredClone(before);
     after.showLiveTimer = false;
     after.preferencesUpdatedAt = "2026-09-25T03:00:00Z";
+    expect(diffSyncChanges(before, after)).toEqual([
+      expect.objectContaining({ kind: "settings", recordId: "settings" }),
+    ]);
+  });
+  it.each([
+    ["m2SecondTargetSwap", true],
+    ["memoOrder", "edges-first"],
+  ] as const)("creates one settings change for %s", (key, value) => {
+    const before = emptyData();
+    const after = structuredClone(before);
+    Object.assign(after, { [key]: value, preferencesUpdatedAt: "2026-09-25T03:00:00Z" });
     expect(diffSyncChanges(before, after)).toEqual([
       expect.objectContaining({ kind: "settings", recordId: "settings" }),
     ]);

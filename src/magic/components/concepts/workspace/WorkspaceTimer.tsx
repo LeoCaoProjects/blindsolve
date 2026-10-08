@@ -32,7 +32,7 @@ import { useScreenInit } from '../../../useScreenInit.js';
 export function WorkspaceTimer({ multiphase, showLiveTimer, stage }: ConceptProps & {showLiveTimer: boolean;}) {
   const init = useScreenInit() as {sessions?: 'open' | 'confirm';letters?: boolean;};
   const s = useTimerSession({ multiphase, stage, initialSessionsOpen: !!init.sessions });
-  const { sessions, activeSessionId } = useAppData();
+  const { sessions, activeSessionId, prefs } = useAppData();
   const sessionName = sessions.find((x) => x.id === activeSessionId)?.name ?? 'Session';
   const [letters, setLetters] = useState(!!init.letters);
   const [cubeRef, cubeBox] = useElementSize<HTMLDivElement>({ width: 392, height: 330 });
@@ -40,6 +40,9 @@ export function WorkspaceTimer({ multiphase, showLiveTimer, stage }: ConceptProp
   const { phase } = s.timer;
   const recede = s.running ? 'opacity-[0.1]' : phase === 'ready' ? 'opacity-40' : '';
   const latest = s.latest;
+  const latestMemo = latest ? (prefs.memoOrder === 'edges-first'
+    ? [latest.memo.edges, latest.memo.corners]
+    : [latest.memo.corners, latest.memo.edges]) : [];
   const cleanup = useHistoryCleanup({
     count: s.solves.length,
     noun: 'solve',
@@ -125,17 +128,12 @@ export function WorkspaceTimer({ multiphase, showLiveTimer, stage }: ConceptProp
                 className="font-mono text-[15px] text-ink-2 transition-colors duration-150 group-hover:text-ink" />
               
               </button>
-              <MemoTrace
-              size="sm"
-              pairs={latest.memo.corners.map((p) => p.pair)}
-              words={latest.memo.corners.map((p) => p.word)}
-              breakAt={latest.memo.cornerBreakAt ?? null} />
-            
-              <MemoTrace
-              size="sm"
-              pairs={latest.memo.edges.map((p) => p.pair)}
-              words={latest.memo.edges.map((p) => p.word)}
-              breakAt={latest.memo.edgeBreakAt ?? null} />
+              {latestMemo.map((memo, index) => <MemoTrace
+                key={prefs.memoOrder + index}
+                size="sm"
+                pairs={memo.map((p) => p.pair)}
+                words={memo.map((p) => p.word)}
+                breakAt={(prefs.memoOrder === 'edges-first' ? index === 0 ? latest.memo.edgeBreakAt : latest.memo.cornerBreakAt : index === 0 ? latest.memo.cornerBreakAt : latest.memo.edgeBreakAt) ?? null} />)}
             
             </section>
           }

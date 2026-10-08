@@ -7,6 +7,7 @@ import {
 } from "../../domain/bld/cubing";
 import { traceMemo, traceWithCanonicalBreaks } from "../../domain/bld/trace";
 import type { MemoTrace, TraceTarget } from "../../domain/bld/types";
+import { applyM2SecondTargetSwap, m2SecondTargetStickerId } from "../../domain/bld/memoConventions";
 import type { MemoPair } from "../types/solve";
 import { DemoStage, Penalty, SolveDraft } from "../types/solve";
 import { stateFromScramble } from "../utils/cube";
@@ -33,6 +34,7 @@ export function useTimerSession({
     timerDb: db,
     applyTimerDbUpdates,
     activeSessionId,
+    prefs,
   } = useAppData();
   const [scramble, setScramble] = useState("");
   const [draft, setDraft] = useState<SolveDraft | null>(null);
@@ -54,6 +56,9 @@ export function useTimerSession({
         // Scramble notation is always interpreted in the fixed white-top/green-front frame.
         const state = await scrambleToState(scrambleRef.current);
         const { trace, choices } = traceWithCanonicalBreaks(state, scheme);
+        const presentedTrace = prefs.m2SecondTargetSwap && scheme.edgeMethod === "m2"
+          ? { ...trace, edges: applyM2SecondTargetSwap(trace.edges, scheme) }
+          : trace;
         traceRef.current = trace;
         const pair = (tokens: string[]) =>
           Array.from(
@@ -61,7 +66,7 @@ export function useTimerSession({
             (_, i) => (tokens[i * 2] ?? "") + (tokens[i * 2 + 1] ?? ""),
           );
         const sampleFor = (piece: "corners" | "edges") => {
-          const section = trace[piece],
+          const section = presentedTrace[piece],
             tokens = section.targets.map((t) => t.token);
           const at = section.targets.findIndex((t) => t.cycleBreak);
           if (at < 0) return { pairs: pair(tokens) };
@@ -70,7 +75,9 @@ export function useTimerSession({
             edges: piece === "edges" ? [] : choices.edges,
           })[piece];
           const options = partial.validCycleBreaks.map(
-            (id) => scheme.stickers[id].label,
+            (id) => scheme.stickers[piece === "edges" && prefs.m2SecondTargetSwap && scheme.edgeMethod === "m2"
+              ? m2SecondTargetStickerId(id, partial.targets.length)
+              : id].label,
           );
           return {
             pairs: pair(tokens),
@@ -121,10 +128,11 @@ export function useTimerSession({
             ...(edges.break ? { edgeBreak: edges.break } : {}),
           },
           engine: { state, scheme },
+          memoPrefs: { m2SecondTargetSwap: prefs.m2SecondTargetSwap, memoOrder: prefs.memoOrder },
         });
       })();
     },
-    [multiphase, store, activeSessionId],
+    [multiphase, store, activeSessionId, prefs.m2SecondTargetSwap, prefs.memoOrder],
   );
 
   const overlayOpen =
@@ -151,9 +159,12 @@ export function useTimerSession({
     (result: ReconResult) => {
       const d = draftRef.current;
       if (!d) return;
-      const trace = d.engine
+      const rawTrace = d.engine
         ? traceMemo(d.engine.state, d.engine.scheme, result.cycleBreaks)
         : traceRef.current;
+      const trace = rawTrace && d.engine && d.memoPrefs?.m2SecondTargetSwap && d.engine.scheme.edgeMethod === "m2"
+        ? { ...rawTrace, edges: applyM2SecondTargetSwap(rawTrace.edges, d.engine.scheme) }
+        : rawTrace;
       if (d.solveId && trace)
         store.update((data) => ({
           ...data,
@@ -167,10 +178,15 @@ export function useTimerSession({
                   cycleBreaks: result.cycleBreaks,
                   memoSnapshot: {
                     corners: snapshot(
-                      trace.corners.targets,
+                      rawTrace!.corners.targets,
                       result.memo.corners,
+                      trace.corners.targets,
                     ),
-                    edges: snapshot(trace.edges.targets, result.memo.edges),
+                    edges: snapshot(
+                      rawTrace!.edges.targets,
+                      result.memo.edges,
+                      trace.edges.targets,
+                    ),
                   },
                   reconstruction: "complete",
                   updatedAt: new Date().toISOString(),
@@ -274,18 +290,24 @@ export function useTimerSession({
 
 export type TimerSession = ReturnType<typeof useTimerSession>;
 
-function snapshot(targets: TraceTarget[], words: MemoPair[]) {
-  return Array.from({ length: Math.ceil(targets.length / 2) }, (_, index) => {
-    const first = targets[index * 2],
-      second = targets[index * 2 + 1];
+export function snapshot(
+  rawTargets: TraceTarget[],
+  words: MemoPair[],
+  presentedTargets: TraceTarget[] = rawTargets,
+) {
+  return Array.from({ length: Math.ceil(rawTargets.length / 2) }, (_, index) => {
+    const rawFirst = rawTargets[index * 2],
+      rawSecond = rawTargets[index * 2 + 1],
+      first = presentedTargets[index * 2] ?? rawFirst,
+      second = presentedTargets[index * 2 + 1] ?? rawSecond;
     return {
-      firstStickerId: first.stickerId,
-      ...(second ? { secondStickerId: second.stickerId } : {}),
+      firstStickerId: rawFirst.stickerId,
+      ...(rawSecond ? { secondStickerId: rawSecond.stickerId } : {}),
       firstToken: first.token,
       ...(second ? { secondToken: second.token } : {}),
       mnemonic: words[index]?.word ?? "",
-      firstCycleBreak: first.cycleBreak,
-      ...(second ? { secondCycleBreak: second.cycleBreak } : {}),
+      firstCycleBreak: rawFirst.cycleBreak,
+      ...(rawSecond ? { secondCycleBreak: rawSecond.cycleBreak } : {}),
     };
   });
 }

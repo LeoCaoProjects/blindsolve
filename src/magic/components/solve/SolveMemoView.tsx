@@ -1,6 +1,7 @@
 import React from 'react';
-import { LetterPairDb, SolveMemo } from '../../types/solve';
+import { LetterPairDb, Piece, SolveMemo } from '../../types/solve';
 import { MemoTrace } from './MemoTrace';
+import { useAppData } from '../../contexts/AppDataContext';
 
 interface SolveMemoViewProps {
   memo: SolveMemo;
@@ -12,9 +13,12 @@ interface SolveMemoViewProps {
 
 /** The words used in THAT solve — with a quiet note where the database has since moved on. */
 export function SolveMemoView({ memo, db, size = 'md', className = '', labelWidth = '72px' }: SolveMemoViewProps) {
-  const rows = [
-  { label: 'Corners', pairs: memo.corners, breakAt: memo.cornerBreakAt },
-  { label: 'Edges', pairs: memo.edges, breakAt: memo.edgeBreakAt }];
+  const { prefs } = useAppData();
+  const rowsByPiece = {
+  corners: { label: 'Corners', pairs: memo.corners, breakAt: memo.cornerBreakAt },
+  edges: { label: 'Edges', pairs: memo.edges, breakAt: memo.edgeBreakAt }};
+  const order: Piece[] = prefs.memoOrder === 'edges-first' ? ['edges', 'corners'] : ['corners', 'edges'];
+  const rows = order.map((piece) => rowsByPiece[piece]);
 
   return (
     <div className={`grid gap-7 ${className}`}>

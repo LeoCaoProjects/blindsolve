@@ -233,6 +233,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     sharing: data.pairSharing ?? "shared",
     multiphase: data.multiphaseTiming,
     showLiveTimer: data.showLiveTimer,
+    m2SecondTargetSwap: data.m2SecondTargetSwap,
+    memoOrder: data.memoOrder,
     defaultView: data.defaultCubeView ?? { top: "white", front: "green" },
   };
   useEffect(() => {
@@ -439,6 +441,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         pairSharing: p.sharing ?? d.pairSharing ?? "shared",
         multiphaseTiming: p.multiphase ?? d.multiphaseTiming,
         showLiveTimer: p.showLiveTimer ?? d.showLiveTimer,
+        m2SecondTargetSwap: p.m2SecondTargetSwap ?? d.m2SecondTargetSwap,
+        memoOrder: p.memoOrder ?? d.memoOrder,
         defaultCubeView: p.defaultView ??
           d.defaultCubeView ?? { top: "white", front: "green" },
         preferencesUpdatedAt: new Date().toISOString(),

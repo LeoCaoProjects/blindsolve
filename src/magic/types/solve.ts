@@ -49,6 +49,10 @@ export interface SolveDraft {
     state: import('../../domain/bld/types').CubeOrbitState;
     scheme: import('../../domain/bld/types').LetteringScheme;
   };
+  memoPrefs?: {
+    m2SecondTargetSwap: boolean;
+    memoOrder: 'corners-first' | 'edges-first';
+  };
 }
 
 export type LetterPairDb = Record<string, string[]>;

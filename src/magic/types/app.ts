@@ -44,6 +44,8 @@ export interface Prefs {
   sharing: Sharing;
   multiphase: boolean;
   showLiveTimer: boolean;
+  m2SecondTargetSwap: boolean;
+  memoOrder: "corners-first" | "edges-first";
   defaultView: CubeViewPref;
 }
 

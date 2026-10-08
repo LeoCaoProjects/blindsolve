@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateCubeState } from '../../domain/bld/trace';
-import { makeChallenge, randomState, seededRandom } from './bld';
-import { speffzScheme } from './scheme';
+import { applyM2Targets, makeChallenge, randomState, seededRandom } from './bld';
+import { EDGE_STICKERS, speffzScheme } from './scheme';
 import { tokenize } from './pairs';
 
 const setup = {
@@ -11,6 +11,16 @@ const setup = {
 };
 
 describe('Magic training state adapter', () => {
+  it('applies M2 second-target swaps by physical sticker with custom labels', () => {
+    const id = (face: string, piece: string) => EDGE_STICKERS.find((s) => s.face === face && s.piece === piece)!.id;
+    const scheme = speffzScheme();
+    scheme[id('F', 'FU')] = 'E';
+    scheme[id('B', 'BD')] = 'O';
+    const raw = [id('D', 'DR'), id('F', 'FU')];
+    const configured = { scheme, edgeBuffer: 'U7', cornerBuffer: 'U8', edgeMethod: 'm2', m2SecondTargetSwap: true };
+    expect(applyM2Targets(raw, configured).map((sticker) => scheme[sticker])).toEqual(['V', 'O']);
+    expect(raw.map((sticker) => scheme[sticker])).toEqual(['V', 'E']);
+  });
   it.each(['corners', 'edges', 'both'] as const)('generates legal %s states', (filter) => {
     for (let seed = 1; seed <= 30; seed++) {
       const state = randomState(filter, seededRandom(seed));
