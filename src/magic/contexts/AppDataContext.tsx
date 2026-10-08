@@ -170,6 +170,9 @@ function solveFromStore(s: SolveRecord, index: number): Solve {
       edges: make("edges"),
       ...(cb >= 0 ? { cornerBreakAt: cb * 2 } : {}),
       ...(eb >= 0 ? { edgeBreakAt: eb * 2 } : {}),
+      ...(s.schemeSnapshot?.edgeMethod === "m2" && s.edgeMemo.length % 2 === 1
+        ? { m2Parity: true }
+        : {}),
     },
   };
 }

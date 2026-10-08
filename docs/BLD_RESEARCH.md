@@ -19,7 +19,7 @@
 
 ## Supported and deliberately separated
 
-The current trace engine supports legal states, arbitrary sticker buffers, custom tokens, disjoint cycles, explicit cycle breaks, edge orientation, and corner orientation. `edgeMethod`/`cornerMethod` are persisted, but method-specific execution transformations are not yet applied to raw targets. In particular, M2 special targets and parity algorithms must not alter the underlying trace. The UI therefore presents reconstructed *raw sticker memo* truthfully rather than pretending to validate the user’s execution algorithm.
+The current trace engine supports legal states, arbitrary sticker buffers, custom tokens, disjoint cycles, explicit cycle breaks, edge orientation, and corner orientation. Classic target-by-target M2 can optionally transform the user-facing execution targets while retaining the raw sticker trace unchanged. Odd M2 target counts are surfaced as a corner-method parity dependency rather than silently represented as a complete edge-only instruction. See [M2_EXECUTION_AUDIT.md](M2_EXECUTION_AUDIT.md) for the external rules and physical execution simulation.
 
 The 3D renderer cannot safely accept arbitrary per-facelet text through the public Twisty Player API. V2 therefore retains the interactive colour cube and adds a labelled, scrambled 2D sticker map. Cycle breaks can be chosen on the map or in the accessible target list. Labels identify positions, not the travelling sticker's home token. A 3D text/click overlay remains unsupported rather than being guessed.
 
@@ -30,6 +30,6 @@ The V1 engine's passing tests did not cover cycle-entry targets. V2 records a se
 - [J Perm's blindfold tutorial](https://jperm.net/bld) publishes scramble `B2 R2 B2 L U2 R' B2 R2 B2 R' U' B' F L' B D R B2 D B' D' U`. With UR buffer and the published break choices, the edge sequence is `QUSRNXIVPRDE`. This independently sourced regression passes, including the flipped edge.
 - The cubing.js `3x3x3` SVG facelet IDs independently establish corner orbit order UFR, URB, UBL, ULF, DFR, DFL, DLB, DBR, and orientation faces URF, UBR, ULB, UFL, DFR, DLF, DBL, DRB. The previous metadata did not match. Speffz side-face corner order is corrected for new presets. Existing physical IDs and user labels are retained during migration; users may explicitly reapply Speffz if desired.
 - 333bf wide-turn suffixes can rotate centres. State conversion now restores a centre-relative frame before tracing, then conjugates into the chosen memo orientation. The scramble itself is neither altered nor relabelled. Rotation-only, wide-turn legality/parity, and red-front R→F regression cases are covered.
-- Settings methods are descriptive preferences, not a claim to implement M2 even-target substitutions, execution parity algorithms, floating buffers, or alternative dedicated flip/twist memo styles. These limitations are disclosed in the UI.
+- Method settings do not synthesize arbitrary execution algorithms, floating buffers, or a separate flip/twist phase. The verified M2 convenience applies only to the classic physical second-target convention; the raw trace remains authoritative.
 
 No algorithms or source code were copied from csTimer or another BLD tool. The external example is a short factual regression fixture with attribution, not a republished tutorial.

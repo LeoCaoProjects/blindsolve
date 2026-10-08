@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyM2SecondTargetSwap } from "./memoConventions";
+import { applyM2SecondTargetSwap, m2NeedsParity } from "./memoConventions";
 import { createSpeffzScheme } from "./speffz";
 import type { LetteringScheme, TraceSection } from "./types";
 
@@ -28,9 +28,19 @@ describe("M2 second-target convention", () => {
       scheme,
     );
     expect(converted.targets.map((target) => target.stickerId)).toEqual([
-      "F:UF", "B:DB", "U:UF", "D:DB", "D:DR",
+      "F:UF",
+      "B:DB",
+      "U:UF",
+      "D:DB",
+      "D:DR",
     ]);
-    expect(converted.targets.map((target) => target.token)).toEqual(["I", "S", "C", "W", "V"]);
+    expect(converted.targets.map((target) => target.token)).toEqual([
+      "I",
+      "S",
+      "C",
+      "W",
+      "V",
+    ]);
   });
 
   it("uses custom labels from the opposite physical target", () => {
@@ -44,7 +54,10 @@ describe("M2 second-target convention", () => {
       scheme,
     );
     expect(converted.targets.map((target) => target.token)).toEqual([
-      "V", "OMEGA", "X", "TOP-UF",
+      "V",
+      "OMEGA",
+      "X",
+      "TOP-UF",
     ]);
   });
 
@@ -57,10 +70,20 @@ describe("M2 second-target convention", () => {
     );
     const converted = applyM2SecondTargetSwap(raw, scheme);
     expect(converted.targets.map((target) => target.stickerId)).toEqual([
-      "D:DR", "B:DB", "U:UF", "B:DB", "D:DB", "D:DB",
+      "D:DR",
+      "B:DB",
+      "U:UF",
+      "B:DB",
+      "D:DB",
+      "D:DB",
     ]);
     expect(converted.targets.map((target) => target.cycleBreak)).toEqual([
-      false, false, true, false, false, true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
     ]);
   });
 
@@ -76,6 +99,8 @@ describe("M2 second-target convention", () => {
     );
     expect(oddCount.targets.at(-1)?.stickerId).toBe("U:UF");
     expect(evenCount.targets.at(-1)?.stickerId).toBe("D:DB");
+    expect(m2NeedsParity(oddCount)).toBe(true);
+    expect(m2NeedsParity(evenCount)).toBe(false);
   });
 
   it("does not mutate the raw trace", () => {

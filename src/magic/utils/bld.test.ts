@@ -1,54 +1,93 @@
-import { describe, expect, it } from 'vitest';
-import { validateCubeState } from '../../domain/bld/trace';
-import { applyM2Targets, makeChallenge, randomState, seededRandom } from './bld';
-import { EDGE_STICKERS, speffzScheme } from './scheme';
-import { tokenize } from './pairs';
+import { describe, expect, it } from "vitest";
+import { validateCubeState } from "../../domain/bld/trace";
+import {
+  applyM2Targets,
+  makeChallenge,
+  randomState,
+  seededRandom,
+} from "./bld";
+import { EDGE_STICKERS, speffzScheme } from "./scheme";
+import { tokenize } from "./pairs";
 
 const setup = {
   scheme: speffzScheme(),
-  edgeBuffer: 'U7',
-  cornerBuffer: 'U8',
+  edgeBuffer: "U7",
+  cornerBuffer: "U8",
 };
 
-describe('Magic training state adapter', () => {
-  it('applies M2 second-target swaps by physical sticker with custom labels', () => {
-    const id = (face: string, piece: string) => EDGE_STICKERS.find((s) => s.face === face && s.piece === piece)!.id;
+describe("Magic training state adapter", () => {
+  it("applies M2 second-target swaps by physical sticker with custom labels", () => {
+    const id = (face: string, piece: string) =>
+      EDGE_STICKERS.find((s) => s.face === face && s.piece === piece)!.id;
     const scheme = speffzScheme();
-    scheme[id('F', 'FU')] = 'E';
-    scheme[id('B', 'BD')] = 'O';
-    const raw = [id('D', 'DR'), id('F', 'FU')];
-    const configured = { scheme, edgeBuffer: 'U7', cornerBuffer: 'U8', edgeMethod: 'm2', m2SecondTargetSwap: true };
-    expect(applyM2Targets(raw, configured).map((sticker) => scheme[sticker])).toEqual(['V', 'O']);
-    expect(raw.map((sticker) => scheme[sticker])).toEqual(['V', 'E']);
+    scheme[id("F", "FU")] = "E";
+    scheme[id("B", "BD")] = "O";
+    const raw = [id("D", "DR"), id("F", "FU")];
+    const configured = {
+      scheme,
+      edgeBuffer: "U7",
+      cornerBuffer: "U8",
+      edgeMethod: "m2",
+      m2SecondTargetSwap: true,
+    };
+    expect(
+      applyM2Targets(raw, configured).map((sticker) => scheme[sticker]),
+    ).toEqual(["V", "O"]);
+    expect(raw.map((sticker) => scheme[sticker])).toEqual(["V", "E"]);
   });
-  it.each(['corners', 'edges', 'both'] as const)('generates legal %s states', (filter) => {
-    for (let seed = 1; seed <= 30; seed++) {
-      const state = randomState(filter, seededRandom(seed));
-      expect(validateCubeState({
-        EDGES: { pieces: state.ep, orientation: state.eo },
-        CORNERS: { pieces: state.cp, orientation: state.co },
-      }).legal).toBe(true);
-    }
-  });
+  it.each(["corners", "edges", "both"] as const)(
+    "generates legal %s states",
+    (filter) => {
+      for (let seed = 1; seed <= 30; seed++) {
+        const state = randomState(filter, seededRandom(seed));
+        expect(
+          validateCubeState({
+            EDGES: { pieces: state.ep, orientation: state.eo },
+            CORNERS: { pieces: state.cp, orientation: state.co },
+          }).legal,
+        ).toBe(true);
+      }
+    },
+  );
 
-  it('solves the orbit outside the selected practice scope', () => {
-    const corners = randomState('corners', seededRandom(41));
+  it("solves the orbit outside the selected practice scope", () => {
+    const corners = randomState("corners", seededRandom(41));
     expect(corners.ep).toEqual([...Array(12).keys()]);
     expect(corners.eo).toEqual(Array(12).fill(0));
-    const edges = randomState('edges', seededRandom(42));
+    const edges = randomState("edges", seededRandom(42));
     expect(edges.cp).toEqual([...Array(8).keys()]);
     expect(edges.co).toEqual(Array(8).fill(0));
   });
 
-  it('derives displayed facelets and target tokens from one challenge', () => {
-    const challenge = makeChallenge('both', 9472, setup);
+  it("derives displayed facelets and target tokens from one challenge", () => {
+    const challenge = makeChallenge("both", 9472, setup);
     expect(challenge.corners.length).toBeGreaterThan(1);
     expect(challenge.edges.length).toBeGreaterThan(1);
     expect(Object.values(challenge.state).flat()).toHaveLength(54);
-    expect([...challenge.corners, ...challenge.edges].every((token) => /^[A-X]$/.test(token))).toBe(true);
+    expect(
+      [...challenge.corners, ...challenge.edges].every((token) =>
+        /^[A-X]$/.test(token),
+      ),
+    ).toBe(true);
+    expect(challenge.m2Parity).toBe(false);
   });
 
-  it('honours multi-character custom tokens and explicit boundaries', () => {
-    expect(tokenize('CH·A|SH', ['A', 'C', 'CH', 'S', 'SH'])).toEqual(['CH', 'A', 'SH']);
+  it("marks odd target-by-target M2 sequences without changing their targets", () => {
+    const m2 = { ...setup, edgeMethod: "m2" };
+    const raw = Array.from({ length: 100 }, (_, seed) =>
+      makeChallenge("both", seed + 1, m2),
+    ).find((challenge) => challenge.edges.length % 2 === 1)!;
+    expect(raw.m2Parity).toBe(true);
+    expect(
+      makeChallenge("both", raw.seed, { ...m2, edgeMethod: "op" }).m2Parity,
+    ).toBe(false);
+  });
+
+  it("honours multi-character custom tokens and explicit boundaries", () => {
+    expect(tokenize("CH·A|SH", ["A", "C", "CH", "S", "SH"])).toEqual([
+      "CH",
+      "A",
+      "SH",
+    ]);
   });
 });

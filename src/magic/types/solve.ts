@@ -1,5 +1,5 @@
-export type Penalty = 'ok' | '+2' | 'dnf';
-export type Piece = 'corners' | 'edges';
+export type Penalty = "ok" | "+2" | "dnf";
+export type Piece = "corners" | "edges";
 
 export interface MemoPair {
   pair: string;
@@ -12,6 +12,7 @@ export interface SolveMemo {
   /** Flat letter index where a new cycle began */
   cornerBreakAt?: number;
   edgeBreakAt?: number;
+  m2Parity?: boolean;
 }
 
 export interface Solve {
@@ -36,6 +37,7 @@ export interface MemoSample {
   edges: string[];
   cornerBreak?: CycleBreak;
   edgeBreak?: CycleBreak;
+  m2Parity?: boolean;
 }
 
 export interface SolveDraft {
@@ -46,18 +48,19 @@ export interface SolveDraft {
   date: string;
   sample: MemoSample;
   engine?: {
-    state: import('../../domain/bld/types').CubeOrbitState;
-    scheme: import('../../domain/bld/types').LetteringScheme;
+    state: import("../../domain/bld/types").CubeOrbitState;
+    scheme: import("../../domain/bld/types").LetteringScheme;
   };
   memoPrefs?: {
     m2SecondTargetSwap: boolean;
-    memoOrder: 'corners-first' | 'edges-first';
+    memoOrder: "corners-first" | "edges-first";
   };
 }
 
 export type LetterPairDb = Record<string, string[]>;
 
-export type DemoStage = 'live' | 'running' | 'stopped' | 'reconstruction' | 'details';
+export type DemoStage =
+  "live" | "running" | "stopped" | "reconstruction" | "details";
 
 export interface ConceptProps {
   multiphase: boolean;

@@ -7,7 +7,11 @@ import {
 } from "../../domain/bld/cubing";
 import { traceMemo, traceWithCanonicalBreaks } from "../../domain/bld/trace";
 import type { MemoTrace, TraceTarget } from "../../domain/bld/types";
-import { applyM2SecondTargetSwap, m2SecondTargetStickerId } from "../../domain/bld/memoConventions";
+import {
+  applyM2SecondTargetSwap,
+  m2NeedsParity,
+  m2SecondTargetStickerId,
+} from "../../domain/bld/memoConventions";
 import type { MemoPair } from "../types/solve";
 import { DemoStage, Penalty, SolveDraft } from "../types/solve";
 import { stateFromScramble } from "../utils/cube";
@@ -56,9 +60,10 @@ export function useTimerSession({
         // Scramble notation is always interpreted in the fixed white-top/green-front frame.
         const state = await scrambleToState(scrambleRef.current);
         const { trace, choices } = traceWithCanonicalBreaks(state, scheme);
-        const presentedTrace = prefs.m2SecondTargetSwap && scheme.edgeMethod === "m2"
-          ? { ...trace, edges: applyM2SecondTargetSwap(trace.edges, scheme) }
-          : trace;
+        const presentedTrace =
+          prefs.m2SecondTargetSwap && scheme.edgeMethod === "m2"
+            ? { ...trace, edges: applyM2SecondTargetSwap(trace.edges, scheme) }
+            : trace;
         traceRef.current = trace;
         const pair = (tokens: string[]) =>
           Array.from(
@@ -75,9 +80,14 @@ export function useTimerSession({
             edges: piece === "edges" ? [] : choices.edges,
           })[piece];
           const options = partial.validCycleBreaks.map(
-            (id) => scheme.stickers[piece === "edges" && prefs.m2SecondTargetSwap && scheme.edgeMethod === "m2"
-              ? m2SecondTargetStickerId(id, partial.targets.length)
-              : id].label,
+            (id) =>
+              scheme.stickers[
+                piece === "edges" &&
+                prefs.m2SecondTargetSwap &&
+                scheme.edgeMethod === "m2"
+                  ? m2SecondTargetStickerId(id, partial.targets.length)
+                  : id
+              ].label,
           );
           return {
             pairs: pair(tokens),
@@ -124,15 +134,25 @@ export function useTimerSession({
           sample: {
             corners: corners.pairs,
             edges: edges.pairs,
+            m2Parity: scheme.edgeMethod === "m2" && m2NeedsParity(trace.edges),
             ...(corners.break ? { cornerBreak: corners.break } : {}),
             ...(edges.break ? { edgeBreak: edges.break } : {}),
           },
           engine: { state, scheme },
-          memoPrefs: { m2SecondTargetSwap: prefs.m2SecondTargetSwap, memoOrder: prefs.memoOrder },
+          memoPrefs: {
+            m2SecondTargetSwap: prefs.m2SecondTargetSwap,
+            memoOrder: prefs.memoOrder,
+          },
         });
       })();
     },
-    [multiphase, store, activeSessionId, prefs.m2SecondTargetSwap, prefs.memoOrder],
+    [
+      multiphase,
+      store,
+      activeSessionId,
+      prefs.m2SecondTargetSwap,
+      prefs.memoOrder,
+    ],
   );
 
   const overlayOpen =
@@ -162,9 +182,16 @@ export function useTimerSession({
       const rawTrace = d.engine
         ? traceMemo(d.engine.state, d.engine.scheme, result.cycleBreaks)
         : traceRef.current;
-      const trace = rawTrace && d.engine && d.memoPrefs?.m2SecondTargetSwap && d.engine.scheme.edgeMethod === "m2"
-        ? { ...rawTrace, edges: applyM2SecondTargetSwap(rawTrace.edges, d.engine.scheme) }
-        : rawTrace;
+      const trace =
+        rawTrace &&
+        d.engine &&
+        d.memoPrefs?.m2SecondTargetSwap &&
+        d.engine.scheme.edgeMethod === "m2"
+          ? {
+              ...rawTrace,
+              edges: applyM2SecondTargetSwap(rawTrace.edges, d.engine.scheme),
+            }
+          : rawTrace;
       if (d.solveId && trace)
         store.update((data) => ({
           ...data,
@@ -295,19 +322,22 @@ export function snapshot(
   words: MemoPair[],
   presentedTargets: TraceTarget[] = rawTargets,
 ) {
-  return Array.from({ length: Math.ceil(rawTargets.length / 2) }, (_, index) => {
-    const rawFirst = rawTargets[index * 2],
-      rawSecond = rawTargets[index * 2 + 1],
-      first = presentedTargets[index * 2] ?? rawFirst,
-      second = presentedTargets[index * 2 + 1] ?? rawSecond;
-    return {
-      firstStickerId: rawFirst.stickerId,
-      ...(rawSecond ? { secondStickerId: rawSecond.stickerId } : {}),
-      firstToken: first.token,
-      ...(second ? { secondToken: second.token } : {}),
-      mnemonic: words[index]?.word ?? "",
-      firstCycleBreak: rawFirst.cycleBreak,
-      ...(rawSecond ? { secondCycleBreak: rawSecond.cycleBreak } : {}),
-    };
-  });
+  return Array.from(
+    { length: Math.ceil(rawTargets.length / 2) },
+    (_, index) => {
+      const rawFirst = rawTargets[index * 2],
+        rawSecond = rawTargets[index * 2 + 1],
+        first = presentedTargets[index * 2] ?? rawFirst,
+        second = presentedTargets[index * 2 + 1] ?? rawSecond;
+      return {
+        firstStickerId: rawFirst.stickerId,
+        ...(rawSecond ? { secondStickerId: rawSecond.stickerId } : {}),
+        firstToken: first.token,
+        ...(second ? { secondToken: second.token } : {}),
+        mnemonic: words[index]?.word ?? "",
+        firstCycleBreak: rawFirst.cycleBreak,
+        ...(rawSecond ? { secondCycleBreak: rawSecond.cycleBreak } : {}),
+      };
+    },
+  );
 }
