@@ -57,7 +57,7 @@ and even target positions. A separate legal two-in-place-flipped-edges fixture
 also solved. A literally isolated single flipped edge cannot exist in a legal
 3×3 state because total edge orientation must be even.
 
-An additional simulator covers all 24 valid top/front orientations with 20
+An additional simulator covers all 24 buffer-inferred orientations with 20
 deterministic legal edge states each (480 oriented states). It conjugates the
 published M2 target and parity algorithms into each method frame and requires
 the canonical physical edge state to solve. This regression fails if the
@@ -66,8 +66,8 @@ special mapping is accidentally fixed to white-top/green-front.
 ## Scope and method caveats
 
 - The verified swap convention is the classic one-target-at-a-time M2 method. A direct pair/commutator M2 variant must leave the convenience toggle off.
-- The verified method uses method-relative DF. The BLD orientation maps that position to a canonical physical buffer; an incompatible buffer disables the convenience transform rather than guessing.
-- BLD orientation is semantic method configuration. Default Cube View and manual cube dragging remain presentation-only and never affect M2.
+- The verified method uses method-relative DF. The configured directed physical edge-buffer sticker uniquely determines the execution frame in which that sticker is DF.
+- All 24 directed edge stickers map bijectively to the 24 cube orientations. Default Cube View and manual cube dragging remain presentation-only and never affect M2.
 - BlindSolve uses its existing within-cycle orientation tracing for flipped edges and twisted corners. It does not expose a separate-at-end orientation memo convention.
 - The raw target trace, cube state, cycle structure, and saved raw sticker identity are unchanged by M2 presentation settings.
 

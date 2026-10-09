@@ -15,7 +15,6 @@ const setup = {
     (sticker) => sticker.face === "D" && sticker.piece === "DF",
   )!.id,
   cornerBuffer: "U8",
-  orientation: { up: "U" as const, front: "F" as const },
 };
 
 describe("Magic training state adapter", () => {
@@ -32,7 +31,6 @@ describe("Magic training state adapter", () => {
       cornerBuffer: "U8",
       edgeMethod: "m2",
       m2SecondTargetSwap: true,
-      orientation: setup.orientation,
     };
     expect(
       applyM2Targets(raw, configured).map((sticker) => scheme[sticker]),
@@ -52,7 +50,6 @@ describe("Magic training state adapter", () => {
       cornerBuffer: "U8",
       edgeMethod: "m2",
       m2SecondTargetSwap: true,
-      orientation: { up: "U" as const, front: "L" as const },
     };
     const raw = [id("D", "DL"), id("L", "LU")];
     expect(applyM2Targets(raw, configured)).toEqual([

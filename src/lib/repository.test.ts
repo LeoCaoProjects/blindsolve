@@ -242,19 +242,22 @@ describe("workspace integrity", () => {
   });
   it("accepts and preserves deprecated orientation fields without a sync diff", () => {
     const cloud = emptyData();
+    cloud.scheme.orientation = { up: "U", front: "L" };
+    cloud.schemeUpdatedAt = "2026-09-25T02:00:00Z";
     cloud.flippedEdges = "separate";
     cloud.twistedCorners = "separate";
     cloud.preferencesUpdatedAt = "2026-09-25T02:00:00Z";
     const hydrated = parseData(structuredClone(cloud));
 
     expect(hydrated).toMatchObject({
+      scheme: { orientation: { up: "U", front: "L" } },
       flippedEdges: "separate",
       twistedCorners: "separate",
     });
     expect(diffSyncChanges(cloud, hydrated)).toEqual([]);
-    expect(diffSyncChanges(cloud, mergeData(emptyData(), cloud).data)).toEqual(
-      [],
-    );
+    expect(
+      diffSyncChanges(cloud, mergeData(structuredClone(cloud), cloud).data),
+    ).toEqual([]);
   });
   it("does not create a settings diff when identical data is merged", () => {
     const local = emptyData();

@@ -3,7 +3,6 @@ import { BldSetup, FaceColor } from '../../types/app';
 import { Face } from '../../utils/cube';
 import { ALL_STICKERS, stickerById } from '../../utils/scheme';
 import { StickerSwatch } from './StickerSwatch';
-import { classicM2BufferId } from '../../utils/bld';
 
 interface BufferPanelProps {
   type: 'edge' | 'corner';
@@ -30,7 +29,7 @@ export function BufferPanel({ type, setup, colors, onSet }: BufferPanelProps) {
   const method = type === 'edge' ? setup.edgeMethod : setup.cornerMethod;
   const suggested = METHOD_BUFFER[type][method];
   const idFor = (piece: string) => ALL_STICKERS.find((s) => s.type === type && s.piece === piece)?.id;
-  const suggestedId = type === 'edge' && method === 'm2' ? classicM2BufferId(setup) : suggested ? idFor(suggested) : undefined;
+  const suggestedId = type === 'edge' && method === 'm2' ? undefined : suggested ? idFor(suggested) : undefined;
   const suggestedPiece = suggestedId ? stickerById(suggestedId).piece : suggested;
 
   return (
@@ -46,7 +45,7 @@ export function BufferPanel({ type, setup, colors, onSet }: BufferPanelProps) {
 
       {suggestedPiece && info.piece !== suggestedPiece && suggestedId &&
       <p className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-ink-2">
-          {METHOD_NAME[method]} usually uses {type === 'edge' && method === 'm2' ? `method-relative DF (${suggestedPiece})` : suggestedPiece}
+          {METHOD_NAME[method]} usually uses {suggestedPiece}
           <button type="button" onClick={() => onSet(suggestedId)} className="text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink-3">
             Use {suggestedPiece}
           </button>

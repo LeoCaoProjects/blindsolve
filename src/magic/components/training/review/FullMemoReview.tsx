@@ -15,7 +15,6 @@ import { PairTokens } from "../../pairs/PairTokens";
 import { DecisionMenu } from "./DecisionMenu";
 import { ReviewHeader, ReviewPanel } from "./ReviewPanel";
 import { ReviewSummary } from "./ReviewSummary";
-import { M2ParityNotice } from "../../memo/M2ParityNotice";
 
 type Decision = "keep" | "replace" | "alternate" | "save";
 
@@ -197,7 +196,6 @@ export function FullMemoReview({ t }: { t: TrainingSession }) {
           </section>
         );
       })}
-      {t.challenge.hasM2Parity && <M2ParityNotice className="mt-5" />}
     </ReviewPanel>
   );
 }

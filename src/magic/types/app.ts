@@ -27,8 +27,6 @@ export interface CubeViewPref {
 
 export type EdgeMethod = "m2" | "op" | "3style";
 export type CornerMethod = "op" | "3style";
-export type BldFace = "U" | "D" | "F" | "B" | "R" | "L";
-
 export interface BldSetup {
   scheme: LetterScheme;
   schemeName: string;
@@ -36,8 +34,6 @@ export interface BldSetup {
   cornerBuffer: string;
   edgeMethod: EdgeMethod;
   cornerMethod: CornerMethod;
-  /** Semantic memo/execution frame. Independent of the rendered cube view. */
-  orientation: { up: BldFace; front: BldFace };
 }
 
 export interface Prefs {

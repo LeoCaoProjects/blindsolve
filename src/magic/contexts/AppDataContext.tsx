@@ -92,7 +92,6 @@ export const defaultSetup = (): BldSetup => ({
   cornerBuffer: PHYSICAL_TO_MAGIC[canonical.cornerBuffer],
   edgeMethod: "m2",
   cornerMethod: "op",
-  orientation: { ...canonical.orientation } as BldSetup["orientation"],
 });
 function setupFromStore(data: ReturnType<typeof useStore>["data"]): BldSetup {
   const s = data.scheme;
@@ -114,7 +113,6 @@ function setupFromStore(data: ReturnType<typeof useStore>["data"]): BldSetup {
           ? "3style"
           : "op",
     cornerMethod: s.cornerMethod === "3style" ? "3style" : "op",
-    orientation: { ...s.orientation } as BldSetup["orientation"],
   };
 }
 function pairsFromStore(data: ReturnType<typeof useStore>["data"]): PairDb {
@@ -359,7 +357,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
               draft.edgeMethod === "op" ? "old-pochmann" : draft.edgeMethod,
             cornerMethod:
               draft.cornerMethod === "op" ? "old-pochmann" : draft.cornerMethod,
-            orientation: { ...draft.orientation },
           },
           schemeUpdatedAt: new Date().toISOString(),
           onboarded: true,

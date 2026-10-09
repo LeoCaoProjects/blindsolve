@@ -9,7 +9,6 @@ import { PairTokens } from "../../pairs/PairTokens";
 import { PairDiff } from "./PairDiff";
 import { ReviewHeader, ReviewPanel } from "./ReviewPanel";
 import { ReviewSummary } from "./ReviewSummary";
-import { M2ParityNotice } from "../../memo/M2ParityNotice";
 
 const LABEL = { corners: "Corners", edges: "Edges" } as const;
 
@@ -99,7 +98,6 @@ export function RecallReview({ t }: { t: TrainingSession }) {
           <PairDiff key={g.piece} result={g} label={LABEL[g.piece]} />
         ))}
       </div>
-      {t.challenge.hasM2Parity && <M2ParityNotice className="mt-5" />}
 
       <section className="mt-9 border-t border-line pt-6">
         <header className="flex items-baseline justify-between gap-4">

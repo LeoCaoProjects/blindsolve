@@ -8,7 +8,6 @@ import { RadioRows, Toggle } from '../components/common/Toggle';
 import { AppBar } from '../components/layout/AppBar';
 import { AccountSection } from '../components/settings/AccountSection';
 import { BackupSection } from '../components/settings/BackupSection';
-import { BldOrientationPanel } from '../components/settings/BldOrientationPanel';
 import { CubeConfigurator } from '../components/settings/CubeConfigurator';
 import { SecondaryButton, SettingsRow, SettingsSection } from '../components/settings/SettingsSection';
 import { FeedbackSheet } from '../components/feedback/FeedbackSheet';
@@ -22,7 +21,6 @@ import { EASE_OUT } from '../utils/keyboard';
 import { isSpeffz, speffzScheme } from '../utils/scheme';
 import { useScreenInit } from '../useScreenInit.js';
 import { useStore } from '../../app/Store';
-import { isClassicM2Setup } from '../utils/bld';
 
 interface ScreenState {
   section?: string;
@@ -264,14 +262,9 @@ export function Settings() {
                 </div>
               </div>
 
-              <BldOrientationPanel
-                setup={draft}
-                onChange={(orientation) => patch({ orientation })}
-              />
-
               {draft.edgeMethod === 'm2' &&
-              <SettingsRow label="M2 second-target swap" hint="Swap method-relative UF/DB targets in global even positions">
-                <Toggle label="M2 second-target swap" checked={app.prefs.m2SecondTargetSwap} disabled={!isClassicM2Setup(draft)} onChange={(m2SecondTargetSwap) => app.setPrefs({ m2SecondTargetSwap })} />
+              <SettingsRow label="Automatically swap M2 targets" hint="Apply M2 target swaps automatically during execution practice and reconstruction">
+                <Toggle label="Automatically swap M2 targets" checked={app.prefs.m2SecondTargetSwap} onChange={(m2SecondTargetSwap) => app.setPrefs({ m2SecondTargetSwap })} />
               </SettingsRow>
               }
               <div className="mt-8">

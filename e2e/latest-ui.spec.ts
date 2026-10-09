@@ -363,34 +363,27 @@ test('hidden live timer masks active total and split times but reveals the final
   await expect(page.getByRole('timer')).toContainText(/\d/);
 });
 
-test('M2 and memo-order preferences persist without unfinished orientation controls', async ({ page }) => {
+test('M2 and memo-order preferences persist without manual orientation or parity instructions', async ({ page }) => {
   await load(page);
   await page.goto('/settings');
   await expect(page.getByText('Memo conventions', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('radio', { name: 'Memo separately, at the end' })).toHaveCount(0);
   await expect(page.getByText('Flipped edges', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Twisted corners', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('Defines method-relative targets and buffers. This is independent of Cube view.')).toBeVisible();
-  await page.getByLabel('BLD orientation front').selectOption('orange');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await page.waitForTimeout(500);
-  await page.reload();
-  await expect(page.getByLabel('BLD orientation front')).toHaveValue('orange');
-  const m2 = page.getByRole('switch', { name: 'M2 second-target swap' });
+  await expect(page.getByText('BLD orientation', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('BLD orientation front')).toHaveCount(0);
+  const m2 = page.getByRole('switch', { name: 'Automatically swap M2 targets' });
   await expect(m2).toHaveAttribute('aria-checked', 'false');
-  await expect(m2).toBeDisabled();
-  await page.getByLabel('BLD orientation front').selectOption('green');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await page.waitForTimeout(500);
   await expect(m2).toBeEnabled();
   await m2.click();
   await page.getByRole('radio', { name: 'Edges first' }).click();
   await page.reload();
-  await expect(page.getByRole('switch', { name: 'M2 second-target swap' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('switch', { name: 'Automatically swap M2 targets' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('radio', { name: 'Edges first' })).toHaveAttribute('aria-checked', 'true');
 
   await page.goto('/training');
   await holdSpace(page);
+  await expect(page.getByText(/M2 parity/i)).toHaveCount(0);
   const headings = page.locator('main h2');
   await expect(headings.first()).toHaveText('Edges');
   await expect(headings.nth(1)).toHaveText('Corners');

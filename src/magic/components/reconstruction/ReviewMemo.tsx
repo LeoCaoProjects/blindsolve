@@ -4,7 +4,6 @@ import { Piece } from "../../types/solve";
 import { MemoTrace } from "../solve/MemoTrace";
 import { EditableWord } from "./EditableWord";
 import { useAppData } from "../../contexts/AppDataContext";
-import { M2ParityNotice } from "../memo/M2ParityNotice";
 
 interface ReviewMemoProps {
   r: Reconstruction;
@@ -64,7 +63,6 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
       {r.sample.targetRepresentation === "m2-execution" && (
         <p className="mt-5 text-[12px] text-ink-3">M2 execution targets</p>
       )}
-      {r.sample.hasM2Parity && <M2ParityNotice className="mt-2" />}
 
       {r.changedPairs.length > 0 && (
         <div className="mt-8 grid gap-3 border-t border-line pt-5">

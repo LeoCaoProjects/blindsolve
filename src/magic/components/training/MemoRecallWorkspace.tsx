@@ -5,7 +5,6 @@ import { TrainingSession } from "../../hooks/useTrainingSession";
 import { Cube3D } from "../cube/Cube3D";
 import { RecallInput } from "../memo/RecallInput";
 import { SequenceView } from "../memo/SequenceView";
-import { M2ParityNotice } from "../memo/M2ParityNotice";
 import { Fade } from "./Fade";
 
 const LABEL = { corners: "Corners", edges: "Edges" } as const;
@@ -82,9 +81,6 @@ export function MemoRecallWorkspace({
             </Fade>
           )}
         </AnimatePresence>
-        {!recalling && t.challenge.hasM2Parity && (
-          <M2ParityNotice className="mt-5" />
-        )}
       </div>
       <div
         className={`order-first flex shrink-0 justify-center transition-opacity duration-200 ease-out md:order-none xl:hidden ${recalling ? "opacity-[0.08]" : ""}`}

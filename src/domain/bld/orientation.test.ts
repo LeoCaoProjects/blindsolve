@@ -1,6 +1,7 @@
 import { it, expect } from "vitest";
 import {
   canonicalEdgeStickerToMethodId,
+  inferM2OrientationFromBuffer,
   methodRelativeEdgeStickerId,
   orientationFaceMap,
 } from "./orientation";
@@ -42,4 +43,30 @@ it("maps method-relative edge stickers through a white-top orange-front frame", 
   expect(methodRelativeEdgeStickerId("D:DF", orientation)).toBe("D:DL");
   expect(canonicalEdgeStickerToMethodId("L:UL", orientation)).toBe("F:UF");
   expect(canonicalEdgeStickerToMethodId("R:DR", orientation)).toBe("B:DB");
+});
+
+it("infers a unique M2 frame from every directed physical edge buffer", () => {
+  const orientations = [];
+  const buffers = new Set<string>();
+  for (const up of "UDLRFB") {
+    for (const front of "UDLRFB") {
+      const orientation = { up, front };
+      if (!orientationFaceMap(orientation)) continue;
+      orientations.push(orientation);
+      const buffer = methodRelativeEdgeStickerId("D:DF", orientation)!;
+      buffers.add(buffer);
+      const inferred = inferM2OrientationFromBuffer(buffer);
+      expect(inferred).toEqual(orientation);
+      expect(methodRelativeEdgeStickerId("D:DF", inferred!)).toBe(buffer);
+    }
+  }
+  expect(orientations).toHaveLength(24);
+  expect(buffers.size).toBe(24);
+});
+
+it("infers white-top orange-front from the physical D:DL buffer", () => {
+  expect(inferM2OrientationFromBuffer("D:DL")).toEqual({
+    up: "U",
+    front: "L",
+  });
 });

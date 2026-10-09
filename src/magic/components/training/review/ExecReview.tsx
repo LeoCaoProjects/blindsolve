@@ -9,7 +9,6 @@ import { Cube3D } from "../../cube/Cube3D";
 import { ScrambleText } from "../../solve/ScrambleText";
 import { SolveTime } from "../../solve/SolveTime";
 import { ReviewPanel } from "./ReviewPanel";
-import { M2ParityNotice } from "../../memo/M2ParityNotice";
 
 const LABEL = { corners: "Corners", edges: "Edges" } as const;
 
@@ -104,7 +103,6 @@ export function ExecReview({ t }: { t: TrainingSession }) {
           </section>
         ))}
       </div>
-      {t.challenge.hasM2Parity && <M2ParityNotice className="mt-5" />}
     </ReviewPanel>
   );
 }

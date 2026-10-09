@@ -144,14 +144,13 @@ describe("M2 second-target convention", () => {
     expect(representation.hasM2Parity).toBe(false);
   });
 
-  it("derives white-top orange-front E/O substitutions from physical orientation", () => {
+  it("derives white-top orange-front C/W and E/O substitutions from D:DL", () => {
     const scheme = createSpeffzScheme();
-    scheme.orientation = { up: "U", front: "L" };
     scheme.edgeBuffer = "D:DL";
     scheme.stickers["L:UL"].label = "E";
     scheme.stickers["R:DR"].label = "O";
-    scheme.stickers["U:UL"].label = "TOP-X";
-    scheme.stickers["D:DR"].label = "BOTTOM-Y";
+    scheme.stickers["U:UL"].label = "C";
+    scheme.stickers["D:DR"].label = "W";
     const converted = applyM2SecondTargetSwap(
       section(["D:DL", "L:UL", "U:UL", "U:UL"], scheme),
       scheme,
@@ -165,16 +164,15 @@ describe("M2 second-target convention", () => {
     expect(converted.targets.map((target) => target.token)).toEqual([
       scheme.stickers["D:DL"].label,
       "O",
-      "TOP-X",
-      "BOTTOM-Y",
+      "C",
+      "W",
     ]);
     expect(isClassicM2Configuration(scheme)).toBe(true);
   });
 
-  it("does not apply classic M2 swapping to an incompatible physical buffer", () => {
+  it("does not apply classic M2 swapping to an invalid physical buffer", () => {
     const scheme = createSpeffzScheme();
-    scheme.orientation = { up: "U", front: "L" };
-    scheme.edgeBuffer = "D:DF";
+    scheme.edgeBuffer = "invalid";
     const raw = section(["D:DL", "L:UL"], scheme);
     const representation = m2ExecutionRepresentation(raw, scheme, true);
     expect(representation.executionTargets).toEqual(raw.targets);

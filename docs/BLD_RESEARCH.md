@@ -19,7 +19,7 @@
 
 ## Supported and deliberately separated
 
-The current trace engine supports legal states, arbitrary sticker buffers, custom tokens, disjoint cycles, explicit cycle breaks, edge orientation, and corner orientation. Classic target-by-target M2 can optionally transform the user-facing execution targets while retaining the raw sticker trace unchanged. Odd M2 target counts are surfaced as a corner-method parity dependency rather than silently represented as a complete edge-only instruction. See [M2_EXECUTION_AUDIT.md](M2_EXECUTION_AUDIT.md) for the external rules and physical execution simulation.
+The current trace engine supports legal states, arbitrary sticker buffers, custom tokens, disjoint cycles, explicit cycle breaks, edge orientation, and corner orientation. Classic target-by-target M2 can optionally transform the user-facing execution targets while retaining the raw sticker trace unchanged. Odd M2 target counts remain separate internal parity metadata and never mutate the target sequence. See [M2_EXECUTION_AUDIT.md](M2_EXECUTION_AUDIT.md) for the external rules and physical execution simulation.
 
 The 3D renderer cannot safely accept arbitrary per-facelet text through the public Twisty Player API. V2 therefore retains the interactive colour cube and adds a labelled, scrambled 2D sticker map. Cycle breaks can be chosen on the map or in the accessible target list. Labels identify positions, not the travelling sticker's home token. A 3D text/click overlay remains unsupported rather than being guessed.
 

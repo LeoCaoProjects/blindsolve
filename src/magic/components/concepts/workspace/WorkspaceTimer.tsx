@@ -17,7 +17,6 @@ import { Kbd } from "../../common/Kbd";
 import { ShortcutSheet } from "../../common/ShortcutSheet";
 import { Cube3D } from "../../cube/Cube3D";
 import { MemoTrace } from "../../solve/MemoTrace";
-import { M2ParityNotice } from "../../memo/M2ParityNotice";
 import { ScrambleText } from "../../solve/ScrambleText";
 import { SolveTime } from "../../solve/SolveTime";
 import { TimerReadout } from "../../solve/TimerReadout";
@@ -200,9 +199,6 @@ export function WorkspaceTimer({
                   }
                 />
               ))}
-              {latest.memo.hasM2Parity && (
-                <M2ParityNotice className="col-span-2 col-start-2" />
-              )}
               {latest.memo.targetRepresentation === "m2-execution" && (
                 <p className="col-span-2 col-start-2 text-[11px] text-ink-3">
                   M2 execution targets

@@ -2,7 +2,6 @@ import React, { useRef } from "react";
 import { TrainingSession } from "../../hooks/useTrainingSession";
 import { RecallInput } from "../memo/RecallInput";
 import { SplitStage } from "./SplitStage";
-import { M2ParityNotice } from "../memo/M2ParityNotice";
 
 const LABEL = { corners: "Corners", edges: "Edges" } as const;
 
@@ -42,7 +41,6 @@ export function TraceSprintWorkspace({
             }
           />
         ))}
-        {t.challenge.hasM2Parity && <M2ParityNotice />}
       </div>
     </SplitStage>
   );

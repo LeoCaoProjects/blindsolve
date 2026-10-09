@@ -3,7 +3,6 @@ import { TrainingSession } from "../../hooks/useTrainingSession";
 import { formatTime } from "../../utils/time";
 import { fullPairs, trailingTarget } from "../../utils/training";
 import { SequenceView } from "../memo/SequenceView";
-import { M2ParityNotice } from "../memo/M2ParityNotice";
 
 const LABEL = { corners: "Corners", edges: "Edges" } as const;
 
@@ -41,7 +40,6 @@ export function ExecutionWorkspace({ t }: { t: TrainingSession }) {
           </section>
         ))}
       </div>
-      {t.challenge.hasM2Parity && <M2ParityNotice className="mt-5" />}
     </div>
   );
 }

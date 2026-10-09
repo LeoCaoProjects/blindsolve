@@ -1,6 +1,7 @@
 import type { LetteringScheme, TraceSection, TraceTarget } from "./types";
 import {
   canonicalEdgeStickerToMethodId,
+  inferM2OrientationFromBuffer,
   methodRelativeEdgeStickerId,
   type CubeOrientation,
 } from "./orientation";
@@ -72,14 +73,10 @@ export function m2SecondTargetStickerId(
     : stickerId;
 }
 
-export function classicM2BufferStickerId(orientation: CubeOrientation) {
-  return methodRelativeEdgeStickerId("D:DF", orientation);
-}
-
 export function isClassicM2Configuration(scheme: LetteringScheme) {
   return (
     scheme.edgeMethod === "m2" &&
-    scheme.edgeBuffer === classicM2BufferStickerId(scheme.orientation)
+    inferM2OrientationFromBuffer(scheme.edgeBuffer) !== null
   );
 }
 
@@ -89,11 +86,9 @@ export function m2SecondTarget(
   scheme: LetteringScheme,
 ): TraceTarget {
   if (index % 2 === 0) return target;
-  const stickerId = m2SecondTargetStickerId(
-    target.stickerId,
-    index,
-    scheme.orientation,
-  );
+  const orientation = inferM2OrientationFromBuffer(scheme.edgeBuffer);
+  if (!orientation) return target;
+  const stickerId = m2SecondTargetStickerId(target.stickerId, index, orientation);
   const sticker = stickerId ? scheme.stickers[stickerId] : undefined;
   return sticker
     ? {

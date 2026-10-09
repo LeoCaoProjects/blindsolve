@@ -12,6 +12,7 @@ import {
 import type { CubeOrbitState, LetteringScheme, TraceSection } from "./types";
 import {
   canonicalEdgeStickerToMethodId,
+  inferM2OrientationFromBuffer,
   methodRelativeEdgeStickerId,
   orientationFaceMap,
   type CubeOrientation,
@@ -413,8 +414,9 @@ describe("M2 execution audit", () => {
       const frame = frameRotation(kpuzzle, orientation);
       expect(frame, JSON.stringify(orientation)).not.toBeUndefined();
       const scheme = createSpeffzScheme();
-      scheme.orientation = orientation;
       scheme.edgeBuffer = methodRelativeEdgeStickerId("D:DF", orientation)!;
+      const inferred = inferM2OrientationFromBuffer(scheme.edgeBuffer);
+      expect(inferred).toEqual(orientation);
       for (const [index, sticker] of Object.entries(scheme.stickers))
         sticker.label = `custom-${orientationIndex}-${index}`;
 
@@ -441,7 +443,7 @@ describe("M2 execution audit", () => {
             pattern,
             execution.executionTargets.map((target) => target.stickerId),
             execution.hasM2Parity,
-            orientation,
+            inferred!,
             frame!,
           ),
           solved,

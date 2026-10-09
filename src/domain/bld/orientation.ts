@@ -82,3 +82,26 @@ export function canonicalEdgeStickerToMethodId(
   const piece = edgePieceForFaces(inverse[match[2][0]], inverse[match[2][1]]);
   return piece ? `${face}:${piece}` : null;
 }
+
+/**
+ * A directed physical edge sticker uniquely fixes the classic M2 frame because
+ * classic M2's directed buffer is method-relative D:DF.  There are 24 valid
+ * cube orientations and 24 directed edge stickers, so this is a bijection.
+ */
+export function inferM2OrientationFromBuffer(
+  physicalBufferStickerId: string,
+): CubeOrientation | null {
+  for (const up of Object.keys(normals)) {
+    for (const front of Object.keys(normals)) {
+      const orientation = { up, front };
+      if (
+        orientationFaceMap(orientation) &&
+        methodRelativeEdgeStickerId("D:DF", orientation) ===
+          physicalBufferStickerId
+      ) {
+        return orientation;
+      }
+    }
+  }
+  return null;
+}

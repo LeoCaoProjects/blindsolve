@@ -2,7 +2,6 @@ import React from "react";
 import { LetterPairDb, Piece, SolveMemo } from "../../types/solve";
 import { MemoTrace } from "./MemoTrace";
 import { useAppData } from "../../contexts/AppDataContext";
-import { M2ParityNotice } from "../memo/M2ParityNotice";
 
 interface SolveMemoViewProps {
   memo: SolveMemo;
@@ -74,7 +73,6 @@ export function SolveMemoView({
       {memo.targetRepresentation === "m2-execution" && (
         <p className="text-[12px] text-ink-3">M2 execution targets</p>
       )}
-      {memo.hasM2Parity && <M2ParityNotice />}
     </div>
   );
 }

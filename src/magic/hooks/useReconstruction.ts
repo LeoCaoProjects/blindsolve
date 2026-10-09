@@ -15,6 +15,7 @@ import {
   m2ExecutionRepresentation,
   m2SecondTargetStickerId,
 } from "../../domain/bld/memoConventions";
+import { inferM2OrientationFromBuffer } from "../../domain/bld/orientation";
 
 export type ReconStep =
   | { kind: "break"; piece: Piece; options: string[]; answer: string }
@@ -90,7 +91,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
         ? m2SecondTargetStickerId(
             id,
             pending.section.targets.length,
-            draft.engine.scheme.orientation,
+            inferM2OrientationFromBuffer(draft.engine.scheme.edgeBuffer)!,
           )
         : id,
     [

@@ -5,7 +5,6 @@ import { PairDiff } from "./PairDiff";
 import { correctTargets } from "./RecallReview";
 import { ReviewHeader, ReviewPanel } from "./ReviewPanel";
 import { ReviewSummary } from "./ReviewSummary";
-import { M2ParityNotice } from "../../memo/M2ParityNotice";
 
 const LABEL = { corners: "Corners", edges: "Edges" } as const;
 
@@ -41,7 +40,6 @@ export function TraceReview({ t }: { t: TrainingSession }) {
           <PairDiff key={g.piece} result={g} label={LABEL[g.piece]} />
         ))}
       </div>
-      {t.challenge.hasM2Parity && <M2ParityNotice className="mt-5" />}
     </ReviewPanel>
   );
 }

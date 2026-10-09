@@ -12,6 +12,7 @@ import {
   m2ExecutionRepresentation,
   m2SecondTargetStickerId,
 } from "../../domain/bld/memoConventions";
+import { inferM2OrientationFromBuffer } from "../../domain/bld/orientation";
 import type { MemoPair } from "../types/solve";
 import { DemoStage, Penalty, SolveDraft } from "../types/solve";
 import { stateFromScramble } from "../utils/cube";
@@ -93,7 +94,7 @@ export function useTimerSession({
                   ? m2SecondTargetStickerId(
                       id,
                       partial.targets.length,
-                      scheme.orientation,
+                      inferM2OrientationFromBuffer(scheme.edgeBuffer)!,
                     )
                   : id
               ].label,
