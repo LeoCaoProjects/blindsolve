@@ -10,7 +10,12 @@ import {
 import { isTypingTarget } from "../utils/keyboard";
 import { pairKey, resolveWords } from "../utils/pairs";
 import { tokensOf } from "../utils/scheme";
-import { TrainGroup, compareGroups, fullPairs } from "../utils/training";
+import {
+  TrainGroup,
+  accuracyForResults,
+  compareGroups,
+  fullPairs,
+} from "../utils/training";
 import { useHoldStart } from "./useHoldStart";
 import { useStore } from "../../app/Store";
 import { useExecScramble } from "./useExecScramble";
@@ -64,11 +69,11 @@ const SEEDED_MS: Record<TrainMode, { total: number; split?: number }> = {
   guided: { total: 61270, split: 25120 },
 };
 
-export function useTrainingSession(init: TrainInit) {
+export function useTrainingSession(init: TrainInit, active = true) {
   const store = useStore();
   const { setup, pairs, prefs } = useAppData();
   const vocabulary = useMemo(() => tokensOf(setup.scheme), [setup.scheme]);
-  const [mode, setModeState] = useState<TrainMode>(init.mode ?? "recall");
+  const [mode, setModeState] = useState<TrainMode>(init.mode ?? "exec");
   const [filter, setFilterState] = useState<TrainFilter>(init.filter ?? "both");
   const [phase, setPhase] = useState<TrainPhase>(init.phase ?? "idle");
   const [seed, setSeed] = useState(init.seed ?? FIRST_EXEC_SEED);
@@ -183,7 +188,7 @@ export function useTrainingSession(init: TrainInit) {
   }, [groups, mode]);
 
   const hold = useHoldStart({
-    enabled: phase === "idle" && scrambleReady,
+    enabled: active && phase === "idle" && scrambleReady,
     onStart: start,
   });
 
@@ -254,11 +259,11 @@ export function useTrainingSession(init: TrainInit) {
           id: crypto.randomUUID(),
           kind: "memo",
           correct: attempt.correct,
-          accuracy:
-            r.reduce(
-              (sum, group) => sum + group.actual.length - group.wrong,
-              0,
-            ) / Math.max(1, targets),
+          ...(mode === "exec"
+            ? {}
+            : {
+                accuracy: accuracyForResults(r),
+              }),
           trainingMode: mode,
           durationMs: Math.round(ms),
           targets,
@@ -335,7 +340,6 @@ export function useTrainingSession(init: TrainInit) {
         attempts[index] = {
           ...attempts[index],
           correct: r === "solved",
-          accuracy: r === "solved" ? 1 : 0,
         };
         return { ...data, attempts };
       });
@@ -384,7 +388,6 @@ export function useTrainingSession(init: TrainInit) {
             id: crypto.randomUUID(),
             kind: "memo",
             correct,
-            accuracy: correct ? 1 : 0,
             trainingMode: "guided",
             durationMs: Math.round(totalMs),
             memoMs: Math.round(memoMs),
@@ -450,6 +453,7 @@ export function useTrainingSession(init: TrainInit) {
 
   // State-aware keys for the non-typing moments. Never fires from text fields.
   useEffect(() => {
+    if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       const dialog = document.querySelector(
         '[role="dialog"], [role="alertdialog"]',
@@ -501,7 +505,7 @@ export function useTrainingSession(init: TrainInit) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [phase, mode, toRecall, submit, startExecution, stopGuided, finishGuided]);
+  }, [active, phase, mode, toRecall, submit, startExecution, stopGuided, finishGuided]);
 
   const clock = running ? now : (times.end ?? now);
   const elapsed = {
@@ -520,6 +524,7 @@ export function useTrainingSession(init: TrainInit) {
     running,
     hold,
     challenge,
+    challengeId: `${filter}:${seed}`,
     scramble,
     scrambleReady,
     groups,
@@ -560,7 +565,7 @@ export type TrainingSession = ReturnType<typeof useTrainingSession>;
 
 function seededTimes(init: TrainInit): Times {
   const t = performance.now();
-  const mode = init.mode ?? "recall";
+  const mode = init.mode ?? "exec";
   if (!init.phase || init.phase === "idle")
     return { start: t, split: null, end: t };
   if (

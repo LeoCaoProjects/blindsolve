@@ -102,6 +102,24 @@ describe("workspace integrity", () => {
     expect(hydrated.attempts[0].trainingMode).toBe("full");
     expect(diffSyncChanges(canonical, hydrated)).toEqual([]);
   });
+  it("normalizes legacy negative accuracy without creating a hydration diff", () => {
+    const legacy = emptyData();
+    legacy.attempts = [
+      {
+        id: crypto.randomUUID(),
+        kind: "memo",
+        correct: false,
+        accuracy: -0.1875,
+        trainingMode: "trace",
+        durationMs: 4200,
+        targets: 16,
+        createdAt: "2026-10-09T22:05:36.491Z",
+      },
+    ];
+    const canonical = parseData(structuredClone(legacy));
+    expect(canonical.attempts[0].accuracy).toBe(0);
+    expect(diffSyncChanges(canonical, parseData(structuredClone(canonical)))).toEqual([]);
+  });
   it("round-trips a reproducible Guided Solve attempt", () => {
     const data = emptyData();
     data.attempts = [
@@ -109,7 +127,6 @@ describe("workspace integrity", () => {
         id: crypto.randomUUID(),
         kind: "memo",
         correct: true,
-        accuracy: 1,
         trainingMode: "guided",
         durationMs: 3000,
         memoMs: 1000,

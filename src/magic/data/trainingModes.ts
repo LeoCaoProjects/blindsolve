@@ -14,18 +14,6 @@ export interface TrainingModeInfo {
 
 export const trainingModes: TrainingModeInfo[] = [
 {
-  id: 'recall',
-  label: 'Memo Recall',
-  line: 'Memorise the letters, then type them back from memory.',
-  tests: 'Practises remembering a memo.',
-  steps: [
-  'Hold Space and release to start',
-  'Memorise the letters on screen',
-  'Press Space when you have them',
-  'Type them back and press Enter']
-
-},
-{
   id: 'exec',
   label: 'Execution Sprint',
   line: 'Scramble your cube, then solve it blind while reading the memo on screen.',
@@ -38,18 +26,6 @@ export const trainingModes: TrainingModeInfo[] = [
 
 },
 {
-  id: 'trace',
-  label: 'Trace Sprint',
-  line: 'Trace the cube and type the targets as fast as you can.',
-  tests: 'Practises reading a cube into targets.',
-  steps: [
-  'Hold Space and release to start',
-  'The right cube is the back of the left one',
-  'Type your targets, starting from your buffers',
-  'Press Enter to submit']
-
-},
-{
   id: 'guided',
   label: 'Guided Solve',
   line: 'Memorise a generated solve, then execute it blind.',
@@ -59,6 +35,30 @@ export const trainingModes: TrainingModeInfo[] = [
   'Memorise the generated letter pairs',
   'Press Space to hide the memo and begin execution',
   'Press Space to stop, then mark it Solved or DNF']
+
+},
+{
+  id: 'recall',
+  label: 'Memo Recall',
+  line: 'Memorise the letters, then type them back from memory.',
+  tests: 'Practises remembering a memo.',
+  steps: [
+  'Hold Space and release to start',
+  'Memorise the letters on screen',
+  'Press Space when you have them',
+  'Type them back and press Enter']
+
+},
+{
+  id: 'trace',
+  label: 'Trace Sprint',
+  line: 'Trace the cube and type the targets as fast as you can.',
+  tests: 'Practises reading a cube into targets.',
+  steps: [
+  'Hold Space and release to start',
+  'The right cube is the back of the left one',
+  'Type your targets, starting from your buffers',
+  'Press Enter to submit']
 
 }];
 

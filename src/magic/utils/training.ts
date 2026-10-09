@@ -56,6 +56,18 @@ export function compareGroups(
   });
 }
 
+/** Objective target recall score. Extras remain mistakes but can never make a percentage negative. */
+export function accuracyForResults(results: GroupResult[]): number {
+  const expected = results.reduce((sum, result) => sum + result.actual.length, 0);
+  if (!expected) return 1;
+  const correct = results.reduce(
+    (sum, result) =>
+      sum + result.actualMarks.filter((mark) => mark === "ok").length,
+    0,
+  );
+  return correct / expected;
+}
+
 /** Full letter pairs only — a trailing single target has no word slot. */
 export function fullPairs(tokens: string[]): [string, string][] {
   return chunkPairs(tokens).filter((p) => p.length === 2) as [string, string][];

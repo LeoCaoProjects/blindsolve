@@ -25,12 +25,14 @@ interface Options {
   multiphase: boolean;
   stage: DemoStage;
   initialSessionsOpen?: boolean;
+  active?: boolean;
 }
 
 export function useTimerSession({
   multiphase,
   stage: _stage,
   initialSessionsOpen = false,
+  active = true,
 }: Options) {
   const store = useStore();
   const {
@@ -173,7 +175,7 @@ export function useTimerSession({
     draft !== null || selectedId !== null || shortcutsOpen || sessionsOpen;
   const timer = useTimer({
     multiphase,
-    disabled: overlayOpen,
+    disabled: overlayOpen || !active,
     onStop: handleStop,
   });
   const running = isRunning(timer.phase);
@@ -273,6 +275,7 @@ export function useTimerSession({
   );
 
   useEffect(() => {
+    if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey)
         return;
@@ -290,7 +293,7 @@ export function useTimerSession({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [newScramble, running, selectedId, shortcutsOpen, sessionsOpen]);
+  }, [active, newScramble, running, selectedId, shortcutsOpen, sessionsOpen]);
 
   useEffect(() => {
     if (!scramble) void newScramble();

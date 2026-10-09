@@ -12,6 +12,7 @@ import { Training } from './pages/Training';
 import { warmScrambles } from './utils/randomStateScramble';
 import { FeedbackInbox } from './pages/FeedbackInbox';
 import { recordPage } from './utils/feedbackContext';
+import { SessionWorkspaceProvider } from './contexts/SessionWorkspaceContext';
 
 function PageTracker() {
   const { pathname } = useLocation();
@@ -33,9 +34,10 @@ export function App({ stage = 'live' }: AppProps) {
     <MotionConfig reducedMotion="user">
       <BrowserRouter>
         <AppDataProvider>
-          <div className="theme-workspace h-[100dvh] w-full bg-bg">
-            <PageTracker />
-            <Routes>
+          <SessionWorkspaceProvider stage={stage}>
+            <div className="theme-workspace h-[100dvh] w-full bg-bg">
+              <PageTracker />
+              <Routes>
               <Route path="/" element={<Timer stage={stage} />} />
               <Route path="/pairs" element={<LetterPairs />} />
               <Route path="/flashcards" element={<Flashcards />} />
@@ -46,8 +48,9 @@ export function App({ stage = 'live' }: AppProps) {
               <Route path="/signin" element={<SignIn />} />
               <Route path="/admin/feedback" element={<FeedbackInbox />} />
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </div>
+              </Routes>
+            </div>
+          </SessionWorkspaceProvider>
         </AppDataProvider>
       </BrowserRouter>
     </MotionConfig>);

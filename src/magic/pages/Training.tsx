@@ -24,7 +24,7 @@ import { recordTraining } from '../utils/feedbackContext';
 import { useElementSize } from '../hooks/useElementSize';
 import { useHistoryCleanup } from '../hooks/useHistoryCleanup';
 import { useShortcutSheet } from '../hooks/useShortcutSheet';
-import { TrainInit, useTrainingSession } from '../hooks/useTrainingSession';
+import { useSessionWorkspace } from '../contexts/SessionWorkspaceContext';
 import { isTypingTarget } from '../utils/keyboard';
 import { formatTime } from '../utils/time';
 import { useScreenInit } from '../useScreenInit.js';
@@ -36,9 +36,9 @@ import { useScreenInit } from '../useScreenInit.js';
  * cube and answer get the room. Reviews open in a right-hand sheet over the frozen stage.
  */
 export function Training() {
-  const init = useScreenInit() as TrainInit;
+  const init = useScreenInit();
   const sheet = useShortcutSheet();
-  const t = useTrainingSession(init);
+  const { training: t } = useSessionWorkspace();
   // Drill and pieces only, for bug reports. Never answers or mnemonics.
   useEffect(() => {
     recordTraining(modeInfo(t.mode).label, t.filter === 'both' ? 'Both' : t.filter === 'edges' ? 'Edges' : 'Corners');
@@ -89,7 +89,7 @@ export function Training() {
   {};
 
   return (
-    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
+    <div data-training-challenge-id={t.challengeId} className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar className={busy ? 'opacity-[0.25]' : holding ? 'opacity-40' : ''} onShortcuts={sheet.openSheet} />
 
       <div className={`grid min-h-0 flex-1 grid-cols-1 ${showAside ? 'xl:grid-cols-[minmax(0,1fr)_clamp(280px,24vw,360px)]' : ''}`}>
@@ -99,6 +99,7 @@ export function Training() {
           {executionSetup &&
           <section
             aria-label="Scramble"
+            data-challenge-id={t.challengeId}
             className={`flex shrink-0 items-start gap-4 border-b border-line px-5 py-[clamp(14px,3vh,28px)] transition-opacity duration-300 ease-out md:gap-6 md:px-10 ${
             holding ? 'opacity-40' : ''}`
             }>

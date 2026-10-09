@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { createSpeffzScheme, stickersFor } from '../src/domain/bld/speffz';
 import { pairKey } from '../src/domain/letterPairs';
@@ -34,6 +34,8 @@ async function holdSpace(page: Page) {
   await page.waitForTimeout(320);
   await page.keyboard.up('Space');
 }
+const scrambleLabel = (region: Locator) =>
+  region.locator('.sr-only').first().textContent();
 
 test('latest primary routes render without horizontal overflow', async ({ page }) => {
   await load(page);
@@ -181,6 +183,68 @@ test('Guided Solve follows memo, execution, self-report, review, then returns id
   await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toBeVisible();
 });
 
+test('Timer and per-drill Training workspaces survive SPA navigation', async ({ page }) => {
+  await load(page);
+  await page.goto('/');
+  const timerScramble = page.getByRole('region', { name: 'Scramble' });
+  await expect(timerScramble).toContainText(/[UDFBRL]/, { timeout: 45_000 });
+  const timerA = await scrambleLabel(timerScramble);
+
+  await page.getByRole('button', { name: 'Training', exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Execution Sprint' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Edges', exact: true }).click();
+  const trainingScramble = page.getByRole('region', { name: 'Scramble' });
+  await expect(trainingScramble.getByText('Preparing scramble…')).toHaveCount(0, { timeout: 45_000 });
+  const executionA = await scrambleLabel(trainingScramble);
+  const executionId = await trainingScramble.getAttribute('data-challenge-id');
+
+  await page.getByRole('radio', { name: 'Guided Solve' }).click();
+  await page.getByRole('radio', { name: 'Corners', exact: true }).click();
+  await page.getByRole('radio', { name: 'Execution Sprint' }).click();
+  await expect(page.getByRole('radio', { name: 'Edges', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('region', { name: 'Scramble' })).toHaveAttribute('data-challenge-id', executionId!);
+  await expect.poll(() => scrambleLabel(page.getByRole('region', { name: 'Scramble' }))).toBe(executionA);
+
+  await page.getByRole('button', { name: 'Timer', exact: true }).click();
+  await expect.poll(() => scrambleLabel(page.getByRole('region', { name: 'Scramble' }))).toBe(timerA);
+  await page.getByRole('button', { name: 'Training', exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Execution Sprint' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: 'Edges', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await expect.poll(() => scrambleLabel(page.getByRole('region', { name: 'Scramble' }))).toBe(executionA);
+
+  await page.getByRole('radio', { name: 'Guided Solve' }).click();
+  await expect(page.getByRole('radio', { name: 'Corners', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('radio', { name: 'Execution Sprint' }).click();
+  await page.getByRole('button', { name: 'Timer', exact: true }).click();
+  await page.getByRole('button', { name: 'New scramble' }).click();
+  await expect.poll(() => scrambleLabel(page.getByRole('region', { name: 'Scramble' })), { timeout: 45_000 }).not.toBe(timerA);
+});
+
+test('Training tabs are ordered and an active Guided Solve keeps its phase and time across navigation', async ({ page }) => {
+  await load(page);
+  await page.goto('/training');
+  await expect(page.getByRole('navigation', { name: 'Drill' }).getByRole('radio')).toHaveText([
+    'Execution Sprint',
+    'Guided Solve',
+    'Memo Recall',
+    'Trace Sprint',
+  ]);
+  await page.getByRole('radio', { name: 'Guided Solve' }).click();
+  const scramble = page.getByRole('region', { name: 'Scramble' });
+  await expect(scramble.getByText('Preparing scramble…')).toHaveCount(0, { timeout: 45_000 });
+  const challengeId = await page.locator('[data-training-challenge-id]').getAttribute('data-training-challenge-id');
+  await holdSpace(page);
+  await expect(page.getByRole('button', { name: /Start execution/ })).toBeVisible();
+  const memoClock = page.getByRole('timer').filter({ hasText: 'memo' });
+  const memoBefore = await memoClock.innerText();
+  await page.getByRole('button', { name: 'Timer', exact: true }).click();
+  await page.waitForTimeout(80);
+  await page.getByRole('button', { name: 'Training', exact: true }).click();
+  await expect(page.locator('[data-training-challenge-id]')).toHaveAttribute('data-training-challenge-id', challengeId!);
+  await expect(page.getByRole('button', { name: /Start execution/ })).toBeVisible();
+  expect(await memoClock.innerText()).not.toBe(memoBefore);
+});
+
 test('all Training modes remain idle until hold-release and Next returns to idle', async ({ page }) => {
   await load(page);
   await page.goto('/training');
@@ -277,6 +341,7 @@ test('Space in a Training input never starts or submits another attempt', async 
 test('Memo Recall suggestions appear only after the recall is submitted', async ({ page }) => {
   await load(page);
   await page.goto('/training');
+  await page.getByRole('radio', { name: 'Memo Recall' }).click();
   await expect(page.getByRole('button', { name: 'Suggest' })).toHaveCount(0);
   await holdSpace(page);
   await expect(page.getByRole('button', { name: 'Suggest' })).toHaveCount(0);
@@ -374,6 +439,7 @@ test('M2 and memo-order preferences persist without manual orientation or parity
   await expect(page.getByRole('radio', { name: 'Edges first' })).toHaveAttribute('aria-checked', 'true');
 
   await page.goto('/training');
+  await page.getByRole('radio', { name: 'Memo Recall' }).click();
   await holdSpace(page);
   await expect(page.getByText(/M2 parity/i)).toHaveCount(0);
   const headings = page.locator('main h2');

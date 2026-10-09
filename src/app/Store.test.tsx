@@ -32,7 +32,12 @@ vi.mock("../lib/repository", async (importOriginal) => ({
   saveCloudChanges: mocks.save,
 }));
 import { StoreProvider, useStore } from "./Store";
-import { emptyData, loadLocal, SyncConflictError } from "../lib/repository";
+import {
+  emptyData,
+  loadLocal,
+  parseData,
+  SyncConflictError,
+} from "../lib/repository";
 function Harness() {
   const s = useStore();
   return (
@@ -439,6 +444,39 @@ describe("account state and sync", () => {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
     expect(mocks.save).not.toHaveBeenCalled();
     expect(loadLocal("alice").data.multiphaseTiming).toBe(false);
+  });
+  it("hydrates legacy negative accuracy without a compatibility writeback", async () => {
+    const legacy = emptyData();
+    legacy.attempts = [
+      {
+        id: "b6e4ba9f-421f-4962-ba59-b859c75a8855",
+        kind: "memo",
+        correct: false,
+        accuracy: -0.1875,
+        trainingMode: "trace",
+        durationMs: 4200,
+        targets: 16,
+        createdAt: "2026-10-09T22:05:36.491Z",
+      },
+    ];
+    mocks.load.mockResolvedValue({
+      data: parseData(legacy),
+      revision: 21,
+      dirty: false,
+      pending: {},
+    });
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice", "INITIAL_SESSION");
+    await waitFor(() =>
+      expect(screen.getByTestId("state").textContent).toContain("|saved"),
+    );
+    expect(loadLocal("alice").data.attempts[0].accuracy).toBe(0);
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 900)));
+    expect(mocks.save).not.toHaveBeenCalled();
   });
   it("syncs one live-timer preference mutation as one settings write", async () => {
     render(

@@ -36,17 +36,14 @@ import { useScreenInit } from "../../../useScreenInit.js";
 export function WorkspaceTimer({
   multiphase,
   showLiveTimer,
-  stage,
-}: ConceptProps & { showLiveTimer: boolean }) {
+  stage: _stage,
+  session,
+}: ConceptProps & { showLiveTimer: boolean; session: ReturnType<typeof useTimerSession> }) {
   const init = useScreenInit() as {
     sessions?: "open" | "confirm";
     letters?: boolean;
   };
-  const s = useTimerSession({
-    multiphase,
-    stage,
-    initialSessionsOpen: !!init.sessions,
-  });
+  const s = session;
   const { sessions, activeSessionId, prefs } = useAppData();
   const sessionName =
     sessions.find((x) => x.id === activeSessionId)?.name ?? "Session";

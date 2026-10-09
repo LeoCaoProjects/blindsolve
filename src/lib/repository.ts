@@ -46,7 +46,8 @@ export interface PracticeAttempt {
   id: string;
   kind: "memo" | "flashcard";
   correct: boolean;
-  accuracy: number;
+  /** Only objective recall/trace/flashcard attempts have a meaningful accuracy. */
+  accuracy?: number;
   createdAt: string;
   /** `full` is legacy-only and remains readable for backward compatibility. */
   trainingMode?: "recall" | "exec" | "trace" | "guided" | "full";
@@ -258,7 +259,17 @@ const dataSchema = z.object({
         id: z.string().uuid(),
         kind: z.enum(["memo", "flashcard"]),
         correct: z.boolean(),
-        accuracy: z.number().min(0).max(1),
+        // Older target-scoring code subtracted extra/wrong tokens from the
+        // expected count and could persist a negative percentage. Clamp only
+        // persisted finite negative values at this compatibility boundary;
+        // current domain objects contain either 0..1 or no accuracy at all.
+        accuracy: z.preprocess(
+          (value) =>
+            typeof value === "number" && Number.isFinite(value) && value < 0
+              ? 0
+              : value,
+          z.number().min(0).max(1).optional(),
+        ),
         createdAt: iso,
         trainingMode: z
           .enum(["recall", "exec", "trace", "guided", "full"])
