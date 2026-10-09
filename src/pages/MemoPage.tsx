@@ -34,7 +34,6 @@ export default function MemoPage() {
       const { traceWithCanonicalBreaks } = await import("../domain/bld/trace");
       const state = await scrambleToState(
         await generateBlindScramble(),
-        data.scheme.orientation,
       );
       const result = traceWithCanonicalBreaks(state, data.scheme);
       if (seq !== generation.current) return;

@@ -2,6 +2,7 @@ import { LetterScheme } from "../types/app";
 import { CubeState, FACES, Face, stateFromScramble } from "./cube";
 import { CORNER_STICKERS, EDGE_STICKERS, stickerById } from "./scheme";
 import { m2SecondTargetFacePair } from "../../domain/bld/memoConventions";
+import { methodRelativeEdgeStickerId } from "../../domain/bld/orientation";
 
 /**
  * Piece-level cube model and BLD tracing.
@@ -284,7 +285,7 @@ function challengeTargets(
         tokens: executionEdgeIds.map(token),
       },
     },
-    hasM2Parity: setup.edgeMethod === "m2" && edgeIds.length % 2 === 1,
+    hasM2Parity: isClassicM2Setup(setup) && edgeIds.length % 2 === 1,
   };
 }
 
@@ -294,18 +295,41 @@ interface TraceSetup {
   cornerBuffer: string;
   edgeMethod?: string;
   m2SecondTargetSwap?: boolean;
+  orientation?: { up: Face; front: Face };
+}
+
+export function classicM2BufferId(setup: TraceSetup): string | undefined {
+  const orientation = setup.orientation ?? { up: "U", front: "F" };
+  const canonical = methodRelativeEdgeStickerId("D:DF", orientation);
+  if (!canonical) return undefined;
+  const face = canonical[0];
+  const pieceFaces = canonical.slice(2);
+  return EDGE_STICKERS.find(
+    (candidate) =>
+      candidate.face === face &&
+      [...pieceFaces].every((pieceFace) => candidate.piece.includes(pieceFace)),
+  )?.id;
+}
+
+export function isClassicM2Setup(setup: TraceSetup): boolean {
+  return setup.edgeMethod === "m2" && setup.edgeBuffer === classicM2BufferId(setup);
 }
 
 /** Convert a raw physical edge trace to the target-by-target M2 memo convention. */
 export function applyM2Targets(ids: string[], setup: TraceSetup): string[] {
-  if (setup.edgeMethod !== "m2" || !setup.m2SecondTargetSwap) return [...ids];
+  if (!isClassicM2Setup(setup) || !setup.m2SecondTargetSwap) return [...ids];
   return ids.map((id, index) => {
     if (index % 2 === 0) return id;
     const sticker = stickerById(id);
     if (!sticker) return id;
     const adjacent = [...sticker.piece].find((face) => face !== sticker.face);
     if (!adjacent) return id;
-    const [face, other] = m2SecondTargetFacePair(sticker.face, adjacent, index);
+    const [face, other] = m2SecondTargetFacePair(
+      sticker.face,
+      adjacent,
+      index,
+      setup.orientation,
+    );
     return (
       EDGE_STICKERS.find(
         (candidate) =>

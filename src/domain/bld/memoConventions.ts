@@ -1,4 +1,9 @@
 import type { LetteringScheme, TraceSection, TraceTarget } from "./types";
+import {
+  canonicalEdgeStickerToMethodId,
+  methodRelativeEdgeStickerId,
+  type CubeOrientation,
+} from "./orientation";
 
 /**
  * Classic target-by-target M2 leaves the M slice displaced after an odd target.
@@ -28,20 +33,54 @@ export function m2SecondTargetFacePair(
   face: string,
   adjacentFace: string,
   index: number,
+  orientation: CubeOrientation = { up: "U", front: "F" },
 ): readonly [string, string] {
   if (index % 2 === 0) return [face, adjacentFace];
-  return (
-    M2_SECOND_TARGET_FACE_PAIRS[`${face}${adjacentFace}`] ?? [
-      face,
-      adjacentFace,
-    ]
+  const canonicalPiece = [face, adjacentFace].join("");
+  const methodId = canonicalEdgeStickerToMethodId(
+    `${face}:${canonicalPiece}`,
+    orientation,
   );
+  if (!methodId) return [face, adjacentFace];
+  const methodFace = methodId[0];
+  const methodAdjacent = [...methodId.slice(2)].find((f) => f !== methodFace);
+  if (!methodAdjacent) return [face, adjacentFace];
+  const mapped = M2_SECOND_TARGET_FACE_PAIRS[`${methodFace}${methodAdjacent}`];
+  if (!mapped) return [face, adjacentFace];
+  const canonicalId = methodRelativeEdgeStickerId(
+    `${mapped[0]}:${mapped[0]}${mapped[1]}`,
+    orientation,
+  );
+  if (!canonicalId) return [face, adjacentFace];
+  const mappedFace = canonicalId[0];
+  const mappedAdjacent = [...canonicalId.slice(2)].find((f) => f !== mappedFace);
+  return mappedAdjacent ? [mappedFace, mappedAdjacent] : [face, adjacentFace];
 }
 
-export function m2SecondTargetStickerId(stickerId: string, index: number) {
-  return index % 2 === 1
-    ? (M2_SECOND_TARGET_OPPOSITES[stickerId] ?? stickerId)
+export function m2SecondTargetStickerId(
+  stickerId: string,
+  index: number,
+  orientation: CubeOrientation = { up: "U", front: "F" },
+) {
+  if (index % 2 === 0) return stickerId;
+  const methodId = canonicalEdgeStickerToMethodId(stickerId, orientation);
+  const mappedMethodId = methodId
+    ? (M2_SECOND_TARGET_OPPOSITES[methodId] ?? methodId)
+    : null;
+  return mappedMethodId
+    ? (methodRelativeEdgeStickerId(mappedMethodId, orientation) ?? stickerId)
     : stickerId;
+}
+
+export function classicM2BufferStickerId(orientation: CubeOrientation) {
+  return methodRelativeEdgeStickerId("D:DF", orientation);
+}
+
+export function isClassicM2Configuration(scheme: LetteringScheme) {
+  return (
+    scheme.edgeMethod === "m2" &&
+    scheme.edgeBuffer === classicM2BufferStickerId(scheme.orientation)
+  );
 }
 
 export function m2SecondTarget(
@@ -50,7 +89,11 @@ export function m2SecondTarget(
   scheme: LetteringScheme,
 ): TraceTarget {
   if (index % 2 === 0) return target;
-  const stickerId = m2SecondTargetStickerId(target.stickerId, index);
+  const stickerId = m2SecondTargetStickerId(
+    target.stickerId,
+    index,
+    scheme.orientation,
+  );
   const sticker = stickerId ? scheme.stickers[stickerId] : undefined;
   return sticker
     ? {
@@ -97,9 +140,9 @@ export function m2ExecutionRepresentation(
   return {
     rawTargets: section.targets,
     executionTargets:
-      transformEnabled && scheme.edgeMethod === "m2"
+      transformEnabled && isClassicM2Configuration(scheme)
         ? applyM2SecondTargetSwap(section, scheme).targets
         : [...section.targets],
-    hasM2Parity: scheme.edgeMethod === "m2" && m2NeedsParity(section),
+    hasM2Parity: isClassicM2Configuration(scheme) && m2NeedsParity(section),
   };
 }

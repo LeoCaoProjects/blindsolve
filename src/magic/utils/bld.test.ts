@@ -11,8 +11,11 @@ import { tokenize } from "./pairs";
 
 const setup = {
   scheme: speffzScheme(),
-  edgeBuffer: "U7",
+  edgeBuffer: EDGE_STICKERS.find(
+    (sticker) => sticker.face === "D" && sticker.piece === "DF",
+  )!.id,
   cornerBuffer: "U8",
+  orientation: { up: "U" as const, front: "F" as const },
 };
 
 describe("Magic training state adapter", () => {
@@ -25,15 +28,40 @@ describe("Magic training state adapter", () => {
     const raw = [id("D", "DR"), id("F", "FU")];
     const configured = {
       scheme,
-      edgeBuffer: "U7",
+      edgeBuffer: setup.edgeBuffer,
       cornerBuffer: "U8",
       edgeMethod: "m2",
       m2SecondTargetSwap: true,
+      orientation: setup.orientation,
     };
     expect(
       applyM2Targets(raw, configured).map((sticker) => scheme[sticker]),
     ).toEqual(["V", "O"]);
     expect(raw.map((sticker) => scheme[sticker])).toEqual(["V", "E"]);
+  });
+
+  it("maps white-top orange-front M2 specials before resolving custom tokens", () => {
+    const id = (face: string, piece: string) =>
+      EDGE_STICKERS.find((s) => s.face === face && s.piece === piece)!.id;
+    const scheme = speffzScheme();
+    scheme[id("L", "LU")] = "EDGE-E";
+    scheme[id("R", "RD")] = "EDGE-O";
+    const configured = {
+      scheme,
+      edgeBuffer: id("D", "DL"),
+      cornerBuffer: "U8",
+      edgeMethod: "m2",
+      m2SecondTargetSwap: true,
+      orientation: { up: "U" as const, front: "L" as const },
+    };
+    const raw = [id("D", "DL"), id("L", "LU")];
+    expect(applyM2Targets(raw, configured)).toEqual([
+      id("D", "DL"),
+      id("R", "RD"),
+    ]);
+    expect(
+      applyM2Targets(raw, configured).map((sticker) => scheme[sticker]),
+    ).toEqual([scheme[id("D", "DL")], "EDGE-O"]);
   });
   it.each(["corners", "edges", "both"] as const)(
     "generates legal %s states",

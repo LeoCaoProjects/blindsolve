@@ -14,6 +14,10 @@ const opposite: Record<string, string> = {
   R: "L",
   L: "R",
 };
+export interface CubeOrientation {
+  up: string;
+  front: string;
+}
 /** Physical face colours at spatial slots; right = up × front. Invalid drafts return null. */
 export function orientationFaceMap({
   up,
@@ -41,4 +45,40 @@ export function orientationFaceMap({
     R: right,
     L: opposite[right],
   };
+}
+
+const edgePieceForFaces = (a: string, b: string) => {
+  const wanted = [a, b].sort().join("");
+  return ["UF", "UR", "UB", "UL", "DF", "DR", "DB", "DL", "FR", "FL", "BR", "BL"].find(
+    (piece) => [...piece].sort().join("") === wanted,
+  );
+};
+
+/** Map a method-frame edge sticker (for example FU) to canonical physical coordinates. */
+export function methodRelativeEdgeStickerId(
+  stickerId: string,
+  orientation: CubeOrientation,
+): string | null {
+  const match = stickerId.match(/^([UDLRFB]):([UDLRFB]{2})$/);
+  const faceMap = orientationFaceMap(orientation);
+  if (!match || !faceMap) return null;
+  const face = faceMap[match[1]];
+  const piece = edgePieceForFaces(faceMap[match[2][0]], faceMap[match[2][1]]);
+  return piece ? `${face}:${piece}` : null;
+}
+
+/** Inverse of methodRelativeEdgeStickerId for canonical raw physical targets. */
+export function canonicalEdgeStickerToMethodId(
+  stickerId: string,
+  orientation: CubeOrientation,
+): string | null {
+  const match = stickerId.match(/^([UDLRFB]):([UDLRFB]{2})$/);
+  const faceMap = orientationFaceMap(orientation);
+  if (!match || !faceMap) return null;
+  const inverse = Object.fromEntries(
+    Object.entries(faceMap).map(([methodFace, canonicalFace]) => [canonicalFace, methodFace]),
+  );
+  const face = inverse[match[1]];
+  const piece = edgePieceForFaces(inverse[match[2][0]], inverse[match[2][1]]);
+  return piece ? `${face}:${piece}` : null;
 }

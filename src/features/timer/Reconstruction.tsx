@@ -52,7 +52,7 @@ export function Reconstruction({
     let active = true;
     import("../../domain/bld/cubing")
       .then((module) =>
-        module.scrambleToState(solve.scramble, scheme.orientation),
+        module.scrambleToState(solve.scramble),
       )
       .then((cube) => {
         if (!active) return;

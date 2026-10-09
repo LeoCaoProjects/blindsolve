@@ -1,6 +1,6 @@
 # M2 execution correctness audit
 
-Audited 2026-10-08 against `cubing` 0.63.7.
+Audited 2026-10-09 against `cubing` 0.63.7.
 
 ## External rules used
 
@@ -27,9 +27,11 @@ does not insert an algorithm into the raw memo or mutate the cube trace.
 2. `traceSection` swaps abstract buffer/target stickers in a cloned state. It records physical sticker IDs, tokens, and cycle-break markers separately.
 3. Flipped edges remain real oriented cubies and are traced through the same physical cycle model.
 4. Cycle-break choices add targets but never reset the global edge-target index.
-5. `applyM2SecondTargetSwap` copies the trace and maps only eligible even-numbered physical edge targets.
-6. The mapped physical sticker is resolved through the active lettering scheme, including arbitrary multi-character tokens.
-7. Presentation groups the resulting tokens. Persisted reconstruction retains raw sticker IDs separately from displayed tokens.
+5. The canonical physical target is converted into the user's semantic BLD/M2 frame.
+6. `applyM2SecondTargetSwap` copies the trace and maps only eligible even-numbered method-relative edge targets.
+7. The execution target is converted back to a canonical physical sticker ID.
+8. The mapped physical sticker is resolved through the active lettering scheme, including arbitrary multi-character tokens.
+9. Presentation groups the resulting tokens. Persisted reconstruction retains raw sticker IDs separately from displayed tokens.
 
 The Magic training adapter uses the same exported physical face-pair mapping as
 the typed domain engine. Its facelet IDs are adapted only at the boundary.
@@ -55,10 +57,17 @@ and even target positions. A separate legal two-in-place-flipped-edges fixture
 also solved. A literally isolated single flipped edge cannot exist in a legal
 3×3 state because total edge orientation must be even.
 
+An additional simulator covers all 24 valid top/front orientations with 20
+deterministic legal edge states each (480 oriented states). It conjugates the
+published M2 target and parity algorithms into each method frame and requires
+the canonical physical edge state to solve. This regression fails if the
+special mapping is accidentally fixed to white-top/green-front.
+
 ## Scope and method caveats
 
 - The verified swap convention is the classic one-target-at-a-time M2 method. A direct pair/commutator M2 variant must leave the convenience toggle off.
-- The verified physical frame uses the standard DF M2 buffer. Custom sticker labels and cube-view orientation do not change physical identities.
+- The verified method uses method-relative DF. The BLD orientation maps that position to a canonical physical buffer; an incompatible buffer disables the convenience transform rather than guessing.
+- BLD orientation is semantic method configuration. Default Cube View and manual cube dragging remain presentation-only and never affect M2.
 - BlindSolve uses its existing within-cycle orientation tracing for flipped edges and twisted corners. It does not expose a separate-at-end orientation memo convention.
 - The raw target trace, cube state, cycle structure, and saved raw sticker identity are unchanged by M2 presentation settings.
 

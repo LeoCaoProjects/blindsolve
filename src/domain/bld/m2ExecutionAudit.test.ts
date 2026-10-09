@@ -11,6 +11,12 @@ import {
 } from "./memoConventions";
 import type { CubeOrbitState, LetteringScheme, TraceSection } from "./types";
 import {
+  canonicalEdgeStickerToMethodId,
+  methodRelativeEdgeStickerId,
+  orientationFaceMap,
+  type CubeOrientation,
+} from "./orientation";
+import {
   applyM2Targets as applyTrainingM2Targets,
   trace as traceTraining,
 } from "../../magic/utils/bld";
@@ -151,6 +157,46 @@ function executeM2(
     pattern,
   );
   return needsParity ? afterTargets.applyAlg(M2_OP_PARITY) : afterTargets;
+}
+
+const CUBE_ROTATIONS = ["", "x", "x2", "x'", "z", "z'"]
+  .flatMap((a) => ["", "y", "y2", "y'"].map((b) => `${a} ${b}`.trim()));
+const CENTER_FACES = ["U", "L", "F", "R", "B", "D"];
+
+function frameRotation(
+  kpuzzle: Awaited<ReturnType<(typeof puzzles)["3x3x3"]["kpuzzle"]>>,
+  orientation: CubeOrientation,
+) {
+  return CUBE_ROTATIONS.find((rotation) => {
+    const centers = kpuzzle.defaultPattern().applyAlg(rotation).patternData.CENTERS.pieces;
+    return (
+      CENTER_FACES[centers[0]] === orientation.up &&
+      CENTER_FACES[centers[2]] === orientation.front
+    );
+  });
+}
+
+function applyMethodAlg(pattern: KPattern, algorithm: string, frame: string) {
+  return pattern
+    .applyAlg(frame)
+    .applyAlg(algorithm)
+    .applyAlg(new Alg(frame).invert());
+}
+
+function executeOrientedM2(
+  pattern: KPattern,
+  targetIds: string[],
+  needsParity: boolean,
+  orientation: CubeOrientation,
+  frame: string,
+) {
+  let current = pattern;
+  for (const canonicalId of targetIds) {
+    const methodId = canonicalEdgeStickerToMethodId(canonicalId, orientation);
+    if (!methodId) throw new Error(`Invalid oriented target ${canonicalId}`);
+    current = applyMethodAlg(current, shot(methodId), frame);
+  }
+  return needsParity ? applyMethodAlg(current, M2_OP_PARITY, frame) : current;
 }
 
 function expectEdgesSolved(actual: KPattern, solved: KPattern) {
@@ -355,9 +401,58 @@ describe("M2 execution audit", () => {
     `);
   }, 30_000);
 
+  it("solves deterministic physical edge states in all 24 M2 execution orientations", async () => {
+    const kpuzzle = await puzzles["3x3x3"].kpuzzle();
+    const solved = kpuzzle.defaultPattern();
+    const orientations: CubeOrientation[] = [];
+    for (const up of "UDLRFB")
+      for (const front of "UDLRFB")
+        if (orientationFaceMap({ up, front })) orientations.push({ up, front });
+
+    for (const [orientationIndex, orientation] of orientations.entries()) {
+      const frame = frameRotation(kpuzzle, orientation);
+      expect(frame, JSON.stringify(orientation)).not.toBeUndefined();
+      const scheme = createSpeffzScheme();
+      scheme.orientation = orientation;
+      scheme.edgeBuffer = methodRelativeEdgeStickerId("D:DF", orientation)!;
+      for (const [index, sticker] of Object.entries(scheme.stickers))
+        sticker.label = `custom-${orientationIndex}-${index}`;
+
+      for (let sample = 0; sample < 20; sample += 1) {
+        const pattern = legalRandomPattern(
+          kpuzzle,
+          0x0a110000 + orientationIndex * 100 + sample,
+          true,
+        );
+        const raw = canonicalTrace(orbitState(pattern), scheme);
+        const rawBefore = structuredClone(raw.targets);
+        const execution = m2ExecutionRepresentation(raw, scheme, true);
+        expect(execution.rawTargets).toEqual(rawBefore);
+        expect(raw.targets).toEqual(rawBefore);
+        expect(
+          execution.executionTargets.map((target) => target.token),
+        ).toEqual(
+          execution.executionTargets.map(
+            (target) => scheme.stickers[target.stickerId].label,
+          ),
+        );
+        expectEdgesSolved(
+          executeOrientedM2(
+            pattern,
+            execution.executionTargets.map((target) => target.stickerId),
+            execution.hasM2Parity,
+            orientation,
+            frame!,
+          ),
+          solved,
+        );
+      }
+    }
+  }, 30_000);
+
   it("maps only global even-numbered shots and never resets at a cycle break", () => {
     const ids = ["U:UF", "U:UF", "F:UF", "F:UF", "D:DB"];
-    expect(ids.map(m2SecondTargetStickerId)).toEqual([
+    expect(ids.map((id, index) => m2SecondTargetStickerId(id, index))).toEqual([
       "U:UF",
       "D:DB",
       "F:UF",

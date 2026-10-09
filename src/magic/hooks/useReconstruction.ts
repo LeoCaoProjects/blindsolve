@@ -11,6 +11,7 @@ import {
 } from "../types/solve";
 import { isTypingTarget } from "../utils/keyboard";
 import {
+  isClassicM2Configuration,
   m2ExecutionRepresentation,
   m2SecondTargetStickerId,
 } from "../../domain/bld/memoConventions";
@@ -84,11 +85,16 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     (id: string) =>
       pending?.piece === "edges" &&
       draft.memoPrefs?.m2SecondTargetSwap &&
-      draft.engine?.scheme.edgeMethod === "m2"
-        ? m2SecondTargetStickerId(id, pending.section.targets.length)
+      draft.engine?.scheme &&
+      isClassicM2Configuration(draft.engine.scheme)
+        ? m2SecondTargetStickerId(
+            id,
+            pending.section.targets.length,
+            draft.engine.scheme.orientation,
+          )
         : id,
     [
-      draft.engine?.scheme.edgeMethod,
+      draft.engine?.scheme,
       draft.memoPrefs?.m2SecondTargetSwap,
       pending,
     ],

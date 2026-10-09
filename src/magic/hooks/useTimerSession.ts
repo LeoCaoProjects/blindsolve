@@ -8,6 +8,7 @@ import {
 import { traceMemo, traceWithCanonicalBreaks } from "../../domain/bld/trace";
 import type { MemoTrace, TraceTarget } from "../../domain/bld/types";
 import {
+  isClassicM2Configuration,
   m2ExecutionRepresentation,
   m2SecondTargetStickerId,
 } from "../../domain/bld/memoConventions";
@@ -88,8 +89,12 @@ export function useTimerSession({
               scheme.stickers[
                 piece === "edges" &&
                 prefs.m2SecondTargetSwap &&
-                scheme.edgeMethod === "m2"
-                  ? m2SecondTargetStickerId(id, partial.targets.length)
+                isClassicM2Configuration(scheme)
+                  ? m2SecondTargetStickerId(
+                      id,
+                      partial.targets.length,
+                      scheme.orientation,
+                    )
                   : id
               ].label,
           );
@@ -140,7 +145,7 @@ export function useTimerSession({
             edges: edges.pairs,
             hasM2Parity: edgeExecution.hasM2Parity,
             targetRepresentation:
-              prefs.m2SecondTargetSwap && scheme.edgeMethod === "m2"
+              prefs.m2SecondTargetSwap && isClassicM2Configuration(scheme)
                 ? "m2-execution"
                 : "raw",
             ...(corners.break ? { cornerBreak: corners.break } : {}),
