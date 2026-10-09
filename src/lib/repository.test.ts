@@ -84,6 +84,51 @@ describe("workspace integrity", () => {
       ].label,
     ).toBe("CH");
   });
+  it("preserves legacy Full Memo attempts without creating a hydration diff", () => {
+    const cloud = emptyData();
+    cloud.attempts = [
+      {
+        id: crypto.randomUUID(),
+        kind: "memo",
+        correct: true,
+        accuracy: 1,
+        trainingMode: "full",
+        durationMs: 1234,
+        createdAt: "2026-09-25T00:00:00Z",
+      },
+    ];
+    const canonical = parseData(structuredClone(cloud));
+    const hydrated = parseData(structuredClone(canonical));
+    expect(hydrated.attempts[0].trainingMode).toBe("full");
+    expect(diffSyncChanges(canonical, hydrated)).toEqual([]);
+  });
+  it("round-trips a reproducible Guided Solve attempt", () => {
+    const data = emptyData();
+    data.attempts = [
+      {
+        id: crypto.randomUUID(),
+        kind: "memo",
+        correct: true,
+        accuracy: 1,
+        trainingMode: "guided",
+        durationMs: 3000,
+        memoMs: 1000,
+        executionMs: 2000,
+        targets: 4,
+        pairs: 2,
+        scope: "both",
+        scramble: "R U",
+        rawTargets: { corners: ["U:UBL"], edges: ["U:UB"] },
+        executionTargets: { corners: ["U:UBL"], edges: ["D:DB"] },
+        tokenSnapshot: { corners: ["CH"], edges: ["7X"] },
+        memoOrder: "edges-first",
+        createdAt: "2026-10-10T00:00:00Z",
+      },
+    ];
+    expect(parseData(structuredClone(data)).attempts[0]).toEqual(
+      data.attempts[0],
+    );
+  });
   it("validates duplicate tokens and impossible orientations", () => {
     const d = emptyData();
     d.scheme.stickers["U:UB"].label = "B";

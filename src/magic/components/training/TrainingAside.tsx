@@ -32,19 +32,10 @@ export function TrainingAside({
   const n = h.length;
   const mean = n ? h.reduce((s, a) => s + a.ms, 0) / n : 0;
   const correct = h.filter((a) => a.correct).length;
-  const pairsTotal = h.reduce((s, a) => s + (a.pairs ?? 0), 0);
-
-  const cells: [string, string][] =
-  t.mode === 'full' ?
-  [
+  const cells: [string, string][] = [
   ['attempts', String(n)],
-  ['correct', `${correct}/${n}`],
-  ['per pair', pairsTotal ? formatTime(h.reduce((s, a) => s + a.ms, 0) / pairsTotal) : '—']] :
-
-  [
-  ['attempts', String(n)],
-  [t.mode === 'exec' ? 'solved' : 'correct', `${correct}/${n}`],
-  [t.mode === 'recall' ? 'mean memo' : t.mode === 'trace' ? 'mean trace' : 'mean exec', n ? formatTime(mean) : '—']];
+  [t.mode === 'exec' || t.mode === 'guided' ? 'solved' : 'correct', `${correct}/${n}`],
+  [t.mode === 'recall' ? 'mean memo' : t.mode === 'trace' ? 'mean trace' : t.mode === 'guided' ? 'mean total' : 'mean exec', n ? formatTime(mean) : '—']];
 
 
   // The cube's look is derived from the phase every render, so no dim can outlive its state.
@@ -57,7 +48,7 @@ export function TrainingAside({
   t.phase === 'idle' ?
   { state: SOLVED_STATE, dim: '', label: 'Solved cube. The challenge appears when you start' } :
   { state: t.challenge.state, dim: t.phase === 'recall' ? 'opacity-[0.08]' : '', label: 'The cube this memo was traced from' } :
-  t.mode === 'exec' && t.phase === 'idle' ?
+  (t.mode === 'exec' || t.mode === 'guided') && t.phase === 'idle' ?
   { state: t.challenge.state, dim: t.scrambleReady ? '' : 'opacity-25', label: 'Your cube after this scramble' } :
   null;
 
@@ -88,14 +79,14 @@ export function TrainingAside({
               <div className="grid grid-cols-[30px_20px_1fr_auto] items-center py-[7px] pl-5 pr-10">
                 <span className={`font-mono text-[10.5px] tnum ${i === 0 ? 'text-accent' : 'text-ink-3'}`}>{n - i}</span>
                 {a.correct ?
-                <CheckIcon size={13} className="text-ink-3" aria-label={t.mode === 'exec' ? 'solved' : 'correct'} /> :
+                <CheckIcon size={13} className="text-ink-3" aria-label={t.mode === 'exec' || t.mode === 'guided' ? 'solved' : 'correct'} /> :
 
-                <XIcon size={13} className="text-accent" aria-label={t.mode === 'exec' ? 'DNF' : 'incorrect'} />
+                <XIcon size={13} className="text-accent" aria-label={t.mode === 'exec' || t.mode === 'guided' ? 'DNF' : 'incorrect'} />
                 }
                 <span className={`font-mono text-[14.5px] tnum ${i === 0 ? 'text-ink' : 'text-ink-2'}`}>
-                  {t.mode === 'exec' && !a.correct ? 'DNF' : formatTime(a.ms)}
+                  {(t.mode === 'exec' || t.mode === 'guided') && !a.correct ? 'DNF' : formatTime(a.ms)}
                 </span>
-                <span className="font-mono text-[11px] text-ink-3 tnum">{t.mode === 'full' || t.mode === 'exec' ? `${a.pairs ?? 0} pairs` : a.targets}</span>
+                <span className="font-mono text-[11px] text-ink-3 tnum">{t.mode === 'guided' || t.mode === 'exec' ? `${a.pairs ?? 0} pairs` : a.targets}</span>
               </div>
               <RowDelete label={`Delete attempt ${n - i}`} onClick={() => t.removeAttempt(a.id)} />
             </motion.li>

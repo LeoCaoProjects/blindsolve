@@ -48,12 +48,21 @@ export interface PracticeAttempt {
   correct: boolean;
   accuracy: number;
   createdAt: string;
-  trainingMode?: "recall" | "exec" | "trace" | "full";
+  /** `full` is legacy-only and remains readable for backward compatibility. */
+  trainingMode?: "recall" | "exec" | "trace" | "guided" | "full";
   pairKey?: string;
   pairPiece?: "edges" | "corners";
   durationMs?: number;
   targets?: number;
   pairs?: number;
+  scope?: "both" | "corners" | "edges";
+  scramble?: string;
+  memoMs?: number;
+  executionMs?: number;
+  rawTargets?: { corners: string[]; edges: string[] };
+  executionTargets?: { corners: string[]; edges: string[] };
+  tokenSnapshot?: { corners: string[]; edges: string[] };
+  memoOrder?: "corners-first" | "edges-first";
 }
 export interface AppData {
   schemeHistory?: Array<{ scheme: LetteringScheme; updatedAt: string }>;
@@ -251,12 +260,32 @@ const dataSchema = z.object({
         correct: z.boolean(),
         accuracy: z.number().min(0).max(1),
         createdAt: iso,
-        trainingMode: z.enum(["recall", "exec", "trace", "full"]).optional(),
+        trainingMode: z
+          .enum(["recall", "exec", "trace", "guided", "full"])
+          .optional(),
         pairKey: text.optional(),
         pairPiece: z.enum(["edges", "corners"]).optional(),
         durationMs: z.number().int().nonnegative().optional(),
         targets: z.number().int().nonnegative().optional(),
         pairs: z.number().int().nonnegative().optional(),
+        scope: z.enum(["both", "corners", "edges"]).optional(),
+        scramble: text.optional(),
+        memoMs: z.number().int().nonnegative().optional(),
+        executionMs: z.number().int().nonnegative().optional(),
+        rawTargets: z
+          .object({
+            corners: z.array(text).max(200),
+            edges: z.array(text).max(200),
+          })
+          .optional(),
+        executionTargets: z
+          .object({
+            corners: z.array(text).max(200),
+            edges: z.array(text).max(200),
+          })
+          .optional(),
+        tokenSnapshot: z.object({ corners: tokens, edges: tokens }).optional(),
+        memoOrder: z.enum(["corners-first", "edges-first"]).optional(),
       }),
     )
     .max(100000)

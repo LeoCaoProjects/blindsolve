@@ -85,19 +85,22 @@ describe("raw and execution challenge separation", () => {
     ]);
   });
 
-  it("uses raw targets for tracing/memo modes and execution targets only for Execution Sprint", () => {
+  it("uses raw targets for recall/trace and execution targets for execution-oriented drills", () => {
     const challenge = challengeFromScramble(
       SPECIAL_SCRAMBLE,
       "both",
       1,
       setup(true),
     );
-    for (const mode of ["trace", "recall", "full"] as const) {
+    for (const mode of ["trace", "recall"] as const) {
       expect(challengeTargetsForMode(challenge, mode)).toBe(
         challenge.rawTargets,
       );
     }
     expect(challengeTargetsForMode(challenge, "exec")).toBe(
+      challenge.executionTargets,
+    );
+    expect(challengeTargetsForMode(challenge, "guided")).toBe(
       challenge.executionTargets,
     );
   });
@@ -153,6 +156,37 @@ describe("raw and execution challenge separation", () => {
       "edges",
       "corners",
     ]);
+    expect(challenge).toEqual(before);
+  });
+
+  it("limits Guided Solve sections by scope while preserving the challenge", () => {
+    const challenge = challengeFromScramble(
+      SPECIAL_SCRAMBLE,
+      "both",
+      1,
+      setup(true),
+    );
+    const before = structuredClone(challenge);
+    expect(
+      orderedChallengeGroups(challenge, "guided", "both", "corners-first").map(
+        (group) => group.piece,
+      ),
+    ).toEqual(["corners", "edges"]);
+    expect(
+      orderedChallengeGroups(challenge, "guided", "both", "edges-first").map(
+        (group) => group.piece,
+      ),
+    ).toEqual(["edges", "corners"]);
+    expect(
+      orderedChallengeGroups(challenge, "guided", "corners", "edges-first").map(
+        (group) => group.piece,
+      ),
+    ).toEqual(["corners"]);
+    expect(
+      orderedChallengeGroups(challenge, "guided", "edges", "corners-first").map(
+        (group) => group.piece,
+      ),
+    ).toEqual(["edges"]);
     expect(challenge).toEqual(before);
   });
 });

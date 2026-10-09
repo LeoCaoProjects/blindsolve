@@ -16,6 +16,8 @@ export function TrainingDock({ t }: {t: TrainingSession;}) {
   let secondary: Action | null = null;
   if (t.phase === 'active' && t.mode === 'recall') primary = { label: 'Ready', onClick: t.toRecall, hint: 'Space' };else
   if (t.phase === 'active' && t.mode === 'exec') primary = { label: 'Stop', onClick: t.submit, hint: 'Space' };else
+  if (t.phase === 'memo' && t.mode === 'guided') primary = { label: 'Start execution', onClick: t.startExecution, hint: 'Space' };else
+  if (t.phase === 'execution' && t.mode === 'guided') primary = { label: 'Stop', onClick: t.stopGuided, hint: 'Space' };else
   if (t.phase === 'active') primary = { label: 'Submit', onClick: t.submit, hint: '↵' };else
   if (t.phase === 'recall') {
     primary = { label: 'Submit', onClick: t.submit, hint: '↵' };

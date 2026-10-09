@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppData } from "../contexts/AppDataContext";
-import { suggestionsFor } from "../utils/suggestions";
 import { TrainMode } from "../data/trainingModes";
 import {
   Challenge,
@@ -11,21 +10,21 @@ import {
 import { isTypingTarget } from "../utils/keyboard";
 import { pairKey, resolveWords } from "../utils/pairs";
 import { tokensOf } from "../utils/scheme";
-import {
-  TrainGroup,
-  compareGroups,
-  fullPairs,
-  gradeFullMemo,
-} from "../utils/training";
+import { TrainGroup, compareGroups, fullPairs } from "../utils/training";
 import { useHoldStart } from "./useHoldStart";
 import { useStore } from "../../app/Store";
 import { useExecScramble } from "./useExecScramble";
 import { FIRST_EXEC_SEED } from "../utils/randomStateScramble";
-import { orderedChallengeGroups } from "../utils/challengeTargets";
+import {
+  challengeTargetsForMode,
+  orderedChallengeGroups,
+} from "../utils/challengeTargets";
+import { guidedTiming } from "../utils/guidedSolve";
 
 export type { TrainMode };
 /** idle → (hold Space) → active → [recall] → review → idle */
-export type TrainPhase = "idle" | "active" | "recall" | "review";
+export type TrainPhase =
+  "idle" | "active" | "recall" | "memo" | "execution" | "report" | "review";
 export type ExecDisplay = "letters" | "words";
 export type ExecResult = "solved" | "dnf";
 
@@ -36,6 +35,8 @@ export interface Attempt {
   targets: number;
   correct: boolean;
   pairs?: number;
+  memoMs?: number;
+  executionMs?: number;
 }
 
 export interface TrainInit {
@@ -44,7 +45,6 @@ export interface TrainInit {
   phase?: TrainPhase;
   seed?: number;
   answers?: "correct" | "typo";
-  words?: "mixed";
   display?: ExecDisplay;
   report?: ExecResult;
   seen?: boolean;
@@ -60,11 +60,9 @@ interface Times {
 const SEEDED_MS: Record<TrainMode, { total: number; split?: number }> = {
   recall: { total: 25730, split: 18420 },
   trace: { total: 21860 },
-  full: { total: 61270 },
   exec: { total: 48210 },
+  guided: { total: 61270, split: 25120 },
 };
-
-const CHANGED_WORDS = ["roam", "tuba", "jacket", "lantern", "robin"];
 
 export function useTrainingSession(init: TrainInit) {
   const store = useStore();
@@ -77,15 +75,20 @@ export function useTrainingSession(init: TrainInit) {
   const [history, setHistory] = useState<Attempt[]>(() =>
     store.data.attempts
       .filter(
-        (attempt) => attempt.trainingMode && attempt.durationMs !== undefined,
+        (attempt) =>
+          attempt.trainingMode &&
+          attempt.trainingMode !== "full" &&
+          attempt.durationMs !== undefined,
       )
       .map((attempt) => ({
         id: Date.parse(attempt.createdAt),
-        mode: attempt.trainingMode!,
+        mode: attempt.trainingMode as TrainMode,
         ms: attempt.durationMs!,
         targets: attempt.targets ?? 0,
         correct: attempt.correct,
         pairs: attempt.pairs,
+        memoMs: attempt.memoMs,
+        executionMs: attempt.executionMs,
       })),
   );
   const [now, setNow] = useState(() => performance.now());
@@ -102,13 +105,18 @@ export function useTrainingSession(init: TrainInit) {
       : null,
   );
 
-  // Execution Sprint: the scramble shown during setup IS the challenge — same seed, same state.
-  const preparedScramble = useExecScramble(filter, seed, mode === "exec");
+  // Execution-oriented drills trace the exact state produced by the shown scramble.
+  const preparedScramble = useExecScramble(
+    filter,
+    seed,
+    mode === "exec" || mode === "guided",
+  );
   const scramble = preparedScramble ?? "";
-  const scrambleReady = mode !== "exec" || preparedScramble !== null;
+  const scrambleReady =
+    (mode !== "exec" && mode !== "guided") || preparedScramble !== null;
   const challenge: Challenge = useMemo(
     () =>
-      mode === "exec" && preparedScramble
+      (mode === "exec" || mode === "guided") && preparedScramble
         ? challengeFromScramble(scramble, filter, seed, {
             ...setup,
             m2SecondTargetSwap: prefs.m2SecondTargetSwap,
@@ -146,11 +154,11 @@ export function useTrainingSession(init: TrainInit) {
   const [inputs, setInputs] = useState<string[]>(() =>
     seededInputs(init, groups),
   );
-  const [words, setWords] = useState<string[][]>(() =>
-    seededWords(init, groups, wordFor),
-  );
-
-  const running = phase === "active" || phase === "recall";
+  const running =
+    phase === "active" ||
+    phase === "recall" ||
+    phase === "memo" ||
+    phase === "execution";
   const targets = groups.reduce((n, g) => n + g.tokens.length, 0);
   const pairCount = groups.reduce((n, g) => n + fullPairs(g.tokens).length, 0);
 
@@ -161,17 +169,17 @@ export function useTrainingSession(init: TrainInit) {
   }, [running]);
 
   const start = useCallback(() => {
-    // Exec keeps its seed so the memo matches the scramble the user just applied.
-    if (mode !== "exec") setSeed((s) => s + 1);
+    // Execution-oriented modes keep their seed so memo and scramble stay identical.
+    if (mode !== "exec" && mode !== "guided") setSeed((s) => s + 1);
     setInputs(groups.map(() => ""));
-    setWords(groups.map(() => []));
     setReport("solved");
     const t = performance.now();
     setTimes({ start: t, split: null, end: null });
     setNow(t);
     submittedChallengeRef.current = null;
-    phaseRef.current = "active";
-    setPhase("active");
+    const first: TrainPhase = mode === "guided" ? "memo" : "active";
+    phaseRef.current = first;
+    setPhase(first);
   }, [groups, mode]);
 
   const hold = useHoldStart({
@@ -186,6 +194,24 @@ export function useTrainingSession(init: TrainInit) {
     phaseRef.current = "recall";
     setPhase("recall");
   }, [groups]);
+
+  const startExecution = useCallback(() => {
+    if (phaseRef.current !== "memo") return;
+    const split = performance.now();
+    setTimes((t) => ({ ...t, split }));
+    setNow(split);
+    phaseRef.current = "execution";
+    setPhase("execution");
+  }, []);
+
+  const stopGuided = useCallback(() => {
+    if (phaseRef.current !== "execution") return;
+    const end = performance.now();
+    setTimes((t) => ({ ...t, end }));
+    setNow(end);
+    phaseRef.current = "report";
+    setPhase("report");
+  }, []);
 
   const results = useMemo(
     () => compareGroups(groups, inputs, vocabulary),
@@ -217,21 +243,10 @@ export function useTrainingSession(init: TrainInit) {
       mode,
       ms,
       targets,
-      correct:
-        mode === "exec"
-          ? true
-          : mode === "full"
-            ? gradeFullMemo(groups, words, storedFor).every(
-                (row) =>
-                  row.status === "main" ||
-                  row.status === "alternate" ||
-                  row.status === "new",
-              )
-            : r.every((g) => g.correct),
-      pairs: mode === "full" || mode === "exec" ? pairCount : undefined,
+      correct: mode === "exec" ? true : r.every((g) => g.correct),
+      pairs: mode === "exec" ? pairCount : undefined,
     };
     setHistory((h) => [attempt, ...h]);
-    const rows = mode === "full" ? gradeFullMemo(groups, words, storedFor) : [];
     store.update((data) => ({
       ...data,
       attempts: [
@@ -240,17 +255,10 @@ export function useTrainingSession(init: TrainInit) {
           kind: "memo",
           correct: attempt.correct,
           accuracy:
-            mode === "full"
-              ? rows.filter(
-                  (row) =>
-                    row.status === "main" ||
-                    row.status === "alternate" ||
-                    row.status === "new",
-                ).length / Math.max(1, pairCount)
-              : r.reduce(
-                  (sum, group) => sum + group.actual.length - group.wrong,
-                  0,
-                ) / Math.max(1, targets),
+            r.reduce(
+              (sum, group) => sum + group.actual.length - group.wrong,
+              0,
+            ) / Math.max(1, targets),
           trainingMode: mode,
           durationMs: Math.round(ms),
           targets,
@@ -269,7 +277,6 @@ export function useTrainingSession(init: TrainInit) {
     seed,
     times,
     targets,
-    words,
     pairCount,
     storedFor,
     store,
@@ -302,10 +309,13 @@ export function useTrainingSession(init: TrainInit) {
     }));
   }, [mode, store]);
 
-  /** Execution Sprint setup: swap the scramble before starting, like the Timer's N. */
+  /** Execution-oriented setup: swap the scramble before starting, like the Timer's N. */
   const newScramble = useCallback(() => {
-    if (phase === "idle") setSeed((s) => s + 1);
-  }, [phase]);
+    if (phaseRef.current !== "idle") return;
+    setSeed((s) => s + 1);
+    setTimes(seededTimes({ mode }));
+    setReport("solved");
+  }, [mode]);
 
   /** Execution Sprint is self-reported; the latest attempt follows the Solved/DNF choice. */
   const setExecResult = useCallback(
@@ -333,8 +343,94 @@ export function useTrainingSession(init: TrainInit) {
     [store],
   );
 
+  /** Persist Guided Solve exactly once, after the physical result is self-reported. */
+  const finishGuided = useCallback(
+    (result: ExecResult) => {
+      const challengeId = `guided:${filter}:${seed}`;
+      if (
+        phaseRef.current !== "report" ||
+        submittedChallengeRef.current === challengeId
+      )
+        return;
+      submittedChallengeRef.current = challengeId;
+      const end = times.end ?? performance.now();
+      const split = times.split ?? end;
+      const { memoMs, executionMs, totalMs } = guidedTiming(
+        times.start,
+        split,
+        end,
+      );
+      const correct = result === "solved";
+      const attemptId = Date.now();
+      setReport(result);
+      setHistory((h) => [
+        {
+          id: attemptId,
+          mode: "guided",
+          ms: totalMs,
+          targets,
+          correct,
+          pairs: pairCount,
+          memoMs,
+          executionMs,
+        },
+        ...h,
+      ]);
+      const shown = challengeTargetsForMode(challenge, "guided");
+      store.update((data) => ({
+        ...data,
+        attempts: [
+          {
+            id: crypto.randomUUID(),
+            kind: "memo",
+            correct,
+            accuracy: correct ? 1 : 0,
+            trainingMode: "guided",
+            durationMs: Math.round(totalMs),
+            memoMs: Math.round(memoMs),
+            executionMs: Math.round(executionMs),
+            targets,
+            pairs: pairCount,
+            scope: filter,
+            scramble,
+            rawTargets: {
+              corners: [...challenge.rawTargets.corners.physicalStickerIds],
+              edges: [...challenge.rawTargets.edges.physicalStickerIds],
+            },
+            executionTargets: {
+              corners: [
+                ...challenge.executionTargets.corners.physicalStickerIds,
+              ],
+              edges: [...challenge.executionTargets.edges.physicalStickerIds],
+            },
+            tokenSnapshot: {
+              corners: [...shown.corners.tokens],
+              edges: [...shown.edges.tokens],
+            },
+            memoOrder: prefs.memoOrder,
+            createdAt: new Date(attemptId).toISOString(),
+          },
+          ...data.attempts,
+        ],
+      }));
+      phaseRef.current = "review";
+      setPhase("review");
+    },
+    [
+      challenge,
+      filter,
+      pairCount,
+      prefs.memoOrder,
+      scramble,
+      seed,
+      store,
+      targets,
+      times,
+    ],
+  );
+
   const next = useCallback(() => {
-    if (mode === "exec") setSeed((s) => s + 1);
+    if (mode === "exec" || mode === "guided") setSeed((s) => s + 1);
     phaseRef.current = "idle";
     setPhase("idle");
   }, [mode]);
@@ -376,6 +472,11 @@ export function useTrainingSession(init: TrainInit) {
         (e.key === "Enter" || e.code === "Space")
       )
         return;
+      if (phase === "report" && mode === "guided") {
+        if (e.key === "s" || e.key === "S") finishGuided("solved");
+        if (e.key === "d" || e.key === "D") finishGuided("dnf");
+        return;
+      }
       if (
         phase === "active" &&
         mode === "recall" &&
@@ -386,17 +487,28 @@ export function useTrainingSession(init: TrainInit) {
       } else if (phase === "active" && mode === "exec" && e.code === "Space") {
         e.preventDefault();
         if (!e.repeat) submit();
+      } else if (phase === "memo" && mode === "guided" && e.code === "Space") {
+        e.preventDefault();
+        if (!e.repeat) startExecution();
+      } else if (
+        phase === "execution" &&
+        mode === "guided" &&
+        e.code === "Space"
+      ) {
+        e.preventDefault();
+        if (!e.repeat) stopGuided();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [phase, mode, toRecall, submit]);
+  }, [phase, mode, toRecall, submit, startExecution, stopGuided, finishGuided]);
 
   const clock = running ? now : (times.end ?? now);
   const elapsed = {
     total: clock - times.start,
     memo: (times.split ?? clock) - times.start,
     recall: times.split !== null ? clock - times.split : 0,
+    execution: times.split !== null ? clock - times.split : 0,
   };
 
   return {
@@ -416,7 +528,6 @@ export function useTrainingSession(init: TrainInit) {
     pairCount,
     wordFor,
     storedFor,
-    fullRows: gradeFullMemo(groups, words, storedFor),
     removeAttempt,
     removeLatestAttempt,
     clearAttempts,
@@ -427,13 +538,6 @@ export function useTrainingSession(init: TrainInit) {
         const nextInputs = groups.map((_, j) => prev[j] ?? "");
         nextInputs[i] = v;
         return nextInputs;
-      }),
-    words,
-    setGroupWords: (i: number, w: string[]) =>
-      setWords((prev) => {
-        const nextWords = groups.map((_, j) => prev[j] ?? []);
-        nextWords[i] = w;
-        return nextWords;
       }),
     toRecall,
     submit,
@@ -446,6 +550,9 @@ export function useTrainingSession(init: TrainInit) {
     setDisplay,
     report,
     setExecResult,
+    startExecution,
+    stopGuided,
+    finishGuided,
   };
 }
 
@@ -456,10 +563,14 @@ function seededTimes(init: TrainInit): Times {
   const mode = init.mode ?? "recall";
   if (!init.phase || init.phase === "idle")
     return { start: t, split: null, end: t };
-  if (init.phase === "active")
+  if (
+    init.phase === "active" ||
+    init.phase === "memo" ||
+    init.phase === "execution"
+  )
     return {
-      start: t - (mode === "exec" ? 17600 : 6400),
-      split: null,
+      start: t - (mode === "exec" ? 17600 : mode === "guided" ? 24000 : 6400),
+      split: init.phase === "execution" ? t - 8300 : null,
       end: null,
     };
   if (init.phase === "recall")
@@ -484,30 +595,4 @@ function seededInputs(init: TrainInit, groups: TrainGroup[]): string[] {
     }
     return tokens.join("");
   });
-}
-
-function seededWords(
-  init: TrainInit,
-  groups: TrainGroup[],
-  stored: (
-    a: string,
-    b: string,
-    piece: "corners" | "edges",
-  ) => string | undefined,
-): string[][] {
-  if (init.words !== "mixed") return groups.map(() => []);
-  let changed = 0;
-  let skipped = false;
-  return groups.map((g) =>
-    fullPairs(g.tokens).map(([a, b], i) => {
-      const word = stored(a, b, g.piece);
-      if (!word) return suggestionsFor(a, b)[0] ?? `${a}${b}`.toLowerCase();
-      if (i === 1 && changed < 2) return CHANGED_WORDS[changed++];
-      if (i === 3 && !skipped) {
-        skipped = true;
-        return "";
-      }
-      return word;
-    }),
-  );
 }

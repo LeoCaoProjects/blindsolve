@@ -29,6 +29,7 @@ async function load(page: Page, data = workspace()) {
   }, data);
 }
 async function holdSpace(page: Page) {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.down('Space');
   await page.waitForTimeout(320);
   await page.keyboard.up('Space');
@@ -150,25 +151,40 @@ test('Trace Sprint submits once, freezes time, and Enter review advances without
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(2);
 });
 
-test('Full Memo submits once and repeated Enter in review never persists it again', async ({ page }) => {
+test('Guided Solve follows memo, execution, self-report, review, then returns idle', async ({ page }) => {
   await load(page);
   await page.goto('/training');
-  await page.getByRole('radio', { name: 'Full Memo' }).click();
+  await page.getByRole('radio', { name: 'Guided Solve' }).click();
+  const scramble = page.getByRole('region', { name: 'Scramble' });
+  await expect(scramble).toBeVisible();
+  await expect(scramble.getByText('Preparing scramble…')).toHaveCount(0, { timeout: 45_000 });
+  await expect(page.getByRole('radio', { name: 'Full Memo' })).toHaveCount(0);
+  const newScramble = page.getByRole('button', { name: 'New scramble' });
+  await newScramble.focus();
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toBeVisible();
+  await expect(scramble.getByText('Preparing scramble…')).toHaveCount(0, { timeout: 45_000 });
+  await page.locator('main').click({ position: { x: 10, y: 10 } });
   await holdSpace(page);
-  const input = page.locator('input').first();
-  await input.fill('test');
-  await page.getByRole('button', { name: /^Submit/ }).click();
-  await expect(page.getByRole('dialog', { name: 'Full Memo review' })).toBeVisible();
-  await page.keyboard.down('Enter');
-  await page.waitForTimeout(100);
-  await page.keyboard.up('Enter');
+  await expect(page.getByRole('button', { name: /Start execution/ })).toBeVisible();
+  await page.keyboard.press('Space');
+  await expect(page.getByText('Solving', { exact: true })).toBeVisible();
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('button', { name: 'Solved', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Solved', exact: true }).click();
+  const review = page.getByRole('dialog', { name: 'Guided Solve result' });
+  await expect(review).toBeVisible();
+  await expect(review.getByText('memo', { exact: true })).toBeVisible();
+  await expect(review.getByText('execution', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
+  await review.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toBeVisible();
 });
 
 test('all Training modes remain idle until hold-release and Next returns to idle', async ({ page }) => {
   await load(page);
   await page.goto('/training');
-  for (const mode of ['Memo Recall', 'Trace Sprint', 'Full Memo']) {
+  for (const mode of ['Memo Recall', 'Trace Sprint']) {
     await page.getByRole('radio', { name: mode }).click();
     await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toBeVisible();
     await holdSpace(page);
@@ -177,7 +193,6 @@ test('all Training modes remain idle until hold-release and Next returns to idle
       await page.keyboard.press('Space');
       await page.keyboard.press('Escape');
     } else {
-      if (mode === 'Full Memo') await page.locator('input').first().fill('test');
       await page.getByRole('button', { name: /^Submit/ }).click();
     }
     await expect(page.getByRole('button', { name: /Next/ })).toBeVisible();
@@ -216,7 +231,7 @@ test('production search worker serves the hashed module for timer and restricted
   }
 
   await page.goto('/training');
-  for (const mode of ['Memo Recall', 'Trace Sprint', 'Full Memo']) {
+  for (const mode of ['Memo Recall', 'Trace Sprint']) {
     await page.getByRole('radio', { name: mode }).click();
     await holdSpace(page);
     await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toHaveCount(0);
@@ -224,7 +239,6 @@ test('production search worker serves the hashed module for timer and restricted
       await page.keyboard.press('Space');
       await page.keyboard.press('Escape');
     } else {
-      if (mode === 'Full Memo') await page.locator('input').first().fill('test');
       await page.getByRole('button', { name: /^Submit/ }).click();
     }
     await page.getByRole('button', { name: /Next/ }).click();
@@ -270,28 +284,6 @@ test('Memo Recall suggestions appear only after the recall is submitted', async 
   await expect(page.getByRole('button', { name: 'Suggest' })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Suggest' }).first()).toBeVisible();
-});
-
-test('Full Memo review retains extra submitted words and missing expected pairs', async ({ page }) => {
-  await load(page);
-  await page.goto('/training');
-  await page.getByRole('radio', { name: 'Full Memo' }).click();
-  await holdSpace(page);
-  const inputs = page.locator('input');
-  for (let i = 0; i < 20; i++) {
-    await inputs.first().fill(`word${i}`);
-    await inputs.first().press('Enter');
-  }
-  if (await inputs.count() > 1) {
-    for (const word of ['one', 'two']) {
-      await inputs.nth(1).fill(word);
-      await inputs.nth(1).press('Enter');
-    }
-  }
-  await page.getByRole('button', { name: /^Submit/ }).click();
-  await expect(page.getByText('Extra', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Missing', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText(/cycle break at|after the memo ended/i)).toHaveCount(0);
 });
 
 test('Settings Support scrollspy, feedback validation and signed-out optional contact match the final UI', async ({ page }) => {

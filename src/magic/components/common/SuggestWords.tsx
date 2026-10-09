@@ -6,7 +6,7 @@ import { suggestionsFor } from '../../utils/suggestions';
 import { Popover, onMenuKeyDown } from './Popover';
 
 /**
- * One suggestion pattern everywhere. Compact places (reconstruction, Memo Recall and Full Memo
+ * One suggestion pattern everywhere. Compact places (reconstruction and Memo Recall
  * reviews) use a small "Suggest" control that opens a floating list. The Letter Pairs editor has
  * room for the inline version. Picking a word only fills the field; saving is always separate.
  */

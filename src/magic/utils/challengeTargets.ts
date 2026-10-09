@@ -3,14 +3,16 @@ import type { Challenge, ChallengeTargetSet, TrainFilter } from "./bld";
 import type { TrainGroup } from "./training";
 
 /**
- * Memo and tracing drills consume factual targets. Only Execution Sprint may
- * opt into the execution representation prepared for the same physical state.
+ * Memo and tracing drills consume factual targets. Execution-oriented drills
+ * use the execution representation prepared for the same physical state.
  */
 export function challengeTargetsForMode(
   challenge: Challenge,
   mode: TrainMode,
 ): ChallengeTargetSet {
-  return mode === "exec" ? challenge.executionTargets : challenge.rawTargets;
+  return mode === "exec" || mode === "guided"
+    ? challenge.executionTargets
+    : challenge.rawTargets;
 }
 
 export function orderedChallengeGroups(

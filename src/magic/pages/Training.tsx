@@ -7,10 +7,10 @@ import { AppBar } from '../components/layout/AppBar';
 import { ScrambleText } from '../components/solve/ScrambleText';
 import { ExecutionWorkspace } from '../components/training/ExecutionWorkspace';
 import { Fade } from '../components/training/Fade';
-import { FullMemoWorkspace } from '../components/training/FullMemoWorkspace';
+import { GuidedSolveWorkspace } from '../components/training/GuidedSolveWorkspace';
 import { MemoRecallWorkspace } from '../components/training/MemoRecallWorkspace';
 import { ExecReview } from '../components/training/review/ExecReview';
-import { FullMemoReview } from '../components/training/review/FullMemoReview';
+import { GuidedSolveReview } from '../components/training/review/GuidedSolveReview';
 import { RecallReview } from '../components/training/review/RecallReview';
 import { TraceReview } from '../components/training/review/TraceReview';
 import { TraceSprintWorkspace } from '../components/training/TraceSprintWorkspace';
@@ -32,7 +32,7 @@ import { useScreenInit } from '../useScreenInit.js';
 /**
  * One practice instrument, four drills.
  * Layout contract: header (drill · settings) / stage (flexible, scrolls inside) / dock (fixed, inset).
- * During Trace Sprint, Full Memo and Execution Sprint attempts the side column steps away so the
+ * During active drills the side column steps away so the
  * cube and answer get the room. Reviews open in a right-hand sheet over the frozen stage.
  */
 export function Training() {
@@ -48,7 +48,7 @@ export function Training() {
 
   const busy = t.running;
   const holding = t.hold.phase !== 'idle';
-  const execSetup = t.mode === 'exec' && t.phase === 'idle';
+  const executionSetup = (t.mode === 'exec' || t.mode === 'guided') && t.phase === 'idle';
   // The side column stays away through review too, so submitting never reflows the stage.
   const showAside = t.mode === 'recall' || t.phase === 'idle';
   const latest = t.history[0];
@@ -66,9 +66,9 @@ export function Training() {
     keysEnabled: t.phase === 'idle' && !holding && !helpOpen
   });
 
-  // N swaps the Execution Sprint scramble before starting, as on the Timer.
+  // N swaps an execution-oriented scramble before starting, as on the Timer.
   useEffect(() => {
-    if (!execSetup) return;
+    if (!executionSetup) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'n' && e.key !== 'N' || isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.repeat) return;
       if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
@@ -76,7 +76,7 @@ export function Training() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [execSetup, t]);
+  }, [executionSetup, t]);
 
   const stopHandlers =
   t.mode === 'exec' && t.phase === 'active' ?
@@ -96,7 +96,7 @@ export function Training() {
         <main className="flex min-h-0 min-w-0 flex-col">
           <TrainingHeader t={t} />
 
-          {execSetup &&
+          {executionSetup &&
           <section
             aria-label="Scramble"
             className={`flex shrink-0 items-start gap-4 border-b border-line px-5 py-[clamp(14px,3vh,28px)] transition-opacity duration-300 ease-out md:gap-6 md:px-10 ${
@@ -143,7 +143,7 @@ export function Training() {
                     {t.mode === 'recall' && <MemoRecallWorkspace t={t} stage={stableStage.current} />}
                     {t.mode === 'exec' && <ExecutionWorkspace t={t} />}
                     {t.mode === 'trace' && <TraceSprintWorkspace t={t} stage={stableStage.current} />}
-                    {t.mode === 'full' && <FullMemoWorkspace t={t} stage={stableStage.current} />}
+                    {t.mode === 'guided' && <GuidedSolveWorkspace t={t} />}
                   </Fade>
                 }
               </AnimatePresence>
@@ -165,7 +165,7 @@ export function Training() {
       <AnimatePresence>
         {t.phase === 'review' && t.mode === 'recall' && <RecallReview key="recall" t={t} />}
         {t.phase === 'review' && t.mode === 'trace' && <TraceReview key="trace" t={t} />}
-        {t.phase === 'review' && t.mode === 'full' && <FullMemoReview key="full" t={t} />}
+        {t.phase === 'review' && t.mode === 'guided' && <GuidedSolveReview key="guided" t={t} />}
         {t.phase === 'review' && t.mode === 'exec' && <ExecReview key="exec" t={t} />}
       </AnimatePresence>
       <TrainingHelp open={helpOpen} onClose={() => setHelpOpen(false)} mode={t.mode} />

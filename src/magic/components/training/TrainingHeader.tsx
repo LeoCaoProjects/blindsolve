@@ -13,7 +13,7 @@ import { Segmented } from '../common/Segmented';
  * While an attempt runs the settings step aside for the clock.
  */
 export function TrainingHeader({ t }: {t: TrainingSession;}) {
-  const busy = t.running || t.phase === 'review';
+  const busy = t.running || t.phase === 'report' || t.phase === 'review';
   return (
     <section className="flex shrink-0 flex-wrap items-center gap-x-8 gap-y-1 border-b border-line px-5 py-1.5 md:px-10">
       <nav aria-label="Drill" className={`min-w-0 transition-opacity duration-300 ease-out ${busy ? 'opacity-40' : ''}`}>
@@ -69,6 +69,20 @@ export function TrainingHeader({ t }: {t: TrainingSession;}) {
 
 function Clock({ t }: {t: TrainingSession;}) {
   if (t.mode === 'exec') return null;
+  if (t.mode === 'guided') {
+    const cells: [string, number, boolean][] = [
+    ['memo', t.elapsed.memo, t.phase === 'memo'],
+    ...(t.phase === 'execution' || t.phase === 'report' || t.phase === 'review' ?
+    [['execution', t.elapsed.execution, t.phase === 'execution']] as [string, number, boolean][] : [])];
+    return (
+      <p className="flex gap-5 font-mono text-[12px] text-ink-3 tnum" role="timer">
+        {cells.map(([label, ms, live]) =>
+        <span key={label} className={live ? 'text-ink-2' : ''}>
+            {label} <span className="ml-1">{formatTime(ms)}</span>
+          </span>
+        )}
+      </p>);
+  }
   const cells: [string, number, boolean][] =
   t.mode === 'recall' ?
   [

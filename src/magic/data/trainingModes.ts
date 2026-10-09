@@ -1,4 +1,6 @@
-export type TrainMode = 'recall' | 'trace' | 'full' | 'exec';
+export type TrainMode = 'recall' | 'trace' | 'exec' | 'guided';
+/** Persisted by older releases. It is intentionally not an active Training mode. */
+export type LegacyTrainMode = 'full';
 
 export interface TrainingModeInfo {
   id: TrainMode;
@@ -48,15 +50,15 @@ export const trainingModes: TrainingModeInfo[] = [
 
 },
 {
-  id: 'full',
-  label: 'Full Memo',
-  line: 'Trace the cube and write your memo as words.',
-  tests: 'Practises turning a cube into your words.',
+  id: 'guided',
+  label: 'Guided Solve',
+  line: 'Memorise a generated solve, then execute it blind.',
+  tests: 'Practises a complete blind solve with the tracing done for you.',
   steps: [
-  'Hold Space and release to start',
-  'Type the word for each pair and press Enter after each one',
-  'Press Enter on an empty field to submit',
-  'Words that don’t match your list are marked wrong']
+  'Apply the scramble, then hold Space and release',
+  'Memorise the generated letter pairs',
+  'Press Space to hide the memo and begin execution',
+  'Press Space to stop, then mark it Solved or DNF']
 
 }];
 

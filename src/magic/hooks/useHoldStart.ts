@@ -49,6 +49,7 @@ export function useHoldStart({ enabled, onStart, holdMs = 280 }: Options) {
     }
     const down = (e: KeyboardEvent) => {
       if (e.code !== 'Space' || isTypingTarget(e.target) || e.metaKey || e.ctrlKey) return;
+      if (e.target instanceof HTMLElement && e.target.closest('button, a')) return;
       if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
       e.preventDefault();
       if (e.repeat) return;

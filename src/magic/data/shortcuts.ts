@@ -56,11 +56,11 @@ export const shortcutSections: ShortcutSection[] = [
   { keys: ['Space'], label: 'Hold, release to start' },
   { keys: ['Space'], label: 'Memo Recall: done studying' },
   { keys: ['Space'], label: 'Execution Sprint: stop' },
+  { keys: ['Space'], label: 'Guided Solve: start execution · stop' },
   { keys: ['S', 'D'], label: 'Execution Sprint: Solved · DNF' },
   { keys: ['↵'], label: 'Next field · submit · next' },
-  { keys: ['⌫'], label: 'Full Memo: edit previous word' },
   { keys: ['Esc'], label: 'Show the answer · cancel edits' },
-  { keys: ['N'], label: 'Execution Sprint: new scramble' },
+  { keys: ['N'], label: 'Execution drills: new scramble' },
   { keys: ['⌫'], label: 'Delete latest attempt' },
   { keys: ['⇧', '⌫'], label: 'Clear this drill’s attempts' }]
 
