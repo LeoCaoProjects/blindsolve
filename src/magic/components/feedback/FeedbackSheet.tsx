@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckIcon, ImagePlusIcon, Loader2Icon, XIcon } from 'lucide-react';
 import { useAppData } from '../../contexts/AppDataContext';
@@ -33,19 +33,28 @@ export function FeedbackSheet({ open, onClose, failFirst = false, initialCategor
   const [phase, setPhase] = useState<Phase>('idle');
   const [showIncluded, setShowIncluded] = useState(false);
   const failNext = useRef(failFirst);
+  const sending = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const signedIn = !!account.provider;
   const isBug = category === 'bug';
   const canSend = message.trim().length > 0 && phase !== 'sending';
 
-  const reset = () => {
+  const reset = useCallback(() => {
+    sending.current = false;
     setCategory(initialCategory);
     setMessage('');
     setEmail('');
     setShot(null);
     setPhase('idle');
     setShowIncluded(false);
-  };
+  }, [initialCategory]);
+
+  useEffect(
+    () => () => {
+      if (shot) URL.revokeObjectURL(shot.url);
+    },
+    [shot],
+  );
 
   const close = () => {
     if (phase === 'sending') return;
@@ -56,16 +65,20 @@ export function FeedbackSheet({ open, onClose, failFirst = false, initialCategor
   // Small confirmation, then out of the way.
   useEffect(() => {
     if (phase !== 'sent') return;
+    let resetTimer: number | undefined;
     const id = window.setTimeout(() => {
       onClose();
-      window.setTimeout(reset, 200);
+      resetTimer = window.setTimeout(reset, 200);
     }, 1800);
-    return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+    return () => {
+      window.clearTimeout(id);
+      if (resetTimer !== undefined) window.clearTimeout(resetTimer);
+    };
+  }, [onClose, phase, reset]);
 
   const send = async () => {
-    if (!canSend) return;
+    if (!canSend || sending.current) return;
+    sending.current = true;
     setPhase('sending');
     try {
       if (failNext.current) {
@@ -83,6 +96,8 @@ export function FeedbackSheet({ open, onClose, failFirst = false, initialCategor
       setPhase('sent');
     } catch {
       setPhase('failed');
+    } finally {
+      sending.current = false;
     }
   };
 

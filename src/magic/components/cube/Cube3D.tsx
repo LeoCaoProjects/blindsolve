@@ -86,7 +86,6 @@ export function Cube3D({
   // A new state or view returns to the saved default angle; manual rotation is temporary.
   useEffect(() => {
     if (!rotation) setInner(initialRot);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, camera.top, camera.front]);
 
   const [dragging, setDragging] = useState(false);

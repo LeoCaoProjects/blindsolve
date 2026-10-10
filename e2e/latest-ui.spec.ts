@@ -34,6 +34,9 @@ async function holdSpace(page: Page) {
   await page.waitForTimeout(320);
   await page.keyboard.up('Space');
 }
+async function waitForTimerScramble(page: Page) {
+  await expect(page.getByRole('button', { name: 'New scramble' })).toBeEnabled({ timeout: 45_000 });
+}
 const scrambleLabel = (region: Locator) =>
   region.locator('.sr-only').first().textContent();
 
@@ -72,7 +75,10 @@ test('Letter Pair deletion promotes alternates and destructive clears require co
   await page.getByRole('gridcell', { name: /TW, tower/ }).click();
   await page.getByRole('button', { name: 'Clear pair' }).click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
+  const cancelClear = page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' });
+  await expect(cancelClear).toBeFocused();
+  await cancelClear.click();
+  await expect(page.getByRole('button', { name: 'Clear pair' }).first()).toBeFocused();
   await expect(page.getByLabel('Mnemonic')).toHaveValue('tower');
   await page.getByRole('button', { name: 'Clear pair' }).first().click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Clear pair' }).click();
@@ -110,6 +116,8 @@ test('flashcards use saved pairs, reveal, edit and persist an attempt', async ({
 test('a held Flashcard shortcut reveals once and never records before release', async ({ page }) => {
   await load(page, workspace(true));
   await page.goto('/flashcards');
+  await expect(page.getByRole('button', { name: /Reveal/ })).toBeVisible();
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
   await page.keyboard.down('Space');
   await page.waitForTimeout(700);
   await expect(page.getByText('tow', { exact: true })).toBeVisible();
@@ -353,11 +361,16 @@ test('Settings Support scrollspy, feedback validation and signed-out optional co
   await page.goto('/settings');
   await page.getByRole('button', { name: 'Support', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Support', exact: true })).toHaveAttribute('aria-current', 'true');
-  await page.getByRole('button', { name: 'Give feedback' }).click();
+  const feedbackTrigger = page.getByRole('button', { name: 'Give feedback' });
+  await feedbackTrigger.click();
   await expect(page.getByLabel('Email (optional)')).toBeVisible();
+  await expect(page.getByLabel('Message')).toBeFocused();
   await expect(page.getByRole('button', { name: 'Send feedback' })).toBeDisabled();
   await page.getByLabel('Message').fill('A local acceptance-test report');
   await expect(page.getByRole('button', { name: 'Send feedback' })).toBeEnabled();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Give feedback' })).toHaveCount(0);
+  await expect(feedbackTrigger).toBeFocused();
 });
 
 test('Default Cube View persists independently of the fixed scramble reference', async ({ page }) => {
@@ -430,6 +443,7 @@ test('Settings no longer exposes vocabulary strategy while pair overrides remain
 test('Timer hold, memo split, execution stop and reconstruction save form one solve', async ({ page }) => {
   await load(page);
   await page.goto('/');
+  await waitForTimerScramble(page);
   await holdSpace(page);
   await expect(page.getByText('memo', { exact: true })).toBeVisible();
   await page.keyboard.press('Space');
@@ -459,6 +473,7 @@ test('hidden live timer masks active total and split times but reveals the final
   await expect(page.getByRole('switch', { name: 'Show live timer' })).toHaveAttribute('aria-checked', 'false');
 
   await page.goto('/');
+  await waitForTimerScramble(page);
   await holdSpace(page);
   await expect(page.getByRole('timer')).toHaveText('Solve');
   await page.waitForTimeout(80);

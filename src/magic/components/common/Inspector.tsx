@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { EASE_OUT } from '../../utils/keyboard';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
 
 interface InspectorProps {
   label: string;
@@ -16,6 +17,7 @@ interface InspectorProps {
  * Below md it becomes a bottom sheet.
  */
 export function Inspector({ label, onClose, children, width = 480, dismissable = true }: InspectorProps) {
+  const dialogRef = useDialogFocus<HTMLElement>();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // A confirmation open on top handles its own Escape.
@@ -40,6 +42,8 @@ export function Inspector({ label, onClose, children, width = 480, dismissable =
       
       <motion.section
         role="dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         aria-modal="true"
         aria-label={label}
         initial={{ x: 32, opacity: 0 }}

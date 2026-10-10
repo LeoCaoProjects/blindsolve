@@ -564,6 +564,25 @@ describe("account state and sync", () => {
     expect(screen.getByTestId("state").textContent).not.toContain("|never");
     expect(loadLocal("alice").lastAttemptAt).toBeTruthy();
   });
+  it("does not expose raw cloud errors during account hydration", async () => {
+    mocks.load.mockRejectedValueOnce(
+      new Error('[{"code":"invalid_type","path":["accuracy"]}]'),
+    );
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice");
+    await waitFor(() =>
+      expect(screen.getByRole("paragraph").textContent).toContain(
+        "Your device copy is still available",
+      ),
+    );
+    expect(screen.getByRole("paragraph").textContent).not.toContain(
+      "invalid_type",
+    );
+  });
   it("surfaces an explicit error when retry has no authenticated owner", async () => {
     render(
       <StoreProvider>

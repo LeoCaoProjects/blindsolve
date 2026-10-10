@@ -59,6 +59,7 @@ export function Settings() {
   const [speffzConfirm, setSpeffzConfirm] = useState(!!init.speffzConfirm);
   const [pendingNav, setPendingNav] = useState<string | null>(init.leaveConfirm ? '/flashcards' : null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'failed'>('idle');
+  const saveInFlight = useRef(false);
   const failNext = useRef(!!init.saveFails);
   const [feedbackOpen, setFeedbackOpen] = useState(!!init.feedback);
 
@@ -76,7 +77,6 @@ export function Settings() {
   useEffect(() => {
     app.setNavGuard(dirty ? (path: string) => (setPendingNav(path), false) : null);
     return () => app.setNavGuard(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty]);
 
   // Reset the editable draft only after the new guest/account workspace is hydrated.
@@ -90,7 +90,6 @@ export function Settings() {
 
   useEffect(() => {
     if (init.section) document.getElementById(init.section)?.scrollIntoView();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Track the section in view. The last section wins at the bottom of the page, since a short
@@ -147,17 +146,19 @@ export function Settings() {
   };
 
   const save = useCallback(() => {
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
     setSaveState('saving');
-    window.setTimeout(() => {
-      if (failNext.current) {
-        failNext.current = false;
-        setSaveState('failed');
-        return;
-      }
-      app.saveSetup(draft);
-      app.setPrefs({ defaultView: draftView });
-      setSaveState('idle');
-    }, 450);
+    if (failNext.current) {
+      failNext.current = false;
+      saveInFlight.current = false;
+      setSaveState('failed');
+      return;
+    }
+    app.saveSetup(draft);
+    app.setPrefs({ defaultView: draftView });
+    saveInFlight.current = false;
+    setSaveState('idle');
   }, [app, draft, draftView]);
 
   const discard = () => {

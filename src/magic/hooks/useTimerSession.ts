@@ -44,6 +44,8 @@ export function useTimerSession({
     prefs,
   } = useAppData();
   const [scramble, setScramble] = useState("");
+  const [scramblePending, setScramblePending] = useState(false);
+  const [scrambleError, setScrambleError] = useState(false);
   const [draft, setDraft] = useState<SolveDraft | null>(null);
   const [reconOpen, setReconOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -51,6 +53,7 @@ export function useTimerSession({
   const [sessionsOpen, setSessionsOpen] = useState(initialSessionsOpen);
 
   const traceRef = useRef<MemoTrace | null>(null);
+  const scrambleRequestRef = useRef(0);
   const scrambleRef = useRef(scramble);
   const draftRef = useRef(draft);
   scrambleRef.current = scramble;
@@ -175,12 +178,31 @@ export function useTimerSession({
     draft !== null || selectedId !== null || shortcutsOpen || sessionsOpen;
   const timer = useTimer({
     multiphase,
-    disabled: overlayOpen || !active,
+    disabled: overlayOpen || !active || scramblePending || !scramble,
     onStop: handleStop,
   });
   const running = isRunning(timer.phase);
   const newScramble = useCallback(
-    async () => setScramble(await generateBlindScramble()),
+    async () => {
+      const request = ++scrambleRequestRef.current;
+      setScramblePending(true);
+      setScrambleError(false);
+      try {
+        const next = await generateBlindScramble();
+        if (request === scrambleRequestRef.current) setScramble(next);
+      } catch {
+        if (request === scrambleRequestRef.current) setScrambleError(true);
+      } finally {
+        if (request === scrambleRequestRef.current) setScramblePending(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      scrambleRequestRef.current++;
+    },
     [],
   );
 
@@ -289,11 +311,17 @@ export function useTimerSession({
       }
       if (sessionsOpen || draftRef.current || selectedId || shortcutsOpen)
         return;
-      if ((e.key === "n" || e.key === "N") && !running) newScramble();
+      if (
+        (e.key === "n" || e.key === "N") &&
+        !e.repeat &&
+        !running &&
+        !scramblePending
+      )
+        void newScramble();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, newScramble, running, selectedId, shortcutsOpen, sessionsOpen]);
+  }, [active, newScramble, running, scramblePending, selectedId, shortcutsOpen, sessionsOpen]);
 
   useEffect(() => {
     if (!scramble) void newScramble();
@@ -318,6 +346,8 @@ export function useTimerSession({
     latest,
     db,
     scramble,
+    scramblePending,
+    scrambleError,
     cubeState,
     newScramble,
     draft,

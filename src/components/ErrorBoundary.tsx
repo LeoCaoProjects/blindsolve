@@ -11,8 +11,7 @@ export class ErrorBoundary extends Component<
     return this.state.error ? (
       <main className="error-screen">
         <h1>Unable to display this screen</h1>
-        <p>Your stored data has not been removed.</p>
-        <pre>{this.state.error.message}</pre>
+        <p>Reload the application. Your saved device data has not been changed.</p>
         <button onClick={() => location.reload()}>Reload application</button>
       </main>
     ) : (

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { XIcon } from 'lucide-react';
 import { EASE_OUT } from '../../utils/keyboard';
 import { IconButton } from './IconButton';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
 
 interface SheetProps {
   open: boolean;
@@ -16,6 +17,7 @@ interface SheetProps {
 
 /** Centred sheet — same scrim, surface and motion as the shortcut sheet. Scrolls inside, never past the viewport. */
 export function Sheet({ open, onClose, label, title, width = 420, footer, children }: SheetProps) {
+  const dialogRef = useDialogFocus<HTMLDivElement>(open);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -41,6 +43,8 @@ export function Sheet({ open, onClose, label, title, width = 420, footer, childr
           <div className="absolute inset-0 bg-[var(--scrim)]" onClick={onClose} />
           <motion.div
           role="dialog"
+          ref={dialogRef}
+          tabIndex={-1}
           aria-modal="true"
           aria-label={label}
           initial={{ opacity: 0, y: 6 }}

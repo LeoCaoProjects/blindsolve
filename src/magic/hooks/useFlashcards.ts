@@ -109,7 +109,6 @@ export function useFlashcards(opts: Options) {
       setCard(pick(null));
       setPhase('question');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eligible]);
 
   const words = card ? wordsFor(card.key, card.piece) : [];

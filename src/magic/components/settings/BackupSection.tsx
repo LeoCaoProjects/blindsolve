@@ -15,7 +15,6 @@ export function BackupSection({ preview }: {preview?: 'valid' | 'invalid';}) {
   useEffect(() => {
     if (preview === 'valid') setSummary(summarize('3bld-backup.json', buildBackup(store.data), store.data));
     if (preview === 'invalid') setSummary(summarize('cstimer_export.json', { properties: {}, session1: [] }, store.data));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const flash = (msg: string) => {

@@ -70,7 +70,7 @@ export function Training() {
   useEffect(() => {
     if (!executionSetup) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'n' && e.key !== 'N' || isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.repeat) return;
+      if (e.key !== 'n' && e.key !== 'N' || isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.repeat || !t.scrambleReady) return;
       if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
       t.newScramble();
     };
@@ -115,9 +115,11 @@ export function Training() {
               <button
               type="button"
               onClick={t.newScramble}
+              disabled={!t.scrambleReady}
+              aria-busy={!t.scrambleReady}
               aria-label="New scramble"
               title="New scramble"
-              className="mt-0.5 inline-flex h-8 shrink-0 items-center gap-2 rounded-[4px] px-2 text-ink-3 transition-colors duration-150 ease-out hover:bg-hover hover:text-ink-2">
+              className="mt-0.5 inline-flex h-8 shrink-0 items-center gap-2 rounded-[4px] px-2 text-ink-3 transition-colors duration-150 ease-out hover:bg-hover hover:text-ink-2 disabled:cursor-wait disabled:opacity-40">
               
                 <RefreshCwIcon size={14} strokeWidth={1.75} />
                 <span className="hidden md:inline">

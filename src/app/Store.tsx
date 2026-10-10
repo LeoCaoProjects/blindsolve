@@ -157,10 +157,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         clearGuestAfterSync.current = false;
         guestForMigration.current = null;
       }
-    } catch (e) {
+    } catch (error) {
       if (generation === epoch.current) {
-        let failure = e;
-        if (e instanceof SyncConflictError) {
+        if (error instanceof SyncConflictError) {
           try {
             const remote = await withAccountCloudLock(owner.current, loadCloud);
             if (generation !== epoch.current) return;
@@ -200,14 +199,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               setSync("saved");
             }
             return;
-          } catch (reloadError) {
-            failure = reloadError;
+          } catch {
+            // Fall through to the bounded retry path below.
           }
         }
         const offline = typeof navigator !== "undefined" && !navigator.onLine;
         setSync(offline ? "offline" : "error");
         notify(
-          `Changes remain on this device. ${(failure as Error).message}.${offline ? " Sync resumes when you reconnect." : " Retrying safely in the background."}`,
+          `Changes remain on this device. ${offline ? "Sync resumes when you reconnect." : "Cloud sync is temporarily unavailable. Retrying safely in the background."}`,
         );
         if (!offline && retryAttempts.current < 5) {
           const delay = syncRetryDelay(retryAttempts.current++);
@@ -307,11 +306,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               `${merged.conflicts} differing mnemonics were preserved as alternates. Review them before continuing.`,
             );
           persist();
-        } catch (e) {
+        } catch {
           if (generation === epoch.current) {
             setSync("error");
             notify(
-              `Cloud data could not load: ${(e as Error).message}. Your device copy is still available.`,
+              "Cloud data could not load. Your device copy is still available. Retry when the connection is stable.",
             );
           }
         }
@@ -470,10 +469,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       retryAttempts.current = 0;
       if (current.current.dirty) await flush();
       else setSync("saved");
-    } catch (e) {
+    } catch {
       if (generation === epoch.current) {
         setSync("error");
-        notify((e as Error).message);
+        notify(
+          "Cloud sync is temporarily unavailable. Your device copy is still available.",
+        );
       }
     }
   };

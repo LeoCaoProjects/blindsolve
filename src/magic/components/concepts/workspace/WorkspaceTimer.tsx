@@ -118,16 +118,41 @@ export function WorkspaceTimer({
             <span className="hidden w-8 shrink-0 pt-[5px] font-mono text-[11px] text-ink-3 tnum md:block">
               #{s.nextIndex}
             </span>
-            <ScrambleText
-              scramble={s.scramble}
-              className="min-w-0 flex-1 text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink"
-            />
+            {s.scramblePending ? (
+              <p
+                role="status"
+                className="min-w-0 flex-1 font-mono text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink-3"
+              >
+                Preparing scramble…
+              </p>
+            ) : s.scrambleError && !s.scramble ? (
+              <p
+                role="alert"
+                className="min-w-0 flex-1 font-mono text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-danger"
+              >
+                Scramble unavailable. Try again.
+              </p>
+            ) : (
+              <>
+                <ScrambleText
+                  scramble={s.scramble}
+                  className="min-w-0 flex-1 text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink"
+                />
+                {s.scrambleError && (
+                  <span className="shrink-0 self-center text-[12px] text-danger" role="alert">
+                    New scramble failed
+                  </span>
+                )}
+              </>
+            )}
             <button
               type="button"
               onClick={s.newScramble}
+              disabled={s.running || s.scramblePending}
+              aria-busy={s.scramblePending}
               aria-label="New scramble"
               title="New scramble"
-              className="mt-0.5 inline-flex h-8 shrink-0 items-center gap-2 rounded-[4px] px-2 text-ink-3 transition-colors duration-150 ease-out hover:bg-hover hover:text-ink-2"
+              className="mt-0.5 inline-flex h-8 shrink-0 items-center gap-2 rounded-[4px] px-2 text-ink-3 transition-colors duration-150 ease-out hover:bg-hover hover:text-ink-2 disabled:cursor-wait disabled:opacity-40"
             >
               <RefreshCwIcon size={14} strokeWidth={1.75} />
               <span className="hidden md:inline">

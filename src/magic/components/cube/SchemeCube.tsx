@@ -92,7 +92,6 @@ export function SchemeCube({
 
   useEffect(() => {
     onViewChange?.(computeView(rot.x, rot.y, camera));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rot.x, rot.y, camera.top, camera.front]);
 
   useEffect(() => {
