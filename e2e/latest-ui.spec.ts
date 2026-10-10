@@ -437,7 +437,9 @@ test('Timer hold, memo split, execution stop and reconstruction save form one so
   await page.waitForTimeout(30);
   await page.keyboard.press('Space');
   await expect(page.getByRole('dialog', { name: 'Memo reconstruction' })).toBeVisible();
-  await page.getByRole('button', { name: 'Skip to save' }).click();
+  // A random scramble can reach review immediately (no unresolved break or word),
+  // in which case the primary action is already "Save solve".
+  await page.getByRole('button', { name: /^(Skip to save|Save solve)$/ }).click();
   await expect(page.getByRole('dialog', { name: 'Memo reconstruction' })).toHaveCount(0);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);
   expect(saved.solves).toHaveLength(1);
