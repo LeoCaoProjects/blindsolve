@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { XIcon } from 'lucide-react';
-import { PairEntry, PairScope, Sharing } from '../../types/app';
+import { PairEntry, PairScope } from '../../types/app';
 import { EASE_OUT } from '../../utils/keyboard';
 import { normalizeWords } from '../../utils/pairs';
 import { IconButton } from '../common/IconButton';
@@ -17,16 +17,15 @@ interface PairEditorProps {
   second: string;
   entry: PairEntry | undefined;
   initialScope: PairScope;
-  sharing: Sharing;
   uses: number;
   suggestionsOpen?: boolean;
   onSave: (entry: PairEntry | null) => void;
   onClose: () => void;
 }
 
-export function PairEditor({ first, second, entry, initialScope, sharing, uses, suggestionsOpen = false, onSave, onClose }: PairEditorProps) {
+export function PairEditor({ first, second, entry, initialScope, uses, suggestionsOpen = false, onSave, onClose }: PairEditorProps) {
   const [draft, setDraft] = useState<PairEntry>(() => entry ?? { shared: [] });
-  const [tab, setTab] = useState<PairScope>(sharing === 'separate' && initialScope === 'shared' ? 'edges' : initialScope);
+  const [tab, setTab] = useState<PairScope>(initialScope);
   const [showSuggestions, setShowSuggestions] = useState(suggestionsOpen);
   const [alt, setAlt] = useState('');
   const [note, setNote] = useState<string | null>(null);
@@ -34,7 +33,7 @@ export function PairEditor({ first, second, entry, initialScope, sharing, uses, 
   const primaryRef = useRef<HTMLInputElement>(null);
   const savedCount = entry ? entry.shared.length + (entry.edges?.length ?? 0) + (entry.corners?.length ?? 0) : 0;
 
-  const inheriting = sharing === 'shared' && tab !== 'shared' && draft[tab] === undefined;
+  const inheriting = tab !== 'shared' && draft[tab] === undefined;
   const words = tab === 'shared' ? draft.shared : draft[tab] ?? [];
   const primary = words[0] ?? '';
   const alternates = words.slice(1);
@@ -74,22 +73,16 @@ export function PairEditor({ first, second, entry, initialScope, sharing, uses, 
     (['edges', 'corners'] as const).forEach((k) => {
       if (draft[k] === undefined) return;
       const w = normalizeWords(draft[k] ?? []);
-      if (w.length || sharing === 'separate') out[k] = w;
+      if (w.length) out[k] = w;
     });
     const empty = !out.shared.length && !out.edges?.length && !out.corners?.length;
     onSave(empty ? null : out);
   };
 
-  const scopeOptions =
-  sharing === 'shared' ?
-  [
+  const scopeOptions = [
   { value: 'shared' as PairScope, label: 'Shared' },
   { value: 'edges' as PairScope, label: 'Edges', marked: !!draft.edges?.length },
-  { value: 'corners' as PairScope, label: 'Corners', marked: !!draft.corners?.length }] :
-
-  [
-  { value: 'edges' as PairScope, label: 'Edges' },
-  { value: 'corners' as PairScope, label: 'Corners' }];
+  { value: 'corners' as PairScope, label: 'Corners', marked: !!draft.corners?.length }];
 
 
   return (
@@ -153,7 +146,7 @@ export function PairEditor({ first, second, entry, initialScope, sharing, uses, 
                         Remove
                       </button>
                   }
-                    {tab !== 'shared' && sharing === 'shared' &&
+                    {tab !== 'shared' &&
                   <button type="button" onClick={removeOverride} className="text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2">
                         Use shared instead
                       </button>

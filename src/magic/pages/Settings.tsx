@@ -12,7 +12,7 @@ import { CubeConfigurator } from '../components/settings/CubeConfigurator';
 import { SecondaryButton, SettingsRow, SettingsSection } from '../components/settings/SettingsSection';
 import { FeedbackSheet } from '../components/feedback/FeedbackSheet';
 import { FeedbackCategory } from '../types/feedback';
-import { useAppData } from '../contexts/AppDataContext';
+import { magicStickerForPhysical, useAppData } from '../contexts/AppDataContext';
 import { settingsSections } from '../data/navigation';
 import { useShortcutSheet } from '../hooks/useShortcutSheet';
 import { BldSetup, CubeMode, CubeViewPref } from '../types/app';
@@ -21,6 +21,7 @@ import { EASE_OUT } from '../utils/keyboard';
 import { isSpeffz, speffzScheme } from '../utils/scheme';
 import { useScreenInit } from '../useScreenInit.js';
 import { useStore } from '../../app/Store';
+import { conventionalPhysicalEdgeBuffer } from '../utils/methodBuffers';
 
 interface ScreenState {
   section?: string;
@@ -64,6 +65,12 @@ export function Settings() {
   const ownerKey = store.user?.id ?? 'guest';
   const dirty = store.ready && (JSON.stringify(draft) !== JSON.stringify(app.setup) || !sameView(draftView, app.prefs.defaultView));
   const patch = (p: Partial<BldSetup>) => setDraft((d) => ({ ...d, ...p }));
+  const changeEdgeMethod = (edgeMethod: BldSetup['edgeMethod']) => {
+    if (edgeMethod === draft.edgeMethod) return;
+    const edgeBuffer = magicStickerForPhysical(conventionalPhysicalEdgeBuffer(edgeMethod, draftView));
+    if (!edgeBuffer) throw new Error('Conventional physical buffer has no cube slot');
+    patch({ edgeMethod, edgeBuffer });
+  };
 
   // Guard navigation away from unsaved setup.
   useEffect(() => {
@@ -239,11 +246,10 @@ export function Settings() {
                     className="mt-2"
                     name="Edge method"
                     value={draft.edgeMethod}
-                    onChange={(edgeMethod) => patch({ edgeMethod })}
+                    onChange={changeEdgeMethod}
                     options={[
-                    { value: 'm2', label: 'M2' },
-                    { value: 'op', label: 'Old Pochmann' },
-                    { value: '3style', label: '3-style' }]
+                    { value: 'op', label: 'OP' },
+                    { value: 'm2', label: 'M2' }]
                     } />
                   
                 </div>
@@ -255,18 +261,15 @@ export function Settings() {
                     value={draft.cornerMethod}
                     onChange={(cornerMethod) => patch({ cornerMethod })}
                     options={[
-                    { value: 'op', label: 'Old Pochmann' },
-                    { value: '3style', label: '3-style' }]
+                    { value: 'op', label: 'OP' }]
                     } />
                   
                 </div>
               </div>
 
-              {draft.edgeMethod === 'm2' &&
               <SettingsRow label="Automatically swap M2 targets" hint="Apply M2 target swaps automatically during execution practice and reconstruction">
                 <Toggle label="Automatically swap M2 targets" checked={app.prefs.m2SecondTargetSwap} onChange={(m2SecondTargetSwap) => app.setPrefs({ m2SecondTargetSwap })} />
               </SettingsRow>
-              }
               <div className="mt-8">
                 <RadioRows
                   name="Memo order"
@@ -277,18 +280,6 @@ export function Settings() {
                     { value: 'edges-first', label: 'Edges first' }]
                   } />
               </div>
-            </SettingsSection>
-
-            <SettingsSection id="pairs" title="Letter pairs">
-              <RadioRows
-                name="Edge and corner vocabulary"
-                value={app.prefs.sharing}
-                onChange={(sharing) => app.setPrefs({ sharing })}
-                options={[
-                { value: 'shared', label: 'One vocabulary for edges and corners', hint: 'Override a pair for either when you need to' },
-                { value: 'separate', label: 'Separate vocabularies' }]
-                } />
-              
             </SettingsSection>
 
             <SettingsSection id="timer" title="Timer">

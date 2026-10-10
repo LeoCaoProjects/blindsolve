@@ -1,5 +1,5 @@
 import { LetterPairDb } from '../types/solve';
-import { PairDb, PairEntry, PairScope, Sharing } from '../types/app';
+import { PairDb, PairEntry, PairScope } from '../types/app';
 
 export const pairKey = (a: string, b: string) => `${a}|${b}`;
 export const splitKey = (key: string) => key.split('|') as [string, string];
@@ -9,12 +9,13 @@ export interface Resolved {
   source: 'shared' | 'override' | 'none';
 }
 
-export function resolveWords(entry: PairEntry | undefined, scope: PairScope, sharing: Sharing): Resolved {
+/** The single mnemonic rule used throughout the app: piece override, then shared default. */
+export function resolveWords(entry: PairEntry | undefined, scope: PairScope): Resolved {
   if (!entry) return { words: [], source: 'none' };
   if (scope === 'shared') return { words: entry.shared, source: entry.shared.length ? 'shared' : 'none' };
   const own = entry[scope];
   if (own && own.length) return { words: own, source: 'override' };
-  if (sharing === 'shared' && entry.shared.length) return { words: entry.shared, source: 'shared' };
+  if (entry.shared.length) return { words: entry.shared, source: 'shared' };
   return { words: [], source: 'none' };
 }
 
@@ -75,10 +76,20 @@ export function toTimerDb(db: PairDb): LetterPairDb {
   const out: LetterPairDb = {};
   Object.entries(db).forEach(([key, entry]) => {
     const [a, b] = splitKey(key);
-    const words = anyWords(entry);
-    if (words.length) out[a + b] = words;
+    const pair = a + b;
+    const fallback = anyWords(entry);
+    if (fallback.length) out[pair] = fallback;
+    (['edges', 'corners'] as const).forEach((piece) => {
+      const words = resolveWords(entry, piece).words;
+      if (words.length) out[`${piece}:${pair}`] = words;
+    });
   });
   return out;
+}
+
+/** Piece-aware Timer/reconstruction lookup with legacy flat-key fallback. */
+export function timerWords(db: LetterPairDb, pair: string, piece: 'edges' | 'corners') {
+  return db[`${piece}:${pair}`] ?? db[pair] ?? [];
 }
 
 export function normalizeWords(words: string[]): string[] {

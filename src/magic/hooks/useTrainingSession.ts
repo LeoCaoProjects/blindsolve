@@ -68,15 +68,18 @@ const SEEDED_MS: Record<TrainMode, { total: number; split?: number }> = {
   exec: { total: 48210 },
   guided: { total: 61270, split: 25120 },
 };
+const MODE_SEED_OFFSET: Record<TrainMode, number> = { exec: 0, guided: 101, recall: 202, trace: 303 };
 
-export function useTrainingSession(init: TrainInit, active = true) {
+export function useTrainingSession(init: TrainInit, active = true, sharedFilter?: TrainFilter, onSharedFilterChange?: (filter: TrainFilter) => void) {
   const store = useStore();
   const { setup, pairs, prefs } = useAppData();
   const vocabulary = useMemo(() => tokensOf(setup.scheme), [setup.scheme]);
   const [mode, setModeState] = useState<TrainMode>(init.mode ?? "exec");
-  const [filter, setFilterState] = useState<TrainFilter>(init.filter ?? "both");
+  const [localFilter, setFilterState] = useState<TrainFilter>(init.filter ?? "both");
+  const filter = sharedFilter ?? localFilter;
   const [phase, setPhase] = useState<TrainPhase>(init.phase ?? "idle");
-  const [seed, setSeed] = useState(init.seed ?? FIRST_EXEC_SEED);
+  const initialSeed = init.seed ?? FIRST_EXEC_SEED + MODE_SEED_OFFSET[init.mode ?? "exec"];
+  const [seed, setSeed] = useState(initialSeed);
   const [history, setHistory] = useState<Attempt[]>(() =>
     store.data.attempts
       .filter(
@@ -106,9 +109,10 @@ export function useTrainingSession(init: TrainInit, active = true) {
   const phaseRef = useRef<TrainPhase>(init.phase ?? "idle");
   const submittedChallengeRef = useRef<string | null>(
     init.phase === "review"
-      ? `${init.mode ?? "recall"}:${init.filter ?? "both"}:${init.seed ?? FIRST_EXEC_SEED}`
+      ? `${init.mode ?? "recall"}:${init.filter ?? "both"}:${initialSeed}`
       : null,
   );
+  const previousFilterRef = useRef(filter);
 
   // Execution-oriented drills trace the exact state produced by the shown scramble.
   const preparedScramble = useExecScramble(
@@ -146,8 +150,8 @@ export function useTrainingSession(init: TrainInit, active = true) {
 
   const storedFor = useCallback(
     (a: string, b: string, piece: "corners" | "edges") =>
-      resolveWords(pairs[pairKey(a, b)], piece, prefs.sharing).words,
-    [pairs, prefs.sharing],
+      resolveWords(pairs[pairKey(a, b)], piece).words,
+    [pairs],
   );
   const wordFor = useCallback(
     (a: string, b: string, piece: "corners" | "edges") =>
@@ -159,6 +163,13 @@ export function useTrainingSession(init: TrainInit, active = true) {
   const [inputs, setInputs] = useState<string[]>(() =>
     seededInputs(init, groups),
   );
+  useEffect(() => {
+    if (previousFilterRef.current === filter) return;
+    previousFilterRef.current = filter;
+    submittedChallengeRef.current = null;
+    phaseRef.current = "idle";
+    setPhase("idle"); setInputs([]); setReport("solved"); setTimes(seededTimes({ mode }));
+  }, [filter, mode]);
   const running =
     phase === "active" ||
     phase === "recall" ||
@@ -445,7 +456,8 @@ export function useTrainingSession(init: TrainInit, active = true) {
     setPhase("idle");
   };
   const setFilter = (f: TrainFilter) => {
-    setFilterState(f);
+    if (phaseRef.current !== "idle" || f === filter) return;
+    if (onSharedFilterChange) onSharedFilterChange(f); else setFilterState(f);
     submittedChallengeRef.current = null;
     phaseRef.current = "idle";
     setPhase("idle");

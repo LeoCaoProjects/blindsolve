@@ -201,8 +201,6 @@ export default function SettingsPage() {
               >
                 <option value="m2">M2</option>
                 <option value="old-pochmann">Old Pochmann</option>
-                <option value="3style">3-style</option>
-                <option value="raw">Raw targets</option>
               </select>
             </label>
             <label>
@@ -218,8 +216,6 @@ export default function SettingsPage() {
                 }
               >
                 <option value="old-pochmann">Old Pochmann</option>
-                <option value="3style">3-style</option>
-                <option value="raw">Raw targets</option>
               </select>
             </label>
           </div>
@@ -232,8 +228,8 @@ export default function SettingsPage() {
             </p>
             <p>
               Method selections describe your setup; they do not change raw
-              targets. M2 even-target substitutions, Old Pochmann setup
-              algorithms, and 3-style execution algorithms are not generated.
+              targets. M2 even-target substitutions and Old Pochmann setup
+              algorithms are handled separately from raw tracing.
               Odd edge/corner target counts indicate permutation parity, not an
               execution algorithm.
             </p>

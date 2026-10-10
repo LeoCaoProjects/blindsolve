@@ -84,6 +84,7 @@ const MAGIC_TO_PHYSICAL = Object.fromEntries(
 const PHYSICAL_TO_MAGIC = Object.fromEntries(
   Object.entries(MAGIC_TO_PHYSICAL).map(([a, b]) => [b, a]),
 );
+export const magicStickerForPhysical = (stickerId: string) => PHYSICAL_TO_MAGIC[stickerId];
 
 export const defaultSetup = (): BldSetup => ({
   scheme: speffzScheme(),
@@ -93,7 +94,7 @@ export const defaultSetup = (): BldSetup => ({
   edgeMethod: "m2",
   cornerMethod: "op",
 });
-function setupFromStore(data: ReturnType<typeof useStore>["data"]): BldSetup {
+export function setupFromStore(data: ReturnType<typeof useStore>["data"]): BldSetup {
   const s = data.scheme;
   return {
     scheme: Object.fromEntries(
@@ -106,34 +107,28 @@ function setupFromStore(data: ReturnType<typeof useStore>["data"]): BldSetup {
     edgeBuffer: PHYSICAL_TO_MAGIC[s.edgeBuffer] ?? defaultSetup().edgeBuffer,
     cornerBuffer:
       PHYSICAL_TO_MAGIC[s.cornerBuffer] ?? defaultSetup().cornerBuffer,
-    edgeMethod:
-      s.edgeMethod === "m2"
-        ? "m2"
-        : s.edgeMethod === "3style"
-          ? "3style"
-          : "op",
-    cornerMethod: s.cornerMethod === "3style" ? "3style" : "op",
+    // Legacy unsupported values remain persisted; only the active view falls back.
+    edgeMethod: s.edgeMethod === "m2" ? "m2" : "op",
+    cornerMethod: "op",
   };
 }
-function pairsFromStore(data: ReturnType<typeof useStore>["data"]): PairDb {
-  const out: PairDb = {};
+export function pairsFromStore(data: ReturnType<typeof useStore>["data"]): PairDb {
+  const gathered: Record<string, { edges?: string[]; corners?: string[] }> = {};
   Object.values(data.pairs).forEach((p) => {
     const type = data.scheme.stickers[p.firstStickerId]?.pieceType;
     const key = pairKey(p.firstToken, p.secondToken),
       words = [p.primaryMnemonic, ...p.alternates].filter(Boolean);
-    const previous = out[key] ?? { shared: [] };
-    if ((data.pairSharing ?? "shared") === "shared")
-      out[key] = {
-        ...previous,
-        shared: previous.shared.length ? previous.shared : words,
-      };
-    else
-      out[key] = {
-        ...previous,
-        [type === "edge" ? "edges" : "corners"]: words,
-      };
+    gathered[key] = { ...gathered[key], [type === "edge" ? "edges" : "corners"]: words };
   });
-  return out;
+  return Object.fromEntries(Object.entries(gathered).map(([key, value]) => {
+    const edge = value.edges, corner = value.corners;
+    if (edge && corner && JSON.stringify(edge) === JSON.stringify(corner)) return [key, { shared: edge }];
+    if (edge && corner) return [key, { shared: edge, corners: corner }];
+    // Retired one-vocabulary data used lone physical records as shared. New edits
+    // switch the hidden storage discriminator to separate, avoiding ambiguity.
+    if ((data.pairSharing ?? "shared") === "shared" && (edge || corner)) return [key, { shared: edge ?? corner! }];
+    return [key, { shared: [], ...(edge ? { edges: edge } : {}), ...(corner ? { corners: corner } : {}) }];
+  }));
 }
 export function solveFromStore(s: SolveRecord, index: number): Solve {
   let hasExecutionTargets = false;
@@ -264,7 +259,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, [data.pairs]);
   const prefs: Prefs = {
-    sharing: data.pairSharing ?? "shared",
     multiphase: data.multiphaseTiming,
     showLiveTimer: data.showLiveTimer,
     m2SecondTargetSwap: data.m2SecondTargetSwap,
@@ -325,7 +319,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             updatedAt: new Date().toISOString(),
           };
         });
-        return { ...current, pairs: next };
+        return { ...current, pairs: next, pairSharing: "separate",
+          preferencesUpdatedAt: current.pairSharing === "separate" ? current.preferencesUpdatedAt : new Date().toISOString() };
       });
     },
     [store],
@@ -470,7 +465,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     (p: Partial<Prefs>) =>
       store.update((d) => ({
         ...d,
-        pairSharing: p.sharing ?? d.pairSharing ?? "shared",
         multiphaseTiming: p.multiphase ?? d.multiphaseTiming,
         showLiveTimer: p.showLiveTimer ?? d.showLiveTimer,
         m2SecondTargetSwap: p.m2SecondTargetSwap ?? d.m2SecondTargetSwap,
@@ -502,10 +496,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     },
     usage,
     timerDb: toTimerDb(pairs),
-    applyTimerDbUpdates: (updates) =>
-      Object.entries(updates).forEach(([flat, words]) =>
-        writeEntry(pairKey(flat[0], flat.slice(1)), { shared: words }),
-      ),
+    applyTimerDbUpdates: (updates) => Object.entries(updates).forEach(([encoded, words]) => {
+      const scoped = encoded.match(/^(edges|corners):(.*)$/), flat = scoped?.[2] ?? encoded;
+      const key = pairKey(flat[0], flat.slice(1)), entry = pairs[key] ?? { shared: [] };
+      writeEntry(key, scoped ? { ...entry, [scoped[1]]: words } : { ...entry, shared: words });
+    }),
     solves,
     setSolves,
     sessions: sessions.map(({ id, name }) => ({ id, name })),
@@ -582,7 +577,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             };
           });
         });
-        return { ...current, pairs: next };
+        return { ...current, pairs: next, pairSharing: "separate",
+          preferencesUpdatedAt: current.pairSharing === "separate" ? current.preferencesUpdatedAt : new Date().toISOString() };
       });
     },
     navGuard,

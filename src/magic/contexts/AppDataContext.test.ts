@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createSpeffzScheme } from "../../domain/bld/speffz";
-import type { SolveRecord } from "../../lib/repository";
-import { solveFromStore } from "./AppDataContext";
+import { emptyData, type SolveRecord } from "../../lib/repository";
+import { pairKey } from "../utils/pairs";
+import { pairsFromStore, setupFromStore, solveFromStore } from "./AppDataContext";
 
 function record(): SolveRecord {
   return {
@@ -74,5 +75,42 @@ describe("historical solve memo representations", () => {
     expect(solve.memo.edges[0].pair).toBe(
       stored.schemeSnapshot!.stickers["U:UF"].label,
     );
+  });
+});
+
+describe("legacy settings compatibility", () => {
+  it("uses effective OP without rewriting persisted 3-style values", () => {
+    const data = emptyData(); data.scheme.edgeMethod = "3style"; data.scheme.cornerMethod = "3style";
+    expect(setupFromStore(data)).toMatchObject({ edgeMethod: "op", cornerMethod: "op" });
+    expect(data.scheme.edgeMethod).toBe("3style"); expect(data.scheme.cornerMethod).toBe("3style");
+  });
+});
+
+describe("legacy vocabulary compatibility", () => {
+  const withPair = (sharing: "shared" | "separate", edgeWords: string[], cornerWords: string[]) => {
+    const data = emptyData(); data.pairSharing = sharing;
+    const find = (type: "edge" | "corner", label: string) => Object.values(data.scheme.stickers).find((s) => s.pieceType === type && s.label === label)!;
+    const add = (type: "edge" | "corner", words: string[]) => {
+      if (!words.length) return; const a = find(type, "A"), b = find(type, "B");
+      data.pairs[`${a.id}|${b.id}`] = { id: `${type}-pair`, firstStickerId: a.id, secondStickerId: b.id,
+        firstToken: "A", secondToken: "B", primaryMnemonic: words[0], alternates: words.slice(1),
+        encounters: 0, forgotten: 0, updatedAt: "2026-01-01T00:00:00.000Z" };
+    };
+    add("edge", edgeWords); add("corner", cornerWords);
+    return { data, entry: pairsFromStore(data)[pairKey("A", "B")] };
+  };
+  it("collapses identical effective words to shared", () => {
+    expect(withPair("shared", ["Apple", "alt"], ["Apple", "alt"]).entry).toEqual({ shared: ["Apple", "alt"] });
+  });
+  it("keeps a lone one-vocabulary record shared", () => {
+    expect(withPair("shared", ["Apple"], []).entry).toEqual({ shared: ["Apple"] });
+  });
+  it("preserves separate vocabularies as shared plus override", () => {
+    expect(withPair("separate", ["Apple", "edge alt"], ["Anchor", "corner alt"]).entry)
+      .toEqual({ shared: ["Apple", "edge alt"], corners: ["Anchor", "corner alt"] });
+  });
+  it("preserves one-sided separate records", () => {
+    expect(withPair("separate", ["Arrow"], []).entry).toEqual({ shared: [], edges: ["Arrow"] });
+    expect(withPair("separate", [], ["Castle"]).entry).toEqual({ shared: [], corners: ["Castle"] });
   });
 });

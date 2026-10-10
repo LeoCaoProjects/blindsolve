@@ -59,7 +59,7 @@ export function ReconStepBody({ r, size = 'md', showOptions = true }: ReconStepB
           breakAt={br?.at ?? null}
           activePair={step.pair}
           renderWord={(pair) =>
-          pair === step.pair ? <span className="text-accent">?</span> : r.wordFor(pair) || <span className="text-ink-3">—</span>
+          pair === step.pair ? <span className="text-accent">?</span> : r.wordFor(pair, step.piece) || <span className="text-ink-3">—</span>
           } />
         
         <WordEntry
@@ -69,8 +69,8 @@ export function ReconStepBody({ r, size = 'md', showOptions = true }: ReconStepB
           pair={step.pair}
           first={step.first}
           second={step.second}
-          value={r.words[step.pair] ?? ''}
-          onChange={(w) => r.setWord(step.pair, w)}
+          value={r.words[`${step.piece}:${step.pair}`] ?? ''}
+          onChange={(w) => r.setWord(step.pair, step.piece, w)}
           onSubmit={r.next}
           onSkip={r.next} />
         

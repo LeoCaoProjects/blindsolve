@@ -51,9 +51,9 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
               renderWord={(pair) => (
                 <EditableWord
                   pair={pair}
-                  value={r.wordFor(pair)}
-                  isNew={r.isNew(pair)}
-                  onCommit={(w) => r.setWord(pair, w)}
+                  value={r.wordFor(pair, row.piece)}
+                  isNew={r.isNew(pair, row.piece)}
+                  onCommit={(w) => r.setWord(pair, row.piece, w)}
                 />
               )}
             />
@@ -66,14 +66,14 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
 
       {r.changedPairs.length > 0 && (
         <div className="mt-8 grid gap-3 border-t border-line pt-5">
-          {r.changedPairs.map((pair) => (
+          {r.changedPairs.map(({ pair, piece }) => (
             <ChangedRow
-              key={pair}
+              key={`${piece}:${pair}`}
               pair={pair}
-              stored={r.storedFor(pair) ?? ""}
-              used={r.wordFor(pair)}
-              value={r.decisions[pair] ?? "keep"}
-              onChange={(d) => r.decide(pair, d)}
+              stored={r.storedFor(pair, piece) ?? ""}
+              used={r.wordFor(pair, piece)}
+              value={r.decisions[`${piece}:${pair}`] ?? "keep"}
+              onChange={(d) => r.decide(pair, piece, d)}
             />
           ))}
         </div>
@@ -82,10 +82,10 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
       {r.newPairs.length > 0 && (
         <p className="mt-7 text-[12.5px] text-ink-3">
           <span className="text-accent">+</span>{" "}
-          {r.newPairs.map((p, i) => (
-            <span key={p}>
-              <span className="font-mono tracking-[0.1em] text-ink-2">{p}</span>{" "}
-              {r.wordFor(p)}
+          {r.newPairs.map(({ pair, piece }, i) => (
+            <span key={`${piece}:${pair}`}>
+              <span className="font-mono tracking-[0.1em] text-ink-2">{pair}</span>{" "}
+              {r.wordFor(pair, piece)}
               {i < r.newPairs.length - 1 ? ", " : ""}
             </span>
           ))}{" "}

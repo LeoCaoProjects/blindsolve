@@ -29,11 +29,10 @@ interface ScreenState {
  */
 export function LetterPairs() {
   const init = useScreenInit() as ScreenState;
-  const { pairs, savePair, replacePairs, usage, prefs, setup } = useAppData();
+  const { pairs, savePair, replacePairs, usage, setup } = useAppData();
   const [confirmSection, setConfirmSection] = useState(false);
   const sheet = useShortcutSheet();
-  const sharing = prefs.sharing;
-  const [scope, setScope] = useState<PairScope>(init.scope ?? (sharing === 'shared' ? 'shared' : 'edges'));
+  const [scope, setScope] = useState<PairScope>(init.scope ?? 'shared');
   const axes = useMemo(
     () => tokensOf(setup.scheme, scope === 'edges' ? 'edge' : scope === 'corners' ? 'corner' : undefined),
     [setup.scheme, scope]
@@ -55,24 +54,24 @@ export function LetterPairs() {
     (a: string, b: string): PairRow => {
       const key = pairKey(a, b);
       const entry = pairs[key];
-      const r = resolveWords(entry, scope, sharing);
+      const r = resolveWords(entry, scope);
       let override: PairRow['override'] = null;
       if (scope === 'shared' && entry) {
         if (entry.corners?.length) override = { label: 'corners', word: entry.corners[0] };else
         if (entry.edges?.length) override = { label: 'edges', word: entry.edges[0] };
-      } else if (scope !== 'shared' && r.source === 'override' && sharing === 'shared') {
+      } else if (scope !== 'shared' && r.source === 'override') {
         override = { label: scope === 'edges' ? 'edges only' : 'corners only', word: r.words[0] };
       }
       return {
         second: b,
         words: r.words,
         override,
-        inherited: scope !== 'shared' && sharing === 'shared' && r.source === 'shared',
+        inherited: scope !== 'shared' && r.source === 'shared',
         impossible: a === b,
         uses: usage[key] ?? 0
       };
     },
-    [pairs, scope, sharing, usage]
+    [pairs, scope, usage]
   );
 
   const rows = useMemo(() => axes.map((b) => rowFor(activeFirst, b)), [axes, activeFirst, rowFor]);
@@ -80,10 +79,10 @@ export function LetterPairs() {
   const filled = useMemo(() => {
     const out: Record<string, number> = {};
     axes.forEach((a) => {
-      out[a] = axes.filter((b) => a !== b && resolveWords(pairs[pairKey(a, b)], scope, sharing).words.length > 0).length;
+      out[a] = axes.filter((b) => a !== b && resolveWords(pairs[pairKey(a, b)], scope).words.length > 0).length;
     });
     return out;
-  }, [axes, pairs, scope, sharing]);
+  }, [axes, pairs, scope]);
   const allEmpty = Object.values(filled).every((n) => n === 0);
 
   // Every saved entry starting with this token, in any scope (shared, edge or corner override).
@@ -169,14 +168,8 @@ export function LetterPairs() {
     setRefocus((n) => n + 1);
   };
 
-  const scopeOptions =
-  sharing === 'shared' ?
-  [
+  const scopeOptions = [
   { value: 'shared' as PairScope, label: 'Shared' },
-  { value: 'edges' as PairScope, label: 'Edges' },
-  { value: 'corners' as PairScope, label: 'Corners' }] :
-
-  [
   { value: 'edges' as PairScope, label: 'Edges' },
   { value: 'corners' as PairScope, label: 'Corners' }];
 
@@ -251,7 +244,6 @@ export function LetterPairs() {
           second={editing}
           entry={pairs[pairKey(activeFirst, editing)]}
           initialScope={scope}
-          sharing={sharing}
           uses={usage[pairKey(activeFirst, editing)] ?? 0}
           suggestionsOpen={!!init.suggestions}
           onClose={closeEditor}

@@ -183,7 +183,7 @@ test('Guided Solve follows memo, execution, self-report, review, then returns id
   await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toBeVisible();
 });
 
-test('Timer and per-drill Training workspaces survive SPA navigation', async ({ page }) => {
+test('Timer and shared-scope, per-drill Training workspaces survive SPA navigation', async ({ page }) => {
   await load(page);
   await page.goto('/');
   const timerScramble = page.getByRole('region', { name: 'Scramble' });
@@ -195,22 +195,19 @@ test('Timer and per-drill Training workspaces survive SPA navigation', async ({ 
   await page.getByRole('radio', { name: 'Edges', exact: true }).click();
   const trainingScramble = page.getByRole('region', { name: 'Scramble' });
   await expect(trainingScramble.getByText('Preparing scramble…')).toHaveCount(0, { timeout: 45_000 });
-  const executionA = await scrambleLabel(trainingScramble);
   const executionId = await trainingScramble.getAttribute('data-challenge-id');
 
   await page.getByRole('radio', { name: 'Guided Solve' }).click();
   await page.getByRole('radio', { name: 'Corners', exact: true }).click();
   await page.getByRole('radio', { name: 'Execution Sprint' }).click();
-  await expect(page.getByRole('radio', { name: 'Edges', exact: true })).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByRole('region', { name: 'Scramble' })).toHaveAttribute('data-challenge-id', executionId!);
-  await expect.poll(() => scrambleLabel(page.getByRole('region', { name: 'Scramble' }))).toBe(executionA);
+  await expect(page.getByRole('radio', { name: 'Corners', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('region', { name: 'Scramble' })).not.toHaveAttribute('data-challenge-id', executionId!);
 
   await page.getByRole('button', { name: 'Timer', exact: true }).click();
   await expect.poll(() => scrambleLabel(page.getByRole('region', { name: 'Scramble' }))).toBe(timerA);
   await page.getByRole('button', { name: 'Training', exact: true }).click();
   await expect(page.getByRole('radio', { name: 'Execution Sprint' })).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByRole('radio', { name: 'Edges', exact: true })).toHaveAttribute('aria-checked', 'true');
-  await expect.poll(() => scrambleLabel(page.getByRole('region', { name: 'Scramble' }))).toBe(executionA);
+  await expect(page.getByRole('radio', { name: 'Corners', exact: true })).toHaveAttribute('aria-checked', 'true');
 
   await page.getByRole('radio', { name: 'Guided Solve' }).click();
   await expect(page.getByRole('radio', { name: 'Corners', exact: true })).toHaveAttribute('aria-checked', 'true');
@@ -375,6 +372,59 @@ test('Default Cube View persists independently of the fixed scramble reference',
   expect(saved.scheme.orientation).toEqual({ up: 'U', front: 'F' });
   await page.goto('/');
   await expect(page.getByRole('group', { name: 'Scrambled cube' })).toHaveAttribute('data-cube-view', 'white/orange');
+});
+
+test('method choices are supported-only and explicitly choose view-relative physical buffers', async ({ page }) => {
+  const data = workspace(); data.defaultCubeView = { top: 'white', front: 'orange' };
+  await load(page, data); await page.goto('/settings');
+  const edges = page.getByRole('radiogroup', { name: 'Edge method' });
+  const corners = page.getByRole('radiogroup', { name: 'Corner method' });
+  await expect(edges.getByRole('radio')).toHaveText(['OP', 'M2']);
+  await expect(corners.getByRole('radio')).toHaveText(['OP']);
+  await expect(page.getByText('3-style', { exact: true })).toHaveCount(0);
+  await edges.getByRole('radio', { name: 'OP' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click(); await page.waitForTimeout(500);
+  let saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);
+  expect(saved.scheme.edgeMethod).toBe('old-pochmann'); expect(saved.scheme.edgeBuffer).toBe('U:UB');
+  const swap = page.getByRole('switch', { name: 'Automatically swap M2 targets' });
+  await expect(swap).toBeVisible(); await swap.click();
+  await edges.getByRole('radio', { name: 'M2' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click(); await page.waitForTimeout(500);
+  saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);
+  expect(saved.scheme.edgeBuffer).toBe('D:DL'); expect(saved.m2SecondTargetSwap).toBe(true);
+  await page.getByRole('radio', { name: 'Cube view' }).click();
+  await page.getByRole('radio', { name: 'Green' }).last().click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click(); await page.waitForTimeout(500);
+  saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);
+  expect(saved.defaultCubeView).toEqual({ top: 'white', front: 'green' }); expect(saved.scheme.edgeBuffer).toBe('D:DL');
+});
+
+test('all Training drills share scope while retaining distinct challenges', async ({ page }) => {
+  await load(page); await page.goto('/training');
+  await page.getByRole('radio', { name: 'Edges', exact: true }).click();
+  const ids = new Set<string>();
+  for (const mode of ['Execution Sprint', 'Guided Solve', 'Memo Recall', 'Trace Sprint']) {
+    await page.getByRole('radio', { name: mode }).click();
+    await expect(page.getByRole('radio', { name: 'Edges', exact: true })).toHaveAttribute('aria-checked', 'true');
+    ids.add((await page.locator('[data-training-challenge-id]').getAttribute('data-training-challenge-id'))!);
+  }
+  expect(ids.size).toBe(4);
+  await page.getByRole('radio', { name: 'Corners', exact: true }).click();
+  await page.getByRole('radio', { name: 'Execution Sprint' }).click();
+  await expect(page.getByRole('radio', { name: 'Corners', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('button', { name: 'Timer', exact: true }).click();
+  await page.getByRole('button', { name: 'Training', exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'Corners', exact: true })).toHaveAttribute('aria-checked', 'true');
+});
+
+test('Settings no longer exposes vocabulary strategy while pair overrides remain available', async ({ page }) => {
+  await load(page, workspace(true)); await page.goto('/settings');
+  await expect(page.getByRole('radiogroup', { name: 'Edge and corner vocabulary' })).toHaveCount(0);
+  await page.goto('/pairs'); await page.getByRole('gridcell', { name: /TW, tow/ }).click();
+  const editor = page.getByRole('dialog', { name: 'Pair TW' });
+  await expect(editor.getByRole('radio', { name: 'Shared' })).toBeVisible();
+  await expect(editor.getByRole('radio', { name: 'Edges' })).toBeVisible();
+  await expect(editor.getByRole('radio', { name: 'Corners' })).toBeVisible();
 });
 
 test('Timer hold, memo split, execution stop and reconstruction save form one solve', async ({ page }) => {

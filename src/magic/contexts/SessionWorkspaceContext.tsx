@@ -11,6 +11,7 @@ import {
   useTimerSession,
 } from "../hooks/useTimerSession";
 import { DemoStage } from "../types/solve";
+import { TrainFilter } from "../utils/bld";
 import { useScreenInit } from "../useScreenInit.js";
 import { useAppData } from "./AppDataContext";
 
@@ -43,26 +44,31 @@ export function SessionWorkspaceProvider({
   const { prefs } = useAppData();
   const trainingActive = pathname === "/training" || pathname === "/memo";
   const [mode, setMode] = useState<TrainMode>(init.mode ?? "exec");
+  const [trainingScope, setTrainingScope] = useState<TrainFilter>(init.filter ?? "both");
   const initFor = (candidate: TrainMode): TrainInit =>
     mode === candidate
-      ? { ...init, mode: candidate }
-      : { mode: candidate };
+      ? { ...init, mode: candidate, filter: trainingScope }
+      : { mode: candidate, filter: trainingScope };
 
   const exec = useTrainingSession(
     initFor("exec"),
     trainingActive && mode === "exec",
+    trainingScope, setTrainingScope,
   );
   const guided = useTrainingSession(
     initFor("guided"),
     trainingActive && mode === "guided",
+    trainingScope, setTrainingScope,
   );
   const recall = useTrainingSession(
     initFor("recall"),
     trainingActive && mode === "recall",
+    trainingScope, setTrainingScope,
   );
   const trace = useTrainingSession(
     initFor("trace"),
     trainingActive && mode === "trace",
+    trainingScope, setTrainingScope,
   );
   const sessions = { exec, guided, recall, trace };
   const selected = sessions[mode];

@@ -17,11 +17,11 @@ const COMMON: Record<'edge' | 'corner', string[]> = {
 };
 
 const METHOD_BUFFER = {
-  edge: { m2: 'DF', op: 'UR' } as Record<string, string>,
+  edge: { m2: 'DF', op: 'UL' } as Record<string, string>,
   corner: { op: 'UBL' } as Record<string, string>
 };
 
-const METHOD_NAME: Record<string, string> = { m2: 'M2', op: 'Old Pochmann', '3style': '3-style' };
+const METHOD_NAME: Record<string, string> = { m2: 'M2', op: 'OP' };
 
 export function BufferPanel({ type, setup, colors, onSet }: BufferPanelProps) {
   const current = type === 'edge' ? setup.edgeBuffer : setup.cornerBuffer;

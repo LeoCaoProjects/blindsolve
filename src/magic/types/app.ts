@@ -1,5 +1,4 @@
 export type PairScope = "shared" | "edges" | "corners";
-export type Sharing = "shared" | "separate";
 
 /** Words are ordered: primary first, then alternates. Overrides only exist when set. */
 export interface PairEntry {
@@ -25,8 +24,8 @@ export interface CubeViewPref {
   front: FaceColor;
 }
 
-export type EdgeMethod = "m2" | "op" | "3style";
-export type CornerMethod = "op" | "3style";
+export type EdgeMethod = "m2" | "op";
+export type CornerMethod = "op";
 export interface BldSetup {
   scheme: LetterScheme;
   schemeName: string;
@@ -37,7 +36,6 @@ export interface BldSetup {
 }
 
 export interface Prefs {
-  sharing: Sharing;
   multiphase: boolean;
   showLiveTimer: boolean;
   m2SecondTargetSwap: boolean;

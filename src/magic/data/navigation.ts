@@ -20,7 +20,6 @@ export const settingsNav: NavItem = { id: 'settings', label: 'Settings', short: 
 export const settingsSections = [
 { id: 'cube', label: 'Cube & lettering' },
 { id: 'methods', label: 'Methods' },
-{ id: 'pairs', label: 'Letter pairs' },
 { id: 'timer', label: 'Timer' },
 { id: 'account', label: 'Account & sync' },
 { id: 'backup', label: 'Data' },

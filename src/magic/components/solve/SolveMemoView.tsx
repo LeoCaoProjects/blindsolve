@@ -2,6 +2,7 @@ import React from "react";
 import { LetterPairDb, Piece, SolveMemo } from "../../types/solve";
 import { MemoTrace } from "./MemoTrace";
 import { useAppData } from "../../contexts/AppDataContext";
+import { timerWords } from "../../utils/pairs";
 
 interface SolveMemoViewProps {
   memo: SolveMemo;
@@ -50,7 +51,7 @@ export function SolveMemoView({
               breakAt={row.breakAt ?? null}
               renderWord={(pair, i) => {
                 const used = row.pairs[i].word;
-                const current = db[pair]?.[0];
+                const current = timerWords(db, pair, row.label === "Edges" ? "edges" : "corners")[0];
                 return (
                   <span className="flex flex-col">
                     <span className="truncate">

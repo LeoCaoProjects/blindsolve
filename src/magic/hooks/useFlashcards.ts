@@ -53,7 +53,7 @@ export function distinctMnemonicCardCount(
  */
 export function useFlashcards(opts: Options) {
   const store = useStore();
-  const { pairs, prefs, setup, savePair } = useAppData();
+  const { pairs, setup, savePair } = useAppData();
   const [log, setLog] = useState<CardLog[]>(() => store.data.attempts
     .filter((attempt) => attempt.kind === 'flashcard' && attempt.pairKey)
     .map((attempt) => ({
@@ -64,8 +64,8 @@ export function useFlashcards(opts: Options) {
   const idRef = useRef(1);
 
   const wordsFor = useCallback(
-    (key: string, piece: CardPiece) => resolveWords(pairs[key], piece, prefs.sharing).words,
-    [pairs, prefs.sharing]
+    (key: string, piece: CardPiece) => resolveWords(pairs[key], piece).words,
+    [pairs]
   );
 
   // A card is only valid if both tokens exist in that piece's own lettering.
@@ -152,10 +152,10 @@ export function useFlashcards(opts: Options) {
   /** Which stored list the visible word came from, so edits land in the right place. */
   const targetScope = useCallback(
     (c: Card): PairScope => {
-      const r = resolveWords(pairs[c.key], c.piece, prefs.sharing);
-      return r.source === 'override' || prefs.sharing === 'separate' ? c.piece : 'shared';
+      const r = resolveWords(pairs[c.key], c.piece);
+      return r.source === 'override' ? c.piece : 'shared';
     },
-    [pairs, prefs.sharing]
+    [pairs]
   );
 
   const updateWords = useCallback(
