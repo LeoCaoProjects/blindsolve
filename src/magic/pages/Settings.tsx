@@ -197,7 +197,7 @@ export function Settings() {
       </main> :
 
       <div ref={scrollRef} className="scroll-quiet relative min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto grid max-w-[1180px] gap-10 px-5 md:grid-cols-[180px_minmax(0,1fr)] md:gap-16 md:px-10">
+        <div className="mx-auto grid max-w-[1180px] grid-cols-1 gap-10 px-5 md:grid-cols-[180px_minmax(0,1fr)] md:gap-16 md:px-10">
           <nav aria-label="Settings sections" className="sticky top-0 z-10 -mx-5 border-b border-line bg-bg px-5 md:mx-0 md:self-start md:border-0 md:px-0 md:pt-10">
             <ul className="scroll-none flex gap-1 overflow-x-auto py-2 md:flex-col md:gap-0 md:py-0">
               {settingsSections.map((s) =>

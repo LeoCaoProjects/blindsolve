@@ -51,6 +51,40 @@ test('latest primary routes render without horizontal overflow', async ({ page }
   }
 });
 
+test('mobile primary navigation keeps every section fully visible', async ({ page }) => {
+  await load(page);
+  await page.goto('/');
+  const nav = page.getByRole('navigation', { name: 'Sections' });
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const label of ['Timer', 'Letter Pairs', 'Flashcards', 'Training']) {
+      const item = nav.getByRole('button', { name: label });
+      await expect(item).toBeVisible();
+      expect(await item.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.left >= 0 && rect.right <= window.innerWidth;
+      }), `${label} should be fully within the ${width}px viewport`).toBe(true);
+    }
+    expect(await nav.evaluate((element) => element.scrollWidth <= element.clientWidth + 1), `nav should fit at ${width}px`).toBe(true);
+  }
+});
+
+test('Settings cube stays within its content column on narrow screens', async ({ page }) => {
+  await load(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/settings');
+  const cube = page.getByRole('group', { name: 'Your cube' });
+  await expect(cube).toBeVisible();
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect.poll(() => cube.evaluate((element) => {
+      const stage = element.parentElement!.getBoundingClientRect();
+      const faces = [...element.querySelectorAll('.absolute.grid')].map((face) => face.getBoundingClientRect());
+      return stage.left >= 0 && stage.right <= window.innerWidth && faces.every((face) => face.left >= 0 && face.right <= window.innerWidth);
+    }), `cube should fit at ${width}px`).toBe(true);
+  }
+});
+
 test('latest pair browser saves primary and alternate and reveals suggestions only on request', async ({ page }) => {
   await load(page);
   await page.goto('/pairs');

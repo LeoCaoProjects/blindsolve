@@ -38,11 +38,13 @@ export function AppBar({ className = '', onShortcuts, right }: AppBarProps) {
                   type="button"
                   onClick={() => go(item.path)}
                   aria-current={active ? 'page' : undefined}
-                  className={`relative whitespace-nowrap px-3 text-[12.5px] transition-colors duration-150 ease-out md:px-4 ${
+                  aria-label={item.label}
+                  className={`relative whitespace-nowrap px-1.5 text-[12.5px] transition-colors duration-150 ease-out sm:px-3 md:px-4 ${
                   active ? 'text-ink' : 'text-ink-3 hover:text-ink-2'}`
                   }>
                   
-                  {item.label}
+                  <span className="sm:hidden">{item.short}</span>
+                  <span className="hidden sm:inline">{item.label}</span>
                   {active && <span aria-hidden className="absolute inset-x-3 -bottom-px h-px bg-ink md:inset-x-4" />}
                 </button>
               </li>);

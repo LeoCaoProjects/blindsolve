@@ -45,8 +45,8 @@ export function CubeConfigurator({
   const colors = REFERENCE_COLORS;
   const [live, setLive] = useState<CubeView>({ up: 'U', front: 'F' });
   const [resetSignal, setResetSignal] = useState(0);
-  const [stageRef, stageWidth] = useElementWidth<HTMLDivElement>(560);
-  const cubeSize = Math.max(240, Math.min(380, stageWidth - 48));
+  const [stageRef, stageWidth] = useElementWidth<HTMLDivElement>(Math.min(560, window.innerWidth - 40));
+  const cubeSize = Math.max(120, Math.min(380, stageWidth - 48));
   const speffz = isSpeffz(setup.scheme);
 
   const pick = (id: string) => {
@@ -56,12 +56,12 @@ export function CubeConfigurator({
   };
 
   return (
-    <div className="grid border border-line bg-surface lg:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid min-w-0 grid-cols-1 border border-line bg-surface lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col border-b border-line lg:border-b-0 lg:border-r">
         <div className="scroll-none overflow-x-auto border-b border-line px-4 py-3">
           <Segmented label="Cube mode" options={MODES} value={mode} onChange={onModeChange} />
         </div>
-        <div ref={stageRef} className="relative flex h-[340px] items-center justify-center md:h-[440px]">
+        <div ref={stageRef} className="relative flex min-w-0 items-center justify-center h-[340px] md:h-[440px]">
           <SchemeCube
             scheme={setup.scheme}
             colors={colors}
