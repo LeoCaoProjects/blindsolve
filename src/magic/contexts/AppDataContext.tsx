@@ -266,8 +266,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     defaultView: data.defaultCubeView ?? { top: "white", front: "green" },
   };
   useEffect(() => {
+    const userId = store.user?.id;
+    if (!userId) {
+      setIsAdmin(false);
+      setFeedback([]);
+      return;
+    }
     let live = true;
-    void feedbackAdmin(store.user?.id).then(async (allowed) => {
+    void feedbackAdmin(userId).then(async (allowed) => {
       if (!live) return;
       setIsAdmin(allowed);
       if (allowed) {

@@ -85,6 +85,19 @@ test('Settings cube stays within its content column on narrow screens', async ({
   }
 });
 
+test('signed-out workspaces do not call the admin-only feedback RPC', async ({ page }) => {
+  await load(page);
+  const adminChecks: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/rest/v1/rpc/is_feedback_admin')) adminChecks.push(request.url());
+  });
+  for (const path of ['/', '/pairs', '/flashcards', '/training', '/settings']) {
+    await page.goto(path);
+    await page.waitForTimeout(120);
+  }
+  expect(adminChecks).toEqual([]);
+});
+
 test('latest pair browser saves primary and alternate and reveals suggestions only on request', async ({ page }) => {
   await load(page);
   await page.goto('/pairs');
