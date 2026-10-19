@@ -58,7 +58,7 @@ test('mobile primary navigation keeps every section fully visible', async ({ pag
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     for (const label of ['Timer', 'Letter Pairs', 'Flashcards', 'Training']) {
-      const item = nav.getByRole('button', { name: label });
+      const item = nav.getByRole('link', { name: label });
       await expect(item).toBeVisible();
       expect(await item.evaluate((element) => {
         const rect = element.getBoundingClientRect();
@@ -245,7 +245,7 @@ test('Timer and shared-scope, per-drill Training workspaces survive SPA navigati
   await expect(timerScramble).toContainText(/[UDFBRL]/, { timeout: 45_000 });
   const timerA = await scrambleLabel(timerScramble);
 
-  await page.getByRole('button', { name: 'Training', exact: true }).click();
+  await page.getByRole('link', { name: 'Training', exact: true }).click();
   await expect(page.getByRole('radio', { name: 'Execution Sprint' })).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('radio', { name: 'Edges', exact: true }).click();
   const trainingScramble = page.getByRole('region', { name: 'Scramble' });
@@ -258,16 +258,16 @@ test('Timer and shared-scope, per-drill Training workspaces survive SPA navigati
   await expect(page.getByRole('radio', { name: 'Corners', exact: true })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('region', { name: 'Scramble' })).not.toHaveAttribute('data-challenge-id', executionId!);
 
-  await page.getByRole('button', { name: 'Timer', exact: true }).click();
+  await page.getByRole('link', { name: 'Timer', exact: true }).click();
   await expect.poll(() => scrambleLabel(page.getByRole('region', { name: 'Scramble' }))).toBe(timerA);
-  await page.getByRole('button', { name: 'Training', exact: true }).click();
+  await page.getByRole('link', { name: 'Training', exact: true }).click();
   await expect(page.getByRole('radio', { name: 'Execution Sprint' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('radio', { name: 'Corners', exact: true })).toHaveAttribute('aria-checked', 'true');
 
   await page.getByRole('radio', { name: 'Guided Solve' }).click();
   await expect(page.getByRole('radio', { name: 'Corners', exact: true })).toHaveAttribute('aria-checked', 'true');
   await page.getByRole('radio', { name: 'Execution Sprint' }).click();
-  await page.getByRole('button', { name: 'Timer', exact: true }).click();
+  await page.getByRole('link', { name: 'Timer', exact: true }).click();
   await page.getByRole('button', { name: 'New scramble' }).click();
   await expect.poll(() => scrambleLabel(page.getByRole('region', { name: 'Scramble' })), { timeout: 45_000 }).not.toBe(timerA);
 });
@@ -289,9 +289,9 @@ test('Training tabs are ordered and an active Guided Solve keeps its phase and t
   await expect(page.getByRole('button', { name: /Start execution/ })).toBeVisible();
   const memoClock = page.getByRole('timer').filter({ hasText: 'memo' });
   const memoBefore = await memoClock.innerText();
-  await page.getByRole('button', { name: 'Timer', exact: true }).click();
+  await page.getByRole('link', { name: 'Timer', exact: true }).click();
   await page.waitForTimeout(80);
-  await page.getByRole('button', { name: 'Training', exact: true }).click();
+  await page.getByRole('link', { name: 'Training', exact: true }).click();
   await expect(page.locator('[data-training-challenge-id]')).toHaveAttribute('data-training-challenge-id', challengeId!);
   await expect(page.getByRole('button', { name: /Start execution/ })).toBeVisible();
   expect(await memoClock.innerText()).not.toBe(memoBefore);
@@ -472,8 +472,8 @@ test('all Training drills share scope while retaining distinct challenges', asyn
   await page.getByRole('radio', { name: 'Corners', exact: true }).click();
   await page.getByRole('radio', { name: 'Execution Sprint' }).click();
   await expect(page.getByRole('radio', { name: 'Corners', exact: true })).toHaveAttribute('aria-checked', 'true');
-  await page.getByRole('button', { name: 'Timer', exact: true }).click();
-  await page.getByRole('button', { name: 'Training', exact: true }).click();
+  await page.getByRole('link', { name: 'Timer', exact: true }).click();
+  await page.getByRole('link', { name: 'Training', exact: true }).click();
   await expect(page.getByRole('radio', { name: 'Corners', exact: true })).toHaveAttribute('aria-checked', 'true');
 });
 

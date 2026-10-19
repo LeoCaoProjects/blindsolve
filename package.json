@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/build-seo.mjs",
     "test": "vitest run",
+    "test:seo": "node scripts/seo.check.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "format": "prettier --write src e2e",
