@@ -1,0 +1,11 @@
+https://www.blindsolve.com/* https://blindsolve.com/:splat 301
+/memo /training 301
+/memo/ /training 301
+/pairs/ /pairs 301
+/flashcards/ /flashcards 301
+/training/ /training 301
+/about/ /about 301
+/settings/ /settings 301
+/setup/ /setup 301
+/signin/ /signin 301
+/admin/feedback/ /admin/feedback 301

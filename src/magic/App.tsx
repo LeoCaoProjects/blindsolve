@@ -1,3 +1,5 @@
+import { RouteMetadata } from '../seo/RouteMetadata';
+import { About } from '../seo/About';
 import React, { useEffect } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
@@ -37,8 +39,10 @@ export function App({ stage = 'live' }: AppProps) {
           <SessionWorkspaceProvider stage={stage}>
             <div className="theme-workspace h-[100dvh] w-full bg-bg">
               <PageTracker />
+              <RouteMetadata />
               <Routes>
               <Route path="/" element={<Timer stage={stage} />} />
+              <Route path="/about" element={<About />} />
               <Route path="/pairs" element={<LetterPairs />} />
               <Route path="/flashcards" element={<Flashcards />} />
               <Route path="/training" element={<Training />} />
@@ -47,7 +51,7 @@ export function App({ stage = 'live' }: AppProps) {
               <Route path="/setup" element={<Setup />} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/admin/feedback" element={<FeedbackInbox />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<main className="p-8"><h1>Page not found</h1><a href="/">Return to the BlindSolve timer</a></main>} />
               </Routes>
             </div>
           </SessionWorkspaceProvider>
