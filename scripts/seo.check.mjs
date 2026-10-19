@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { JSDOM } from 'jsdom';
 
+const preview = process.env.CF_PAGES === '1' && process.env.CF_PAGES_BRANCH !== 'main';
 const pages = JSON.parse(await readFile('src/seo/pages.json', 'utf8'));
 const sitemap = new JSDOM(await readFile('dist/sitemap.xml', 'utf8'), { contentType: 'application/xml' }).window.document;
 const urls = [...sitemap.querySelectorAll('loc')].map((node) => node.textContent);
@@ -17,7 +18,7 @@ for (const [path, page] of Object.entries(pages)) {
   assert.ok(!titles.has(doc.title)); titles.add(doc.title);
   assert.equal(doc.querySelector('link[rel=canonical]').href, `https://blindsolve.com${path}`);
   assert.equal(doc.querySelector('meta[name=description]').content, page.description);
-  assert.equal(doc.querySelector('meta[name=robots]').content, page.noindex ? 'noindex, follow' : 'index, follow');
+  assert.equal(doc.querySelector('meta[name=robots]').content, preview || page.noindex ? 'noindex, follow' : 'index, follow');
   assert.equal(doc.querySelectorAll('h1').length, 1);
   assert.ok(doc.querySelector('main a[href="/"]'));
   assert.ok(!doc.body.textContent.includes('undefined'));
@@ -30,7 +31,11 @@ for (const [path, page] of Object.entries(pages)) {
 }
 assert.ok(headers.includes('https://blindsolve.pages.dev/*\n  X-Robots-Tag: noindex'));
 assert.ok(headers.includes('https://:branch.blindsolve.pages.dev/*\n  X-Robots-Tag: noindex'));
-assert.ok(!headers.includes("/*\n  X-Robots-Tag: noindex" + '\n\nhttps://blindsolve.pages.dev'));
+assert.equal(headers.split('\n').filter((line) => line === '/*').length, 1, 'Repeated wildcard blocks can discard security headers');
+assert.match(headers, /Content-Security-Policy:.*script-src 'self' 'sha256-/);
+assert.match(headers, /X-Frame-Options: DENY/);
+const globalBlock = headers.split('\n\n')[0];
+assert.equal(globalBlock.includes('X-Robots-Tag: noindex'), preview);
 const missing = new JSDOM(await readFile('dist/404.html', 'utf8')).window.document;
 assert.equal(missing.querySelector('meta[name=robots]').content, 'noindex, follow');
 console.log(`SEO output verified: ${titles.size} unique route heads, ${urls.length} sitemap URLs, JSON-LD/CSP, preview rules and 404.`);

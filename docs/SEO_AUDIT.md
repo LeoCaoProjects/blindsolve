@@ -48,6 +48,8 @@ Search Console opened its public signed-out introduction with “Start now” le
 
 Desktop (1440×900) and mobile (390×844) production-build browser inspections show a compact label and unchanged timer workspace with no horizontal overflow. Browser regressions cover existing timing, reconstruction, guarded navigation, training, account UI and automated accessibility. A dev-server run's production-worker assertion is not meaningful because it requires hashed production assets; run that assertion against the built preview.
 
+All 30 Playwright tests subsequently passed against the built production preview, including the hashed worker assertion. Live Cloudflare preview checks confirmed proper text/XML endpoint types, 301 canonical redirects and a real 404. Preview inspection also identified repeated wildcard header blocks discarding security directives; generation now merges preview noindex into the existing wildcard block and checks that only one exists.
+
 CI, pull request, final production checks and any remaining infrastructure issues are recorded in the final delivery report. Google Search Console work remains pending authentication. IndexNow was not added: sitemap discovery is standard and requires no extra credentials or infrastructure; Cloudflare account-level crawler hints cannot be inspected through this repository.
 
 ## Interpretation

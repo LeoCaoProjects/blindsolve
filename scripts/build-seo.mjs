@@ -45,9 +45,9 @@ await writeFile('dist/robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${origin
 await writeFile('dist/404.html', '<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, follow"><title>Page Not Found | BlindSolve</title></head><body><main><h1>Page not found</h1><p>This address does not exist.</p><a href="/">Return to the BlindSolve timer</a></main></body></html>');
 // Allow only the exact inert JSON-LD block; do not weaken the script policy for executable inline scripts.
 const hash = createHash('sha256').update(schema).digest('base64');
-let headers = await readFile('dist/_headers', 'utf8');
+let headers = (await readFile('dist/_headers', 'utf8')).replaceAll('\r\n', '\n');
 headers = headers.replace("script-src 'self';", `script-src 'self' 'sha256-${hash}';`);
+if (preview) headers += '  X-Robots-Tag: noindex, follow\n';
 headers += '\nhttps://blindsolve.pages.dev/*\n  X-Robots-Tag: noindex, follow\n\nhttps://:branch.blindsolve.pages.dev/*\n  X-Robots-Tag: noindex, follow\n';
-if (preview) headers += '\n/*\n  X-Robots-Tag: noindex, follow\n';
 for (const [path, page] of Object.entries(pages)) if (page.noindex) headers += `\n${path}\n  X-Robots-Tag: noindex, follow\n`;
 await writeFile('dist/_headers', headers);
