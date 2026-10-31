@@ -221,11 +221,6 @@ export function WorkspaceTimer({
                   }
                 />
               ))}
-              {latest.memo.targetRepresentation === "m2-execution" && (
-                <p className="col-span-2 col-start-2 text-[11px] text-ink-3">
-                  M2 execution targets
-                </p>
-              )}
             </section>
           )}
         </main>

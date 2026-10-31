@@ -71,9 +71,6 @@ export function SolveMemoView({
           </section>
         ) : null,
       )}
-      {memo.targetRepresentation === "m2-execution" && (
-        <p className="text-[12px] text-ink-3">M2 execution targets</p>
-      )}
     </div>
   );
 }
