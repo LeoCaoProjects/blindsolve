@@ -158,6 +158,8 @@ test('flashcards use saved pairs, reveal, edit and persist an attempt', async ({
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);
   expect(saved.attempts).toHaveLength(1);
   expect(saved.attempts[0].kind).toBe('flashcard');
+  await page.reload();
+  await expect(page.getByRole('list', { name: 'Recent cards' }).locator('li')).toHaveCount(1);
 });
 
 test('a held Flashcard shortcut reveals once and never records before release', async ({ page }) => {
@@ -206,6 +208,9 @@ test('Trace Sprint submits once, freezes time, and Enter review advances without
   await holdSpace(page);
   await page.getByRole('button', { name: /^Submit/ }).click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(2);
+  await page.reload();
+  await page.getByRole('radio', { name: 'Trace Sprint' }).click();
+  await expect(page.getByRole('list', { name: 'Attempts', exact: true }).locator('li')).toHaveCount(2);
 });
 
 test('Guided Solve follows memo, execution, self-report, review, then returns idle', async ({ page }) => {
@@ -236,6 +241,43 @@ test('Guided Solve follows memo, execution, self-report, review, then returns id
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
   await review.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toBeVisible();
+  await page.reload();
+  await page.getByRole('radio', { name: 'Guided Solve' }).click();
+  await expect(page.getByRole('list', { name: 'Attempts', exact: true }).locator('li')).toHaveCount(1);
+});
+
+test('Memo Recall history survives a full reload', async ({ page }) => {
+  await load(page);
+  await page.goto('/training');
+  await page.getByRole('radio', { name: 'Memo Recall' }).click();
+  await holdSpace(page);
+  await page.keyboard.press('Space');
+  await page.getByRole('button', { name: /^Submit/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Memo Recall review' })).toBeVisible();
+  await page.reload();
+  await page.getByRole('radio', { name: 'Memo Recall' }).click();
+  await expect(page.getByRole('list', { name: 'Attempts', exact: true }).locator('li')).toHaveCount(1);
+});
+
+test('Execution Sprint preserves time and DNF after a full reload', async ({ page }) => {
+  await load(page);
+  await page.goto('/training');
+  await expect(page.getByRole('button', { name: 'New scramble' })).toBeEnabled({ timeout: 45_000 });
+  await holdSpace(page);
+  await page.keyboard.press('Space');
+  const review = page.getByRole('dialog', { name: 'Execution Sprint result' });
+  await expect(review).toBeVisible();
+  await review.getByRole('radio', { name: 'DNF', exact: true }).click();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts[0]);
+  expect(saved.trainingMode).toBe('exec');
+  expect(saved.correct).toBe(false);
+  expect(saved.durationMs).toBeGreaterThanOrEqual(0);
+  await review.getByRole('button', { name: /^Next/ }).click();
+  await page.reload();
+  const history = page.getByRole('list', { name: 'Attempts', exact: true });
+  await expect(history.locator('li')).toHaveCount(1);
+  await expect(history.getByText('DNF', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts[0])).toEqual(saved);
 });
 
 test('Timer and shared-scope, per-drill Training workspaces survive SPA navigation', async ({ page }) => {
@@ -507,6 +549,8 @@ test('Timer hold, memo split, execution stop and reconstruction save form one so
   expect(saved.solves[0].memoMs).toBeGreaterThan(0);
   expect(saved.solves[0].executionMs).toBeGreaterThanOrEqual(0);
   expect(saved.solves[0].totalMs).toBeGreaterThanOrEqual(saved.solves[0].memoMs);
+  await page.reload();
+  await expect(page.getByRole('list', { name: 'Solves', exact: true }).locator('li')).toHaveCount(1);
 });
 
 test('hidden live timer masks active total and split times but reveals the final result', async ({ page }) => {

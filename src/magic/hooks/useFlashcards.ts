@@ -16,7 +16,7 @@ export interface Card {
 }
 
 export interface CardLog {
-  id: number;
+  id: string;
   key: string;
   piece: CardPiece;
   result: 'remembered' | 'forgot';
@@ -54,14 +54,16 @@ export function distinctMnemonicCardCount(
 export function useFlashcards(opts: Options) {
   const store = useStore();
   const { pairs, setup, savePair } = useAppData();
-  const [log, setLog] = useState<CardLog[]>(() => store.data.attempts
+  // Derive recent cards from saved data, including later account/cloud hydration.
+  const log = useMemo<CardLog[]>(() => store.data.attempts
     .filter((attempt) => attempt.kind === 'flashcard' && attempt.pairKey)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 200)
     .map((attempt) => ({
-      id: Date.parse(attempt.createdAt), key: attempt.pairKey!,
+      id: attempt.id, key: attempt.pairKey!,
       piece: attempt.pairPiece ?? 'edges', result: attempt.correct ? 'remembered' : 'forgot',
-    })));
+    })), [store.data.attempts]);
   const [phase, setPhase] = useState<CardPhase>(opts.phase ?? 'question');
-  const idRef = useRef(1);
 
   const wordsFor = useCallback(
     (key: string, piece: CardPiece) => resolveWords(pairs[key], piece).words,
@@ -123,9 +125,6 @@ export function useFlashcards(opts: Options) {
     (result: 'remembered' | 'forgot') => {
       if (!card || performance.now() - shownAt.current < 220) return;
       const createdAt = new Date().toISOString();
-      const id = Date.parse(createdAt);
-      idRef.current++;
-      setLog((l) => [{ id, key: card.key, piece: card.piece, result }, ...l].slice(0, 200));
       const [first, second] = splitKey(card.key);
       store.update((data) => ({
         ...data,
@@ -233,18 +232,15 @@ export function useFlashcards(opts: Options) {
     review,
     eligibleCount: visibleCount,
     log,
-    removeLog: (id: number) => {
-      setLog((l) => l.filter((x) => x.id !== id));
-      store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => Date.parse(attempt.createdAt) !== id) }));
+    removeLog: (id: string) => {
+      store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => attempt.id !== id) }));
     },
     removeLatestLog: () => {
       const latest = log[0];
       if (!latest) return;
-      setLog((l) => l.slice(1));
-      store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => Date.parse(attempt.createdAt) !== latest.id) }));
+      store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => attempt.id !== latest.id) }));
     },
     clearLog: () => {
-      setLog([]);
       store.update((data) => ({ ...data, attempts: data.attempts.filter((attempt) => attempt.kind !== 'flashcard') }));
     },
     stats: { seen: log.length, remembered, forgot: log.length - remembered },

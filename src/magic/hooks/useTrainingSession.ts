@@ -34,7 +34,7 @@ export type ExecDisplay = "letters" | "words";
 export type ExecResult = "solved" | "dnf";
 
 export interface Attempt {
-  id: number;
+  id: string;
   mode: TrainMode;
   ms: number;
   targets: number;
@@ -80,16 +80,19 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
   const [phase, setPhase] = useState<TrainPhase>(init.phase ?? "idle");
   const initialSeed = init.seed ?? FIRST_EXEC_SEED + MODE_SEED_OFFSET[init.mode ?? "exec"];
   const [seed, setSeed] = useState(initialSeed);
-  const [history, setHistory] = useState<Attempt[]>(() =>
+  // Local/account/cloud data arrives after mount; history must follow the store.
+  const history = useMemo<Attempt[]>(() =>
     store.data.attempts
       .filter(
         (attempt) =>
+          attempt.kind === "memo" &&
           attempt.trainingMode &&
           attempt.trainingMode !== "full" &&
           attempt.durationMs !== undefined,
       )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map((attempt) => ({
-        id: Date.parse(attempt.createdAt),
+        id: attempt.id,
         mode: attempt.trainingMode as TrainMode,
         ms: attempt.durationMs!,
         targets: attempt.targets ?? 0,
@@ -98,6 +101,7 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
         memoMs: attempt.memoMs,
         executionMs: attempt.executionMs,
       })),
+    [store.data.attempts],
   );
   const [now, setNow] = useState(() => performance.now());
   const [display, setDisplay] = useState<ExecDisplay>(
@@ -113,6 +117,7 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
       : null,
   );
   const previousFilterRef = useRef(filter);
+  const submittedAttemptIdRef = useRef<string | null>(null);
 
   // Execution-oriented drills trace the exact state produced by the shown scramble.
   const preparedScramble = useExecScramble(
@@ -193,6 +198,7 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
     setTimes({ start: t, split: null, end: null });
     setNow(t);
     submittedChallengeRef.current = null;
+    submittedAttemptIdRef.current = null;
     const first: TrainPhase = mode === "guided" ? "memo" : "active";
     phaseRef.current = first;
     setPhase(first);
@@ -255,19 +261,19 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
         ? (times.split ?? end) - times.start
         : end - times.start;
     const attempt: Attempt = {
-      id: Date.now(),
+      id: crypto.randomUUID(),
       mode,
       ms,
       targets,
       correct: mode === "exec" ? true : r.every((g) => g.correct),
       pairs: mode === "exec" ? pairCount : undefined,
     };
-    setHistory((h) => [attempt, ...h]);
+    submittedAttemptIdRef.current = attempt.id;
     store.update((data) => ({
       ...data,
       attempts: [
         {
-          id: crypto.randomUUID(),
+          id: attempt.id,
           kind: "memo",
           correct: attempt.correct,
           ...(mode === "exec"
@@ -299,12 +305,11 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
   ]);
 
   const removeAttempt = useCallback(
-    (id: number) => {
-      setHistory((h) => h.filter((a) => a.id !== id));
+    (id: string) => {
       store.update((data) => ({
         ...data,
         attempts: data.attempts.filter(
-          (attempt) => Date.parse(attempt.createdAt) !== id,
+          (attempt) => attempt.id !== id,
         ),
       }));
     },
@@ -316,7 +321,6 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
     removeAttempt(latest.id);
   }, [history, mode, removeAttempt]);
   const clearAttempts = useCallback(() => {
-    setHistory((h) => h.filter((a) => a.mode !== mode));
     store.update((data) => ({
       ...data,
       attempts: data.attempts.filter(
@@ -336,15 +340,14 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
   /** Execution Sprint is self-reported; the latest attempt follows the Solved/DNF choice. */
   const setExecResult = useCallback(
     (r: ExecResult) => {
+      if (phaseRef.current !== "review") return;
       setReport(r);
-      setHistory((h) =>
-        h[0]?.mode === "exec"
-          ? [{ ...h[0], correct: r === "solved" }, ...h.slice(1)]
-          : h,
-      );
+      const attemptId = submittedAttemptIdRef.current;
+      // Seeded review previews have no saved attempt to edit.
+      if (!attemptId) return;
       store.update((data) => {
         const index = data.attempts.findIndex(
-          (attempt) => attempt.trainingMode === "exec",
+          (attempt) => attempt.id === attemptId && attempt.trainingMode === "exec",
         );
         if (index < 0) return data;
         const attempts = [...data.attempts];
@@ -378,19 +381,6 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
       const correct = result === "solved";
       const attemptId = Date.now();
       setReport(result);
-      setHistory((h) => [
-        {
-          id: attemptId,
-          mode: "guided",
-          ms: totalMs,
-          targets,
-          correct,
-          pairs: pairCount,
-          memoMs,
-          executionMs,
-        },
-        ...h,
-      ]);
       const shown = challengeTargetsForMode(challenge, "guided");
       store.update((data) => ({
         ...data,
