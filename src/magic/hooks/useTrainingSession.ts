@@ -340,9 +340,11 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
   /** Execution Sprint is self-reported; the latest attempt follows the Solved/DNF choice. */
   const setExecResult = useCallback(
     (r: ExecResult) => {
-      const attemptId = submittedAttemptIdRef.current;
-      if (phaseRef.current !== "review" || !attemptId) return;
+      if (phaseRef.current !== "review") return;
       setReport(r);
+      const attemptId = submittedAttemptIdRef.current;
+      // Seeded review previews have no saved attempt to edit.
+      if (!attemptId) return;
       store.update((data) => {
         const index = data.attempts.findIndex(
           (attempt) => attempt.id === attemptId && attempt.trainingMode === "exec",

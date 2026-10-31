@@ -22,6 +22,7 @@ const attempt = (trainingMode: PracticeAttempt['trainingMode']): PracticeAttempt
 });
 beforeEach(() => {
   store.data = emptyData();
+  store.update.mockReset();
   store.update.mockImplementation((fn: (data: AppData) => AppData) => { store.data = fn(store.data); });
 });
 afterEach(cleanup);
@@ -76,5 +77,15 @@ describe('saved practice history follows the store', () => {
     expect(store.data.attempts.map(a => a.id)).toEqual([training.id]);
     rerender();
     expect(result.current.log).toHaveLength(0);
+  });
+
+  it('a seeded execution review can change its display without overwriting an older saved attempt', () => {
+    const older = attempt('exec');
+    store.data.attempts = [older];
+    const { result } = renderHook(() => useTrainingSession({ mode: 'exec', phase: 'review' }));
+    act(() => result.current.setExecResult('dnf'));
+    expect(result.current.report).toBe('dnf');
+    expect(store.data.attempts[0]).toEqual(older);
+    expect(store.update).not.toHaveBeenCalled();
   });
 });
