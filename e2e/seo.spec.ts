@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 
 test('public route heads update without leaking private state', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('BlindSolve');
+  await expect(page.getByRole('link', { name: 'Guide', exact: true })).toHaveCount(0);
+  await expect(page.getByText('BlindSolve · 3×3 blindfolded cube timer & training')).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Letter Pairs' })).toHaveAttribute('href', '/pairs');
   await page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Letter Pairs' }).click();
   await expect(page).toHaveTitle('3BLD Letter Pairs & Mnemonics | BlindSolve');

@@ -25,8 +25,6 @@ export function AppBar({ className = '', onShortcuts, right }: AppBarProps) {
   };
 
   return (
-    <>
-      {pathname === "/" && <div className="flex h-7 shrink-0 items-center justify-between gap-2 border-b border-line px-3 text-[11px] text-ink-3 md:px-5"><h1 className="truncate">BlindSolve <span className="ml-1">· 3×3 blindfolded cube timer &amp; training</span></h1><Link to="/about" className="shrink-0 underline underline-offset-2">Guide</Link></div>}
     <header
       className={`flex h-11 shrink-0 items-stretch justify-between border-b border-line pl-1 pr-3 transition-opacity duration-300 ease-out md:pl-4 ${className}`}>
       
@@ -67,6 +65,6 @@ export function AppBar({ className = '', onShortcuts, right }: AppBarProps) {
           <SettingsIcon strokeWidth={1.5} />
         </IconButton>
       </div>
-    </header></>);
+    </header>);
 
 }
