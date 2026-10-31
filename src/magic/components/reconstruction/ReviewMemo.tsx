@@ -60,9 +60,6 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
           </section>
         ))}
       </div>
-      {r.sample.targetRepresentation === "m2-execution" && (
-        <p className="mt-5 text-[12px] text-ink-3">M2 execution targets</p>
-      )}
 
       {r.changedPairs.length > 0 && (
         <div className="mt-8 grid gap-3 border-t border-line pt-5">

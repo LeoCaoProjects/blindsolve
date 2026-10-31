@@ -6,7 +6,7 @@ const template = await readFile('dist/index.html', 'utf8');
 const preview = process.env.CF_PAGES === '1' && process.env.CF_PAGES_BRANCH !== 'main';
 const escape = (text) => text.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 const origin = 'https://blindsolve.com';
-const nav = '<nav aria-label="Sections"><a href="/">Timer</a> · <a href="/pairs">Letter Pairs</a> · <a href="/flashcards">Flashcards</a> · <a href="/training">Training</a> · <a href="/about">Getting started</a></nav>';
+const nav = '<nav aria-label="Sections"><a href="/">Timer</a> · <a href="/pairs">Letter Pairs</a> · <a href="/flashcards">Flashcards</a> · <a href="/training">Training</a></nav>';
 const schema = JSON.stringify({ '@context': 'https://schema.org', '@graph': [
   { '@type': 'WebSite', '@id': `${origin}/#website`, name: 'BlindSolve', url: `${origin}/` },
   { '@type': 'WebApplication', '@id': `${origin}/#app`, name: 'BlindSolve', url: `${origin}/`, applicationCategory: 'EducationalApplication', operatingSystem: 'Any', browserRequirements: 'Requires JavaScript and a modern web browser', description: pages['/'].description }
@@ -26,15 +26,10 @@ for (const [path, page] of Object.entries(pages)) {
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="${escape(page.title)}" />
     <meta name="twitter:description" content="${escape(page.description)}" />
-    ${path === '/' || path === '/about' ? `<script type="application/ld+json">${schema}</script>` : ''}`;
+    ${path === '/' ? `<script type="application/ld+json">${schema}</script>` : ''}`;
   let html = template.replace(/<!-- seo:start -->[\s\S]*?<!-- seo:end -->/, head);
   const content = `<main><h1>BlindSolve — ${escape(page.heading)}</h1><p>${escape(page.description)}</p>${nav}<p>Loading your practice workspace… JavaScript is required for interactive practice.</p></main>`;
   html = html.replace('<div id="root"></div>', `<div id="root">${content}</div>`);
-  if (path === '/about') {
-    // This useful guide is also complete without JavaScript. React displays the same guide after boot.
-    const guide = await readFile('src/seo/guide.html', 'utf8');
-    html = html.replace(content, guide);
-  }
   const file = path === '/' ? 'dist/index.html' : `dist${path}.html`;
   await mkdir(file.slice(0, file.lastIndexOf('/')), { recursive: true });
   await writeFile(file, html);

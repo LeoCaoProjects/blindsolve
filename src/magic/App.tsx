@@ -1,5 +1,4 @@
 import { RouteMetadata } from '../seo/RouteMetadata';
-import { About } from '../seo/About';
 import React, { useEffect } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
@@ -42,7 +41,7 @@ export function App({ stage = 'live' }: AppProps) {
               <RouteMetadata />
               <Routes>
               <Route path="/" element={<Timer stage={stage} />} />
-              <Route path="/about" element={<About />} />
+              <Route path="/about" element={<Navigate to="/" replace />} />
               <Route path="/pairs" element={<LetterPairs />} />
               <Route path="/flashcards" element={<Flashcards />} />
               <Route path="/training" element={<Training />} />

@@ -1,11 +1,46 @@
 {
-  "/": { "title": "BlindSolve — 3BLD Timer & Blindfolded Cube Training", "heading": "3×3 blindfolded cube timer & training", "description": "Practice 3×3 blindfolded Rubik’s Cube solving with BlindSolve: a 3BLD timer, memo and execution training, letter pairs, flashcards and reconstruction." },
-  "/pairs": { "title": "3BLD Letter Pairs & Mnemonics | BlindSolve", "heading": "Letter pairs & mnemonics", "description": "Build your personal 3BLD letter-pair vocabulary in BlindSolve. Edit mnemonics for your cube lettering scheme and use them in memory practice." },
-  "/flashcards": { "title": "3BLD Letter-Pair Flashcards | BlindSolve", "heading": "Letter-pair flashcards", "description": "Practice recalling your blindfolded cube letter-pair mnemonics with BlindSolve flashcards, using your own lettering scheme and saved words." },
-  "/training": { "title": "3BLD Memo, Tracing & Execution Training | BlindSolve", "heading": "3BLD memo & execution training", "description": "Train blindfolded cube skills with BlindSolve: Memo Recall, Trace Sprint and Execution Sprint, with configurable methods including M2 edges." },
-  "/about": { "title": "Getting Started with 3BLD Practice | BlindSolve", "heading": "Practice 3BLD with BlindSolve", "description": "Get started with BlindSolve’s blindfolded cube timer, lettering settings, personal letter pairs, flashcards and focused memo and execution drills." },
-  "/settings": { "title": "BLD Settings | BlindSolve", "heading": "BLD settings", "description": "Configure your BlindSolve cube lettering, blindfolded methods and timer preferences.", "noindex": true },
-  "/setup": { "title": "Set Up Your Cube | BlindSolve", "heading": "Set up your cube", "description": "Set up your cube and lettering scheme for BlindSolve practice.", "noindex": true },
-  "/signin": { "title": "Sign In | BlindSolve", "heading": "Sign in to BlindSolve", "description": "Sign in to your BlindSolve account.", "noindex": true },
-  "/admin/feedback": { "title": "Feedback | BlindSolve", "heading": "Feedback", "description": "BlindSolve feedback management.", "noindex": true }
+  "/": {
+    "title": "BlindSolve",
+    "heading": "Timer",
+    "description": "A timer and training tools for 3×3 blindfolded cube solving."
+  },
+  "/pairs": {
+    "title": "Letter Pairs | BlindSolve",
+    "heading": "Letter pairs",
+    "description": "Save and edit your letter-pair mnemonics."
+  },
+  "/flashcards": {
+    "title": "Flashcards | BlindSolve",
+    "heading": "Flashcards",
+    "description": "Practice recalling your letter-pair mnemonics."
+  },
+  "/training": {
+    "title": "Training | BlindSolve",
+    "heading": "Training",
+    "description": "Practice memo, tracing and execution."
+  },
+  "/settings": {
+    "title": "Settings | BlindSolve",
+    "heading": "Settings",
+    "description": "Your cube, methods and timer settings.",
+    "noindex": true
+  },
+  "/setup": {
+    "title": "Setup | BlindSolve",
+    "heading": "Setup",
+    "description": "Set up your cube and lettering scheme.",
+    "noindex": true
+  },
+  "/signin": {
+    "title": "Sign In | BlindSolve",
+    "heading": "Sign in to BlindSolve",
+    "description": "Sign in to your BlindSolve account.",
+    "noindex": true
+  },
+  "/admin/feedback": {
+    "title": "Feedback | BlindSolve",
+    "heading": "Feedback",
+    "description": "BlindSolve feedback management.",
+    "noindex": true
+  }
 }
