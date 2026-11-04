@@ -1,3 +1,4 @@
+import { SubNavFrame } from './components/layout/SubNavigation';
 import { RouteMetadata } from '../seo/RouteMetadata';
 import React, { useEffect } from 'react';
 import { MotionConfig } from 'framer-motion';
@@ -18,7 +19,7 @@ import { SessionWorkspaceProvider } from './contexts/SessionWorkspaceContext';
 function RouteFrame({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const hasNavigation = ['/', '/training', '/pairs', '/flashcards', '/settings', '/admin/feedback'].includes(pathname);
-  return <div className={`h-full min-w-0 ${hasNavigation ? 'pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0 md:pl-[72px]' : ''}`}>{children}</div>;
+  return <div className={`h-full min-w-0 ${hasNavigation ? 'pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0 md:pl-[72px]' : ''}`}><SubNavFrame>{children}</SubNavFrame></div>;
 }
 
 function PageTracker() {

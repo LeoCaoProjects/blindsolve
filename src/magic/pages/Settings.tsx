@@ -5,6 +5,7 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PrimaryButton, QuietButton } from '../components/common/PrimaryButton';
 import { ShortcutSheet } from '../components/common/ShortcutSheet';
 import { RadioRows, Toggle } from '../components/common/Toggle';
+import { SubNavigation, SUB_NAV_ITEM } from '../components/layout/SubNavigation';
 import { AppBar } from '../components/layout/AppBar';
 import { AccountSection } from '../components/settings/AccountSection';
 import { BackupSection } from '../components/settings/BackupSection';
@@ -191,36 +192,26 @@ export function Settings() {
     <div className="flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar onShortcuts={sheet.openSheet} />
 
+      <SubNavigation label="Settings sections" title="Settings" trigger={settingsSections.find((section)=>section.id===active)?.label ?? 'Settings'}>
+        {(close)=><nav aria-label="Settings sections" className="flex min-h-full flex-col">
+          <ul className="space-y-0.5">
+            {settingsSections.map((section)=><li key={section.id}>
+              <button type="button" disabled={!store.ready} aria-current={active===section.id ? 'true' : undefined}
+                onClick={()=>{goToSection(section.id);close();}}
+                className={`${SUB_NAV_ITEM} ${active===section.id ? 'bg-selected text-ink' : 'text-ink-2'}`}>{section.label}</button>
+            </li>)}
+          </ul>
+          <Link to="/setup" className="mt-8 border-t border-line px-3 pt-4 text-[12px] text-ink-3 hover:text-ink-2">Run first-use setup</Link>
+        </nav>}
+      </SubNavigation>
+
       {!store.ready ?
       <main className="flex min-h-0 flex-1 items-center justify-center px-5" aria-busy="true">
         <p className="text-[13px] text-ink-3" role="status">Loading account settings…</p>
       </main> :
 
       <div ref={scrollRef} className="scroll-quiet relative min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto grid max-w-[1180px] grid-cols-1 gap-10 px-5 md:grid-cols-[180px_minmax(0,1fr)] md:gap-16 md:px-10">
-          <nav aria-label="Settings sections" className="sticky top-0 z-10 -mx-5 border-b border-line bg-bg px-5 md:mx-0 md:self-start md:border-0 md:px-0 md:pt-10">
-            <ul className="scroll-none flex gap-1 overflow-x-auto py-2 md:flex-col md:gap-0 md:py-0">
-              {settingsSections.map((s) =>
-              <li key={s.id}>
-                  <button
-                  type="button"
-                  onClick={() => goToSection(s.id)}
-                  aria-current={active === s.id ? 'true' : undefined}
-                  className={`relative whitespace-nowrap rounded-[4px] px-3 py-2 text-left text-[13px] transition-colors duration-150 ease-out md:w-full md:rounded-none md:py-1.5 md:pl-4 ${
-                  active === s.id ? 'text-ink' : 'text-ink-3 hover:text-ink-2'}`
-                  }>
-
-                    {active === s.id && <span aria-hidden className="absolute bottom-0 left-3 right-3 h-px bg-ink md:inset-y-1.5 md:left-0 md:right-auto md:h-auto md:w-px" />}
-                    {s.label}
-                  </button>
-                </li>
-              )}
-            </ul>
-            <Link to="/setup" className="mt-8 hidden pl-4 text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2 md:block">
-              Run first-use setup
-            </Link>
-          </nav>
-
+        <div className="max-w-[980px] px-5 md:px-10">
           <div className="min-w-0 pb-28 pt-2 md:pt-10">
             <SettingsSection id="cube" title="Cube & lettering">
               <CubeConfigurator
@@ -330,7 +321,7 @@ export function Settings() {
             role="region"
             aria-label="Unsaved changes">
             
-              <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-4 px-5 py-3 md:px-10 md:pl-[276px]">
+              <div className="flex max-w-[980px] items-center justify-between gap-4 px-5 py-3 md:px-10">
                 <span className="flex items-center gap-2.5 text-[13px] text-ink-2" role="status">
                   <span aria-hidden className={`h-[6px] w-[6px] rounded-full ${saveState === 'failed' ? 'bg-accent' : 'bg-ink-2'}`} />
                   {saveState === 'failed' ? 'Couldn’t save — nothing was lost' : 'Unsaved changes'}

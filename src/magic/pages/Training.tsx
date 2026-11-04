@@ -92,7 +92,7 @@ export function Training() {
     <div data-training-challenge-id={t.challengeId} className="flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar className={busy ? 'opacity-[0.25]' : holding ? 'opacity-40' : ''} onShortcuts={sheet.openSheet} />
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col">
         <TrainingHeader t={t} />
       <div className={`grid min-h-0 min-w-0 flex-1 grid-cols-1 ${showAside ? 'xl:grid-cols-[minmax(0,1fr)_clamp(280px,24vw,360px)]' : ''}`}>
         <main className="flex min-h-0 min-w-0 flex-col">

@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { SUB_NAV_ITEM } from '../layout/SubNavigation';
 
 interface FirstTokenRailProps {
   tokens: string[];
@@ -14,40 +15,28 @@ interface FirstTokenRailProps {
  */
 export function FirstTokenRail({ tokens, active, filled, total, onSelect }: FirstTokenRailProps) {
   const scrollRef = useRef<HTMLUListElement>(null);
-  const [edges, setEdges] = useState({ start: false, end: false });
-
-  const measure = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const vertical = el.scrollHeight > el.clientHeight + 1;
-    const pos = vertical ? el.scrollTop : el.scrollLeft;
-    const max = vertical ? el.scrollHeight - el.clientHeight : el.scrollWidth - el.clientWidth;
-    setEdges({ start: pos > 2, end: pos < max - 2 });
-  };
-
-  useEffect(() => {
-    measure();
-    const el = scrollRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [tokens.length]);
-
+  const keyboardFocus = useRef(false);
   // Keep the selected letter in view when it changes by keyboard or type-to-jump.
   useEffect(() => {
     const el = scrollRef.current?.querySelector<HTMLElement>('[aria-current="true"]');
-    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const list = scrollRef.current;
+    if (!el || !list) return;
+    let frame = 0;
+    if (keyboardFocus.current) {
+      keyboardFocus.current = false;
+      frame = requestAnimationFrame(()=>el.focus({preventScroll:true}));
+    }
+    const top = el.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (top + el.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = top + el.offsetHeight - list.clientHeight;
+    return ()=>cancelAnimationFrame(frame);
   }, [active]);
 
-  const fade = edges.start && edges.end ? 'md:fade-both' : edges.start ? 'md:fade-top' : edges.end ? 'md:fade-bottom' : '';
-
   return (
-    <nav aria-label="First letter" className="flex h-full min-h-0 flex-col border-line md:border-r">
+    <nav aria-label="First letter" className="flex h-full min-h-0 flex-col">
       <ul
         ref={scrollRef}
-        onScroll={measure}
-        className={`scroll-quiet flex min-h-0 flex-1 overflow-x-auto overscroll-contain px-3 py-2 md:block md:overflow-y-auto md:overflow-x-hidden md:px-0 md:py-3 ${fade}`}>
+        className="scroll-quiet min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain">
         
         {tokens.map((t) => {
           const isActive = t === active;
@@ -56,19 +45,22 @@ export function FirstTokenRail({ tokens, active, filled, total, onSelect }: Firs
             <li key={t}>
               <button
                 type="button"
-                tabIndex={-1}
+                tabIndex={isActive ? 0 : -1}
                 onClick={() => onSelect(t)}
                 aria-current={isActive ? 'true' : undefined}
                 aria-label={`${t}, ${n} of ${total} filled`}
-                className={`relative flex h-10 w-full min-w-[44px] items-center justify-between gap-3 px-3 transition-colors duration-150 ease-out md:h-[30px] md:pl-6 md:pr-5 ${
-                isActive ? 'text-ink' : 'text-ink-3 hover:text-ink-2'}`
-                }>
-                
-                {isActive &&
-                <span aria-hidden className="absolute inset-x-3 bottom-0 h-px bg-ink md:inset-y-1.5 md:left-0 md:right-auto md:h-auto md:w-px" />
-                }
-                <span className="font-mono text-[13.5px] tracking-[0.06em]">{t}</span>
-                <span className={`hidden font-mono text-[10.5px] text-ink-3 tnum md:inline ${n === 0 ? 'opacity-50' : ''}`}>{n}</span>
+                onKeyDown={(event)=>{
+                  const direction = event.key==='ArrowDown' ? 1 : event.key==='ArrowUp' ? -1 : 0;
+                  if (!direction && event.key!=='Home' && event.key!=='End') return;
+                  event.preventDefault();event.stopPropagation();
+                  const next = event.key==='Home' ? 0 : event.key==='End' ? tokens.length-1 : (tokens.indexOf(t)+direction+tokens.length)%tokens.length;
+                  keyboardFocus.current = true;
+                  onSelect(tokens[next]);
+                  scrollRef.current?.querySelectorAll<HTMLButtonElement>('button')[next]?.focus();
+                }}
+                className={`${SUB_NAV_ITEM} h-8 ${isActive ? 'bg-selected text-ink' : 'text-ink-2'}`}>
+                <span className="font-mono text-[14px] font-medium tracking-[0.02em]">{t}</span>
+                <span className="font-mono text-[11px] text-ink-2 tnum">{n}</span>
               </button>
             </li>);
 
