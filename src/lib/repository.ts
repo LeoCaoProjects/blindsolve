@@ -429,6 +429,8 @@ export interface LocalEnvelope {
   revision: number;
   pending?: Record<string, SyncChange>;
   lastAttemptAt?: string;
+  /** Durable negative records; owner-scoped with this envelope, never inferred from absence. */
+  tombstones?: Record<string, string>;
 }
 export function loadLocal(owner: string | null = null): LocalEnvelope {
   const raw = localStorage.getItem(storageKey(owner));
@@ -500,7 +502,16 @@ export function coalesceSyncChanges(
   changes: SyncChange[],
 ) {
   const next = { ...(current ?? {}) };
-  for (const change of changes) next[syncKey(change)] = change;
+  for (const change of changes) {
+    const key = syncKey(change);
+    if (
+      next[key]?.deleted &&
+      (change.kind === "solve" || change.kind === "attempt") &&
+      !change.deleted
+    )
+      continue;
+    next[key] = change;
+  }
   return next;
 }
 
@@ -513,6 +524,7 @@ export function coalesceSyncChanges(
 export function pruneAcknowledgedSyncChanges(
   remote: AppData,
   pending: Record<string, SyncChange> | undefined,
+  tombstones?: Record<string, string>,
 ) {
   const remoteRecords = new Map(
     seedSyncChanges(remote, "").map((change) => [syncKey(change), change]),
@@ -520,7 +532,10 @@ export function pruneAcknowledgedSyncChanges(
   return Object.fromEntries(
     Object.entries(pending ?? {}).filter(([key, change]) => {
       const remoteChange = remoteRecords.get(key);
-      if (change.deleted) return remoteChange !== undefined;
+      if (change.deleted)
+        return tombstones === undefined
+          ? remoteChange !== undefined
+          : !tombstones[key];
       return (
         !remoteChange ||
         JSON.stringify(remoteChange.payload) !== JSON.stringify(change.payload)
@@ -552,7 +567,10 @@ export function diffSyncChanges(
     next: Map<string, T>,
   ) => {
     for (const [id, value] of next)
-      if (JSON.stringify(previous.get(id)) !== JSON.stringify(value))
+      if (
+        previous.get(id) !== value &&
+        JSON.stringify(previous.get(id)) !== JSON.stringify(value)
+      )
         changes.push({
           kind,
           recordId: id,
@@ -570,21 +588,32 @@ export function diffSyncChanges(
           updatedAt,
         });
   };
-  diffMap(
-    "pair",
-    new Map(Object.entries(before.pairs)),
-    new Map(Object.entries(after.pairs)),
-  );
-  diffMap(
-    "solve",
-    new Map(before.solves.map((item) => [item.id, item])),
-    new Map(after.solves.map((item) => [item.id, item])),
-  );
-  diffMap(
-    "attempt",
-    new Map(before.attempts.map((item) => [item.id, item])),
-    new Map(after.attempts.map((item) => [item.id, item])),
-  );
+  if (before.pairs !== after.pairs)
+    diffMap(
+      "pair",
+      new Map(Object.entries(before.pairs)),
+      new Map(Object.entries(after.pairs)),
+    );
+  if (before.solves !== after.solves)
+    diffMap(
+      "solve",
+      new Map(
+        before.solves
+          .filter((item) => !item.deleted)
+          .map((item) => [item.id, item]),
+      ),
+      new Map(
+        after.solves
+          .filter((item) => !item.deleted)
+          .map((item) => [item.id, item]),
+      ),
+    );
+  if (before.attempts !== after.attempts)
+    diffMap(
+      "attempt",
+      new Map(before.attempts.map((item) => [item.id, item])),
+      new Map(after.attempts.map((item) => [item.id, item])),
+    );
   return changes;
 }
 
@@ -613,8 +642,8 @@ export function seedSyncChanges(
     changes.push({
       kind: "solve",
       recordId: payload.id,
-      payload,
-      deleted: false,
+      payload: payload.deleted ? null : payload,
+      deleted: !!payload.deleted,
       updatedAt,
     });
   for (const payload of data.attempts)
@@ -645,6 +674,136 @@ function dataFromSyncRecords(rows: SyncRecordRow[]) {
   data.solves.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   data.attempts.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return parseData(data);
+}
+
+/** Preserve explicit deletion evidence across snapshots, retries, tabs and reloads. */
+export function deletionIndex(envelope: LocalEnvelope): Record<string, string> {
+  const index = { ...envelope.tombstones };
+  for (const solve of envelope.data.solves)
+    if (solve.deleted)
+      index[`solve:${solve.id}`] = solve.updatedAt ?? solve.createdAt;
+  for (const change of Object.values(envelope.pending ?? {}))
+    if (change.deleted) index[syncKey(change)] = change.updatedAt;
+  return index;
+}
+
+export function applyTombstones(
+  data: AppData,
+  tombstones: Record<string, string>,
+): AppData {
+  const blocked = (kind: string, id: string) => !!tombstones[`${kind}:${id}`];
+  const solves = data.solves.filter(
+    (record) => !record.deleted && !blocked("solve", record.id),
+  );
+  const attempts = data.attempts.filter(
+    (record) => !blocked("attempt", record.id),
+  );
+  const pairEntries = Object.entries(data.pairs).filter(([id, record]) => {
+    const deletedAt = tombstones[`pair:${id}`];
+    return !deletedAt || Date.parse(record.updatedAt) > Date.parse(deletedAt);
+  });
+  return {
+    ...data,
+    solves: solves.length === data.solves.length ? data.solves : solves,
+    attempts:
+      attempts.length === data.attempts.length ? data.attempts : attempts,
+    pairs:
+      pairEntries.length === Object.keys(data.pairs).length
+        ? data.pairs
+        : Object.fromEntries(pairEntries),
+  };
+}
+
+export function trackDeletions(
+  previous: Record<string, string> | undefined,
+  changes: SyncChange[],
+) {
+  const next = { ...previous };
+  for (const change of changes) {
+    const key = syncKey(change);
+    if (change.deleted) next[key] = change.updatedAt;
+    // Pair keys may be intentionally recreated; solve/attempt UUIDs are never reused.
+    else if (change.kind === "pair") delete next[key];
+  }
+  return next;
+}
+
+export function reconcileSync(
+  local: LocalEnvelope,
+  remote: LocalEnvelope,
+): LocalEnvelope & { conflicts: number } {
+  const merged = mergeData(local.data, remote.data);
+  const tombstones = deletionIndex(local);
+  for (const [key, stamp] of Object.entries(deletionIndex(remote)))
+    if (!tombstones[key] || Date.parse(stamp) > Date.parse(tombstones[key]))
+      tombstones[key] = stamp;
+  let data = applyTombstones(merged.data, tombstones);
+  // Attempts lack an edit timestamp; an unacknowledged local result is still explicit work.
+  const attempts = new Map(
+    data.attempts.map((attempt) => [attempt.id, attempt]),
+  );
+  for (const change of Object.values(local.pending ?? {}))
+    if (
+      change.kind === "attempt" &&
+      !change.deleted &&
+      !tombstones[syncKey(change)] &&
+      change.payload
+    )
+      attempts.set(change.recordId, change.payload as PracticeAttempt);
+  data = { ...data, attempts: [...attempts.values()] };
+  const pending = coalesceSyncChanges(
+    pruneAcknowledgedSyncChanges(
+      remote.data,
+      local.pending,
+      deletionIndex(remote),
+    ),
+    remote.pending === undefined
+      ? seedSyncChanges(data)
+      : diffSyncChanges(remote.data, data),
+  );
+  const remoteDeleted = deletionIndex(remote);
+  for (const [key, updatedAt] of Object.entries(tombstones)) {
+    const split = key.indexOf(":");
+    const kind = key.slice(0, split) as SyncRecordKind;
+    const recordId = key.slice(split + 1);
+    if (kind === "pair" && data.pairs[recordId]) continue;
+    delete pending[key];
+    if (!remoteDeleted[key])
+      pending[key] = {
+        kind,
+        recordId,
+        payload: null,
+        deleted: true,
+        updatedAt,
+      };
+  }
+  return {
+    data,
+    tombstones,
+    pending,
+    revision: remote.revision,
+    dirty: Object.keys(pending).length > 0,
+    lastAttemptAt: local.lastAttemptAt,
+    conflicts: merged.conflicts,
+  };
+}
+
+export function syncSnapshotEnvelope(
+  rows: SyncRecordRow[],
+  revision: number,
+): LocalEnvelope {
+  const tombstones: Record<string, string> = {};
+  for (const row of rows)
+    if (row.deleted)
+      tombstones[`${row.kind}:${row.record_id}`] = row.updated_at;
+  const envelope = {
+    data: dataFromSyncRecords(rows),
+    revision,
+    dirty: false,
+    pending: {},
+    tombstones,
+  };
+  return { ...envelope, tombstones: deletionIndex(envelope) };
 }
 
 export function mergeData(
@@ -686,6 +845,11 @@ export function mergeData(
   const solveMap = new Map(local.solves.map((s) => [s.id, s]));
   for (const solve of incoming.solves) {
     const old = solveMap.get(solve.id);
+    if (old?.deleted && !solve.deleted) continue;
+    if (solve.deleted && !old?.deleted) {
+      solveMap.set(solve.id, solve);
+      continue;
+    }
     if (
       !old ||
       Date.parse(solve.updatedAt ?? solve.createdAt) >
@@ -783,12 +947,7 @@ export async function loadCloud(): Promise<LocalEnvelope> {
   } | null;
   if (!snapshot) throw new Error("Authentication required.");
   if (snapshot.records.length)
-    return {
-      data: dataFromSyncRecords(snapshot.records),
-      revision: snapshot.revision,
-      dirty: false,
-      pending: {},
-    };
+    return syncSnapshotEnvelope(snapshot.records, snapshot.revision);
   const { data, error } = await supabase.rpc("get_bld_workspace");
   if (error) throw new Error(error.message);
   const result = data as { data: unknown; revision: number };
@@ -919,27 +1078,53 @@ async function loadLegacyCloud(): Promise<AppData> {
 }
 export class SyncConflictError extends Error {}
 
+export function splitSyncBatches(changes: SyncChange[]) {
+  const batches: SyncChange[][] = [];
+  let batch: SyncChange[] = [],
+    bytes = 2;
+  const encoder = new TextEncoder();
+  for (const change of changes) {
+    const size = encoder.encode(JSON.stringify(change)).length + 1;
+    if (batch.length && (batch.length >= 500 || bytes + size > 4500000)) {
+      batches.push(batch);
+      batch = [];
+      bytes = 2;
+    }
+    batch.push(change);
+    bytes += size;
+  }
+  if (batch.length) batches.push(batch);
+  return batches;
+}
+
 export async function saveCloudChanges(
   changes: SyncChange[],
   revision: number,
+  isCurrent: () => boolean = () => true,
 ): Promise<number> {
   if (!supabase) throw new Error("Cloud storage is not configured.");
   if (!changes.length) return revision;
-  const { data, error } = await supabase.rpc("apply_bld_sync_changes", {
-    changes: changes.map((change) => ({
-      kind: change.kind,
-      record_id: change.recordId,
-      payload: change.payload,
-      deleted: change.deleted,
-      updated_at: change.updatedAt,
-    })),
-    expected_revision: revision,
-  });
-  if (error) {
-    if (error.code === "40001") throw new SyncConflictError(error.message);
-    throw new Error(error.message);
+  let currentRevision = revision;
+  for (const batch of splitSyncBatches(changes)) {
+    if (!isCurrent())
+      throw new Error("Account changed during synchronization.");
+    const { data, error } = await supabase.rpc("apply_bld_sync_changes", {
+      changes: batch.map((change) => ({
+        kind: change.kind,
+        record_id: change.recordId,
+        payload: change.payload,
+        deleted: change.deleted,
+        updated_at: change.updatedAt,
+      })),
+      expected_revision: currentRevision,
+    });
+    if (error) {
+      if (error.code === "40001") throw new SyncConflictError(error.message);
+      throw new Error(error.message);
+    }
+    currentRevision = data as number;
   }
-  return data as number;
+  return currentRevision;
 }
 
 export const syncRetryDelay = (attempt: number) =>

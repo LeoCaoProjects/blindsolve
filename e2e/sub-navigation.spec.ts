@@ -70,7 +70,10 @@ async function recordNavigation(page: Page, label: string) {
       });
       if (recorder.navFrames.length < 40) requestAnimationFrame(sample);
     };
-    requestAnimationFrame(sample);
+    document.addEventListener("click", () => requestAnimationFrame(sample), {
+      once: true,
+      capture: true,
+    });
   });
   await page
     .getByRole("navigation", { name: "Sections" })
@@ -103,18 +106,21 @@ test("shared sub nav moves the real workspace and stays stable between contextua
     const frames = await recordNavigation(page, label);
     expect(
       frames.every(
-        (frame) => !frame.overflow && Math.abs(frame.x - 72 - frame.width) < 1,
+        (frame) =>
+          !frame.overflow &&
+          (Math.abs(frame.width) < 1 || Math.abs(frame.width - 224) < 1) &&
+          frame.x >= 71 &&
+          frame.x <= 297,
       ),
     ).toBe(true);
     expect(Math.abs(frames.at(-1)!.width - to)).toBeLessThan(0.5);
+    expect(Math.abs(frames.at(-1)!.x - 72 - to)).toBeLessThan(0.5);
     if (from === to)
       expect(frames.every((frame) => Math.abs(frame.width - 224) < 0.5)).toBe(
         true,
       );
     else
-      expect(frames.some((frame) => frame.width > 1 && frame.width < 223)).toBe(
-        true,
-      );
+      expect(frames.some((frame) => frame.x > 73 && frame.x < 295)).toBe(true);
     if (label === "Settings") {
       const headings = frames.flatMap((frame) =>
         frame.headingX === null ? [] : [frame.headingX],

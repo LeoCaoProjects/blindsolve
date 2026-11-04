@@ -5,7 +5,8 @@ import globals from "globals";
 export default tseslint.config(
   {
     ignores: [
-      "node_modules/**",
+      "**/node_modules/**",
+      ".audit-runtime/**",
       "dist/**",
       "playwright-report/**",
       "test-results/**",

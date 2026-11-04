@@ -37,6 +37,8 @@ import {
   loadLocal,
   parseData,
   SyncConflictError,
+  syncSnapshotEnvelope,
+  type SolveRecord,
 } from "../lib/repository";
 function Harness() {
   const s = useStore();
@@ -58,6 +60,26 @@ function Harness() {
         Edit
       </button>
       <button onClick={s.retry}>Retry</button>
+      <button onClick={() => s.update((data) => ({ ...data }))}>
+        No-op edit
+      </button>
+      <span data-testid="solve-count">
+        {s.data.solves.filter((solve) => !solve.deleted).length}
+      </span>
+      <button
+        onClick={() =>
+          s.update((data) => ({
+            ...data,
+            solves: data.solves.map((solve) => ({
+              ...solve,
+              deleted: true,
+              updatedAt: new Date().toISOString(),
+            })),
+          }))
+        }
+      >
+        Delete solves
+      </button>
       <button onClick={() => s.resolveGuestMigration("merge")}>
         Merge guest
       </button>
@@ -102,6 +124,129 @@ async function auth(id: string | null, event = "SIGNED_IN") {
   });
 }
 describe("account state and sync", () => {
+  it("stays synced after unchanged renders and no-op edits", async () => {
+    mocks.load.mockResolvedValue({
+      data: emptyData(),
+      revision: 0,
+      dirty: false,
+      pending: {},
+    });
+    const view = render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice");
+    await waitFor(() =>
+      expect(screen.getByTestId("state").textContent).toContain("|saved|"),
+    );
+    fireEvent.click(screen.getByText("No-op edit"));
+    view.rerender(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice", "TOKEN_REFRESHED");
+    expect(screen.getByTestId("state").textContent).toContain("|saved|");
+    expect(mocks.load).toHaveBeenCalledTimes(1);
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+  for (const offline of [false, true])
+    it(`keeps a ${offline ? "temporarily offline" : "signed-in"} deletion through reload, retry and account switching`, async () => {
+      const id = "8d00ae21-5444-41df-a008-d7bfcdf2f741";
+      const stamp = "2026-11-05T01:00:00.000Z";
+      const solve: SolveRecord = {
+        id,
+        scramble: "R U",
+        memoMs: 1000,
+        executionMs: 2000,
+        totalMs: 3000,
+        result: "success",
+        edgeMemo: [],
+        cornerMemo: [],
+        cycleBreaks: { edges: [], corners: [] },
+        createdAt: stamp,
+      };
+      const remote = syncSnapshotEnvelope(
+        [
+          {
+            kind: "solve",
+            record_id: id,
+            payload: solve,
+            deleted: false,
+            updated_at: stamp,
+          },
+        ],
+        1,
+      );
+      mocks.load.mockResolvedValue(remote);
+      const view = render(
+        <StoreProvider>
+          <Harness />
+        </StoreProvider>,
+      );
+      await auth("alice");
+      await waitFor(() =>
+        expect(screen.getByTestId("solve-count").textContent).toBe("1"),
+      );
+      if (offline) fireEvent(window, new Event("offline"));
+      fireEvent.click(screen.getByText("Delete solves"));
+      expect(screen.getByTestId("solve-count").textContent).toBe("0");
+      if (offline) {
+        fireEvent.click(screen.getByText("Retry"));
+        expect(screen.getByTestId("solve-count").textContent).toBe("0");
+        fireEvent(window, new Event("online"));
+      }
+      await waitFor(() => expect(mocks.save).toHaveBeenCalled(), {
+        timeout: 3000,
+      });
+      expect(mocks.save.mock.calls.at(-1)![0]).toContainEqual(
+        expect.objectContaining({ recordId: id, deleted: true, payload: null }),
+      );
+      const deleted = syncSnapshotEnvelope(
+        [
+          {
+            kind: "solve",
+            record_id: id,
+            payload: null,
+            deleted: true,
+            updated_at: stamp,
+          },
+        ],
+        2,
+      );
+      mocks.load.mockResolvedValue(deleted);
+      view.unmount();
+      render(
+        <StoreProvider>
+          <Harness />
+        </StoreProvider>,
+      );
+      await auth("alice");
+      await waitFor(() =>
+        expect(screen.getByTestId("state").textContent).toContain(
+          "ready|alice",
+        ),
+      );
+      expect(screen.getByTestId("solve-count").textContent).toBe("0");
+      fireEvent.click(screen.getByText("Retry"));
+      await waitFor(() =>
+        expect(screen.getByTestId("state").textContent).toContain("|saved|"),
+      );
+      expect(loadLocal("alice").pending).toEqual({});
+      mocks.load.mockResolvedValue({
+        data: emptyData(),
+        revision: 0,
+        dirty: false,
+        pending: {},
+      });
+      await auth("bob");
+      expect(screen.getByTestId("solve-count").textContent).toBe("0");
+      mocks.load.mockResolvedValue(deleted);
+      await auth("alice");
+      expect(screen.getByTestId("solve-count").textContent).toBe("0");
+    });
+
   it("flushes edits made while an earlier save is in flight", async () => {
     let finish: ((revision: number) => void) | undefined;
     mocks.save.mockImplementationOnce(

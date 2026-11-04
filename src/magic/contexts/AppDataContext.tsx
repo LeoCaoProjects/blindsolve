@@ -84,7 +84,8 @@ const MAGIC_TO_PHYSICAL = Object.fromEntries(
 const PHYSICAL_TO_MAGIC = Object.fromEntries(
   Object.entries(MAGIC_TO_PHYSICAL).map(([a, b]) => [b, a]),
 );
-export const magicStickerForPhysical = (stickerId: string) => PHYSICAL_TO_MAGIC[stickerId];
+export const magicStickerForPhysical = (stickerId: string) =>
+  PHYSICAL_TO_MAGIC[stickerId];
 
 export const defaultSetup = (): BldSetup => ({
   scheme: speffzScheme(),
@@ -94,7 +95,9 @@ export const defaultSetup = (): BldSetup => ({
   edgeMethod: "m2",
   cornerMethod: "op",
 });
-export function setupFromStore(data: ReturnType<typeof useStore>["data"]): BldSetup {
+export function setupFromStore(
+  data: ReturnType<typeof useStore>["data"],
+): BldSetup {
   const s = data.scheme;
   return {
     scheme: Object.fromEntries(
@@ -112,23 +115,40 @@ export function setupFromStore(data: ReturnType<typeof useStore>["data"]): BldSe
     cornerMethod: "op",
   };
 }
-export function pairsFromStore(data: ReturnType<typeof useStore>["data"]): PairDb {
+export function pairsFromStore(
+  data: ReturnType<typeof useStore>["data"],
+): PairDb {
   const gathered: Record<string, { edges?: string[]; corners?: string[] }> = {};
   Object.values(data.pairs).forEach((p) => {
     const type = data.scheme.stickers[p.firstStickerId]?.pieceType;
     const key = pairKey(p.firstToken, p.secondToken),
       words = [p.primaryMnemonic, ...p.alternates].filter(Boolean);
-    gathered[key] = { ...gathered[key], [type === "edge" ? "edges" : "corners"]: words };
+    gathered[key] = {
+      ...gathered[key],
+      [type === "edge" ? "edges" : "corners"]: words,
+    };
   });
-  return Object.fromEntries(Object.entries(gathered).map(([key, value]) => {
-    const edge = value.edges, corner = value.corners;
-    if (edge && corner && JSON.stringify(edge) === JSON.stringify(corner)) return [key, { shared: edge }];
-    if (edge && corner) return [key, { shared: edge, corners: corner }];
-    // Retired one-vocabulary data used lone physical records as shared. New edits
-    // switch the hidden storage discriminator to separate, avoiding ambiguity.
-    if ((data.pairSharing ?? "shared") === "shared" && (edge || corner)) return [key, { shared: edge ?? corner! }];
-    return [key, { shared: [], ...(edge ? { edges: edge } : {}), ...(corner ? { corners: corner } : {}) }];
-  }));
+  return Object.fromEntries(
+    Object.entries(gathered).map(([key, value]) => {
+      const edge = value.edges,
+        corner = value.corners;
+      if (edge && corner && JSON.stringify(edge) === JSON.stringify(corner))
+        return [key, { shared: edge }];
+      if (edge && corner) return [key, { shared: edge, corners: corner }];
+      // Retired one-vocabulary data used lone physical records as shared. New edits
+      // switch the hidden storage discriminator to separate, avoiding ambiguity.
+      if ((data.pairSharing ?? "shared") === "shared" && (edge || corner))
+        return [key, { shared: edge ?? corner! }];
+      return [
+        key,
+        {
+          shared: [],
+          ...(edge ? { edges: edge } : {}),
+          ...(corner ? { corners: corner } : {}),
+        },
+      ];
+    }),
+  );
 }
 export function solveFromStore(s: SolveRecord, index: number): Solve {
   let hasExecutionTargets = false;
@@ -203,14 +223,55 @@ export function solveFromStore(s: SolveRecord, index: number): Solve {
   };
 }
 
+/** Apply only explicit view changes; don't retimestamp untouched or newly hydrated solves. */
+export function applySolveViews(
+  records: SolveRecord[],
+  before: Solve[],
+  after: Solve[],
+  sessionId: string,
+  updatedAt = new Date().toISOString(),
+) {
+  const known = new Set(before.map((solve) => solve.id));
+  const next = new Map(after.map((solve) => [solve.id, solve]));
+  return records.map((record) => {
+    if ((record.sessionId ?? "today") !== sessionId || !known.has(record.id))
+      return record;
+    const view = next.get(record.id);
+    if (!view)
+      return record.deleted ? record : { ...record, deleted: true, updatedAt };
+    const result: SolveRecord["result"] =
+      view.penalty === "ok" ? "success" : view.penalty;
+    const memoMs = view.memoTime ?? 0;
+    const executionMs = Math.max(0, view.time - memoMs);
+    if (
+      record.totalMs === view.time &&
+      record.memoMs === memoMs &&
+      record.executionMs === executionMs &&
+      record.result === result
+    )
+      return record;
+    return {
+      ...record,
+      totalMs: view.time,
+      memoMs,
+      executionMs,
+      result,
+      updatedAt,
+    };
+  });
+}
+
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const store = useStore(),
     data = store.data;
   const [navGuard, setNavGuardState] = useState<NavGuard>(null);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const pairs = useMemo(() => pairsFromStore(data), [data]);
-  const setup = useMemo(() => setupFromStore(data), [data]);
+  const pairs = useMemo(
+    () => pairsFromStore(data),
+    [data.pairs, data.scheme, data.pairSharing],
+  );
+  const setup = useMemo(() => setupFromStore(data), [data.scheme]);
   const sessions = useMemo(
     () =>
       data.timerSessions?.length
@@ -238,18 +299,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         .map((s, i, all) => solveFromStore(s, all.length - i)),
     [data.solves, activeSessionId],
   );
-  const sessionCounts = useMemo(
-    () =>
-      Object.fromEntries(
-        sessions.map((s) => [
-          s.id,
-          data.solves.filter(
-            (solve) => !solve.deleted && (solve.sessionId ?? "today") === s.id,
-          ).length,
-        ]),
-      ),
-    [data.solves, sessions],
-  );
+  const sessionCounts = useMemo(() => {
+    const counts: Record<string, number> = Object.fromEntries(
+      sessions.map((session) => [session.id, 0]),
+    );
+    for (const solve of data.solves)
+      if (!solve.deleted) {
+        const id = solve.sessionId ?? "today";
+        counts[id] = (counts[id] ?? 0) + 1;
+      }
+    return counts;
+  }, [data.solves, sessions]);
   const usage = useMemo(() => {
     const result: Record<string, number> = {};
     Object.values(data.pairs).forEach((p) => {
@@ -325,8 +385,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             updatedAt: new Date().toISOString(),
           };
         });
-        return { ...current, pairs: next, pairSharing: "separate",
-          preferencesUpdatedAt: current.pairSharing === "separate" ? current.preferencesUpdatedAt : new Date().toISOString() };
+        return {
+          ...current,
+          pairs: next,
+          pairSharing: "separate",
+          preferencesUpdatedAt:
+            current.pairSharing === "separate"
+              ? current.preferencesUpdatedAt
+              : new Date().toISOString(),
+        };
       });
     },
     [store],
@@ -367,24 +434,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   );
   const setSolves: React.Dispatch<React.SetStateAction<Solve[]>> = useCallback(
     (action) => {
-      const next = typeof action === "function" ? action(solves) : action,
-        byId = new Map(next.map((s) => [s.id, s]));
+      const next = typeof action === "function" ? action(solves) : action;
       store.update((current) => ({
         ...current,
-        solves: current.solves.map((s) => {
-          if ((s.sessionId ?? "today") !== activeSessionId) return s;
-          const view = byId.get(s.id);
-          if (!view)
-            return { ...s, deleted: true, updatedAt: new Date().toISOString() };
-          return {
-            ...s,
-            totalMs: view.time,
-            executionMs: Math.max(0, view.time - (view.memoTime ?? 0)),
-            memoMs: view.memoTime ?? 0,
-            result: view.penalty === "ok" ? "success" : view.penalty,
-            updatedAt: new Date().toISOString(),
-          };
-        }),
+        solves: applySolveViews(current.solves, solves, next, activeSessionId),
       }));
     },
     [activeSessionId, solves, store],
@@ -502,11 +555,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     },
     usage,
     timerDb: toTimerDb(pairs),
-    applyTimerDbUpdates: (updates) => Object.entries(updates).forEach(([encoded, words]) => {
-      const scoped = encoded.match(/^(edges|corners):(.*)$/), flat = scoped?.[2] ?? encoded;
-      const key = pairKey(flat[0], flat.slice(1)), entry = pairs[key] ?? { shared: [] };
-      writeEntry(key, scoped ? { ...entry, [scoped[1]]: words } : { ...entry, shared: words });
-    }),
+    applyTimerDbUpdates: (updates) =>
+      Object.entries(updates).forEach(([encoded, words]) => {
+        const scoped = encoded.match(/^(edges|corners):(.*)$/),
+          flat = scoped?.[2] ?? encoded;
+        const key = pairKey(flat[0], flat.slice(1)),
+          entry = pairs[key] ?? { shared: [] };
+        writeEntry(
+          key,
+          scoped
+            ? { ...entry, [scoped[1]]: words }
+            : { ...entry, shared: words },
+        );
+      }),
     solves,
     setSolves,
     sessions: sessions.map(({ id, name }) => ({ id, name })),
@@ -583,8 +644,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             };
           });
         });
-        return { ...current, pairs: next, pairSharing: "separate",
-          preferencesUpdatedAt: current.pairSharing === "separate" ? current.preferencesUpdatedAt : new Date().toISOString() };
+        return {
+          ...current,
+          pairs: next,
+          pairSharing: "separate",
+          preferencesUpdatedAt:
+            current.pairSharing === "separate"
+              ? current.preferencesUpdatedAt
+              : new Date().toISOString(),
+        };
       });
     },
     navGuard,
