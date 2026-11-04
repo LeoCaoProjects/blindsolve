@@ -3,6 +3,7 @@ import { Trash2Icon } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Segmented } from '../components/common/Segmented';
 import { ShortcutSheet } from '../components/common/ShortcutSheet';
+import { SubNavigation } from '../components/layout/SubNavigation';
 import { AppBar } from '../components/layout/AppBar';
 import { FirstTokenRail } from '../components/pairs/FirstTokenRail';
 import { GROUP, PairGroups, PairRow } from '../components/pairs/PairGroups';
@@ -178,11 +179,10 @@ export function LetterPairs() {
     <div className="flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar onShortcuts={sheet.openSheet} />
 
-      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[104px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)]">
-        <div className="min-h-0 min-w-0 overflow-hidden border-b border-line md:h-full md:border-b-0">
-          <FirstTokenRail tokens={axes} active={activeFirst} filled={filled} total={total} onSelect={selectFirst} />
-        </div>
-
+      <SubNavigation label="Letter Pairs navigation" title="Letter Pairs" trigger={<span>First letter <span className="ml-2 font-mono text-ink-2">{activeFirst}</span></span>}>
+        {(close)=><FirstTokenRail tokens={axes} active={activeFirst} filled={filled} total={total} onSelect={(token)=>{selectFirst(token);close();}} />}
+      </SubNavigation>
+      <div className="flex min-h-0 flex-1 flex-col">
         <main className="flex min-h-0 min-w-0 flex-col">
           <header className="flex shrink-0 flex-wrap items-end justify-between gap-4 px-5 pb-[clamp(12px,3vh,24px)] pt-[clamp(14px,3.5vh,32px)] md:px-10">
             <div className="flex items-baseline gap-4">

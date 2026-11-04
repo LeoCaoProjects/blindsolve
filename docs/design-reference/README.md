@@ -28,3 +28,7 @@ Implementation files:
 - `docs/design-reference/{README.md,magic-patterns-previous.zip}`: retained source and integration record.
 
 Validated using isolated guest browser fixtures rather than the user's production account. Existing account/hydration unit coverage remains in the full unit suite. No live signed-in account was modified. Visual checks include desktop, phone, 320px-wide and short landscape screens; the secondary sidebar becomes a controls sheet below 1024px. No new horizontal document overflow or unresolved visual issue was found in those checks.
+
+## Shared sub-navigation follow-up
+
+The contextual navigation is now shared by Training, Settings and Letter Pairs, with a 224px width. Training's four navigation descriptions were removed at the user's request. Pieces and Show share a restrained sliding indicator, and the old page-specific secondary sidebar wrapper was replaced by the persistent shared shell. See `docs/SUB_NAVIGATION.md` for current source mapping and motion details; the retained export remains unchanged.

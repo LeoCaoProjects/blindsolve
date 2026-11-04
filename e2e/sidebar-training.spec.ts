@@ -148,10 +148,11 @@ test('Training controls occupy a secondary desktop sidebar and preserve Show sta
       await expect(chooser).toHaveCount(0);
       const globalNav = await page.getByRole('navigation',{name:'Sections'}).boundingBox();
       const sidebar = page.getByRole('complementary',{name:'Training controls',exact:true});
+      await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(224);
       const side = await sidebar.boundingBox();
       const main = await page.getByRole('main').boundingBox();
       expect(side && globalNav && main && side.x >= globalNav.x + globalNav.width && main.x >= side.x + side.width).toBeTruthy();
-      expect(side?.width).toBe(264);
+      await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(224);
       for (const label of ['Drill','Pieces','Show']) await expect(page.getByRole('main').getByRole('radiogroup',{name:label,exact:true})).toHaveCount(0);
       const modes = await sidebar.getByRole('radiogroup',{name:'Drill'}).getByRole('radio').all();
       for (let i=1;i<modes.length;i++) {
