@@ -16,7 +16,7 @@ import { TraceReview } from '../components/training/review/TraceReview';
 import { TraceSprintWorkspace } from '../components/training/TraceSprintWorkspace';
 import { TrainingAside } from '../components/training/TrainingAside';
 import { TrainingDock } from '../components/training/TrainingDock';
-import { TrainingHeader } from '../components/training/TrainingHeader';
+import { TrainingHeader, TrainingClock } from '../components/training/TrainingHeader';
 import { TrainingHelp } from '../components/training/TrainingHelp';
 import { TrainingIdle } from '../components/training/TrainingIdle';
 import { modeInfo } from '../data/trainingModes';
@@ -92,9 +92,12 @@ export function Training() {
     <div data-training-challenge-id={t.challengeId} className="flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar className={busy ? 'opacity-[0.25]' : holding ? 'opacity-40' : ''} onShortcuts={sheet.openSheet} />
 
-      <div className={`grid min-h-0 flex-1 grid-cols-1 ${showAside ? 'xl:grid-cols-[minmax(0,1fr)_clamp(280px,24vw,360px)]' : ''}`}>
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <TrainingHeader t={t} />
+      <div className={`grid min-h-0 min-w-0 flex-1 grid-cols-1 ${showAside ? 'xl:grid-cols-[minmax(0,1fr)_clamp(280px,24vw,360px)]' : ''}`}>
         <main className="flex min-h-0 min-w-0 flex-col">
-          <TrainingHeader t={t} />
+          {(t.running || t.phase === 'report' || t.phase === 'review') && t.mode !== 'exec' &&
+          <div className="shrink-0 border-b border-line px-5 py-3 md:px-10"><TrainingClock t={t} /></div>}
 
           {executionSetup &&
           <section
@@ -163,6 +166,8 @@ export function Training() {
           recede={busy ? 'opacity-[0.15]' : holding ? 'opacity-60' : ''} />
 
         }
+      </div>
+
       </div>
 
       <AnimatePresence>
