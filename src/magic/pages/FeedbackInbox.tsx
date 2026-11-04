@@ -56,7 +56,7 @@ export function FeedbackInbox() {
   `No ${status === 'active' || status === 'all' ? '' : `${STATUS_LABEL[status].toLowerCase()} `}${CATEGORY_NOUN[category]}.`;
 
   return (
-    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar onShortcuts={sheet.openSheet} />
 
       <main className="flex min-h-0 flex-1 flex-col">

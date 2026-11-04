@@ -1,4 +1,4 @@
-import { BookAIcon, BrainIcon, GalleryVerticalEndIcon, LucideIcon, Settings2Icon, TimerIcon } from 'lucide-react';
+import { TypeIcon, TargetIcon, GalleryVerticalEndIcon, LucideIcon, SlidersHorizontalIcon, TimerIcon } from 'lucide-react';
 
 export interface NavItem {
   id: string;
@@ -10,12 +10,12 @@ export interface NavItem {
 
 export const primaryNav: NavItem[] = [
 { id: 'timer', label: 'Timer', short: 'Timer', path: '/', icon: TimerIcon },
-{ id: 'pairs', label: 'Letter Pairs', short: 'Pairs', path: '/pairs', icon: BookAIcon },
+{ id: 'pairs', label: 'Letter Pairs', short: 'Pairs', path: '/pairs', icon: TypeIcon },
 { id: 'flashcards', label: 'Flashcards', short: 'Cards', path: '/flashcards', icon: GalleryVerticalEndIcon },
-{ id: 'training', label: 'Training', short: 'Training', path: '/training', icon: BrainIcon }];
+{ id: 'training', label: 'Training', short: 'Training', path: '/training', icon: TargetIcon }];
 
 
-export const settingsNav: NavItem = { id: 'settings', label: 'Settings', short: 'Settings', path: '/settings', icon: Settings2Icon };
+export const settingsNav: NavItem = { id: 'settings', label: 'Settings', short: 'Settings', path: '/settings', icon: SlidersHorizontalIcon };
 
 export const settingsSections = [
 { id: 'cube', label: 'Cube & lettering' },
