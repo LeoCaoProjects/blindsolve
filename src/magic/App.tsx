@@ -15,6 +15,12 @@ import { FeedbackInbox } from './pages/FeedbackInbox';
 import { recordPage } from './utils/feedbackContext';
 import { SessionWorkspaceProvider } from './contexts/SessionWorkspaceContext';
 
+function RouteFrame({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  const hasNavigation = ['/', '/training', '/pairs', '/flashcards', '/settings', '/admin/feedback'].includes(pathname);
+  return <div className={`h-full min-w-0 ${hasNavigation ? 'pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0 md:pl-[72px]' : ''}`}>{children}</div>;
+}
+
 function PageTracker() {
   const { pathname } = useLocation();
   useEffect(() => recordPage(pathname), [pathname]);
@@ -39,7 +45,7 @@ export function App({ stage = 'live' }: AppProps) {
             <div className="theme-workspace h-[100dvh] w-full bg-bg">
               <PageTracker />
               <RouteMetadata />
-              <Routes>
+              <RouteFrame><Routes>
               <Route path="/" element={<Timer stage={stage} />} />
               <Route path="/about" element={<Navigate to="/" replace />} />
               <Route path="/pairs" element={<LetterPairs />} />
@@ -51,7 +57,7 @@ export function App({ stage = 'live' }: AppProps) {
               <Route path="/signin" element={<SignIn />} />
               <Route path="/admin/feedback" element={<FeedbackInbox />} />
               <Route path="*" element={<main className="p-8"><h1>Page not found</h1><a href="/">Return to the BlindSolve timer</a></main>} />
-              </Routes>
+              </Routes></RouteFrame>
             </div>
           </SessionWorkspaceProvider>
         </AppDataProvider>

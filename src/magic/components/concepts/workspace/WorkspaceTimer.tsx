@@ -83,7 +83,7 @@ export function WorkspaceTimer({
   });
 
   return (
-    <div className="theme-workspace flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
+    <div className="theme-workspace flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar
         className={recede}
         onShortcuts={s.openShortcuts}

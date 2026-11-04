@@ -318,10 +318,10 @@ test('Training tabs are ordered and an active Guided Solve keeps its phase and t
   await load(page);
   await page.goto('/training');
   await expect(page.getByRole('navigation', { name: 'Drill' }).getByRole('radio')).toHaveText([
-    'Execution Sprint',
-    'Guided Solve',
-    'Memo Recall',
-    'Trace Sprint',
+    'Execution SprintExecute physically from given memo',
+    'Guided SolveFull solve with tracing done for you',
+    'Memo RecallMemorise targets, then type them back',
+    'Trace SprintRead a scrambled cube into targets',
   ]);
   await page.getByRole('radio', { name: 'Guided Solve' }).click();
   const scramble = page.getByRole('region', { name: 'Scramble' });

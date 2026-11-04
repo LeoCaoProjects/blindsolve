@@ -175,7 +175,7 @@ export function LetterPairs() {
 
 
   return (
-    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-bg font-sans text-ink">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <AppBar onShortcuts={sheet.openSheet} />
 
       <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[104px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)]">
