@@ -8,10 +8,7 @@ interface FirstTokenRailProps {
   onSelect: (token: string) => void;
 }
 
-/**
- * The first letter of every pair. Scrolls on its own â€” vertically on desktop, horizontally on
- * narrow screens â€” with edge fades only while more letters exist in that direction.
- */
+/** Compact token/count grid, independently scrollable on short viewports. */
 export function FirstTokenRail({
   tokens,
   active,
