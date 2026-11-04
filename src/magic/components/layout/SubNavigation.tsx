@@ -49,13 +49,19 @@ export function SubNavFrame({ children }: { children: React.ReactNode }) {
   useLayoutEffect(() => {
     const previous = previousInset.current;
     previousInset.current = inset;
+    if (reduced) {
+      animation.current?.cancel();
+      return;
+    }
     if (previous === null || previous === inset || !workspace.current) return;
+    const transform = getComputedStyle(workspace.current).transform;
+    const interruptedOffset =
+      transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
     animation.current?.cancel();
-    if (reduced) return;
     // Commit the final column once; animate only the visual displacement.
     animation.current = workspace.current.animate(
       [
-        { transform: `translateX(${previous - inset}px)` },
+        { transform: `translateX(${previous - inset + interruptedOffset}px)` },
         { transform: "translateX(0)" },
       ],
       { duration: 180, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },

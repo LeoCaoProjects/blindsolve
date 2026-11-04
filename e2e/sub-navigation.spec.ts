@@ -319,3 +319,67 @@ test("Letter Pairs keeps every token, live counts and workspace keyboard navigat
     page.getByRole("heading", { name: "Pairs starting with C", exact: true }),
   ).toBeVisible();
 });
+
+test("reversing a sidebar transition preserves its current visual position", async ({
+  page,
+}) => {
+  await page.goto("/training");
+  await expect(
+    page.getByRole("region", { name: "Scramble" }).locator(".sr-only"),
+  ).toContainText("Scramble ");
+  const positions = await page.evaluate(async () => {
+    const workspace = document.querySelector<HTMLElement>(
+      "[data-page-workspace]",
+    )!;
+    const outgoing = await new Promise<Animation>((resolve) => {
+      const observer = new MutationObserver(() => {
+        const animation = workspace.getAnimations()[0];
+        if (!animation) return;
+        animation.pause();
+        animation.currentTime = 45;
+        observer.disconnect();
+        resolve(animation);
+      });
+      observer.observe(document.querySelector("[data-subnav-column]")!, {
+        attributes: true,
+        attributeFilter: ["style"],
+      });
+      document
+        .querySelector<HTMLAnchorElement>(
+          'nav[aria-label="Sections"] a[href="/"]',
+        )!
+        .click();
+    });
+    const before = workspace.getBoundingClientRect().x;
+    const after = await new Promise<number>((resolve) => {
+      const observer = new MutationObserver(() => {
+        const incoming = workspace
+          .getAnimations()
+          .find((animation) => animation !== outgoing);
+        if (!incoming) return;
+        incoming.pause();
+        incoming.currentTime = 0;
+        observer.disconnect();
+        resolve(workspace.getBoundingClientRect().x);
+        incoming.finish();
+      });
+      observer.observe(document.querySelector("[data-subnav-column]")!, {
+        attributes: true,
+        attributeFilter: ["style"],
+      });
+      document
+        .querySelector<HTMLAnchorElement>(
+          'nav[aria-label="Sections"] a[href="/training"]',
+        )!
+        .click();
+    });
+    return { before, after };
+  });
+  expect(Math.abs(positions.before - positions.after)).toBeLessThan(1);
+  await expect
+    .poll(
+      async () =>
+        (await page.locator("[data-page-workspace]").boundingBox())!.x,
+    )
+    .toBe(296);
+});
