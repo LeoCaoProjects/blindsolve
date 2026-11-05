@@ -13,7 +13,10 @@ const section = (piece: "edge" | "corner", count: number) => {
     secondStickerId: stickers[(i * 2 + 1) % stickers.length].id,
     firstToken: stickers[(i * 2) % stickers.length].label,
     secondToken: stickers[(i * 2 + 1) % stickers.length].label,
-    mnemonic: `Mnemonic ${i + 1}`,
+    mnemonic:
+      count === 1
+        ? "Mnemonic 1"
+        : `Mnemonic ${i + 1} � Operating Room and Experience orb with a deliberately long complete phrase`,
   }));
 };
 const base = {
@@ -100,6 +103,20 @@ for (const [width, height] of [
         modes.boundingBox(),
       ]);
     const before = await measure();
+    console.log("TIMER_STRIP_GEOMETRY", {
+      width,
+      height,
+      header: before[0]!.height,
+      footer: before[4]!.height,
+      selector: before[5]!.height,
+    });
+    const scrambleContent = (await scramble
+      .locator(":scope > div")
+      .first()
+      .boundingBox())!;
+    expect(before[5]!.y).toBeGreaterThanOrEqual(
+      scrambleContent.y + scrambleContent.height,
+    );
     expect(before[2]!.x).toBe(width >= 768 ? 168 : 24);
     expect(
       (await scramble.locator(":scope > div").first().boundingBox())!.x,
@@ -109,7 +126,12 @@ for (const [width, height] of [
         .x,
     ).toBe(before[2]!.x);
     expect(before[1]!.y).toBeLessThan(before[0]!.y + 40);
-    expect(before[5]!.height).toBeLessThanOrEqual(28);
+    expect(before[5]!.height).toBe(24);
+    expect(before[4]!.height).toBe(80);
+    expect(before[5]!.y).toBeGreaterThan(before[0]!.y);
+    expect(before[5]!.y + before[5]!.height).toBeLessThanOrEqual(
+      before[0]!.y + before[0]!.height,
+    );
     expect(before[5]!.width).toBeLessThan(170);
     await expect(footer).not.toContainText("DNF");
     await expect(footer).not.toContainText("8:28.66");
@@ -143,10 +165,10 @@ for (const [width, height] of [
       if (mode === "Edges") {
         const content = footer.getByLabel("Previous memo content");
         expect(
-          await content.evaluate((el) => el.scrollHeight > el.clientHeight),
+          await content.evaluate((el) => el.scrollWidth > el.clientWidth),
         ).toBe(true);
         expect(
-          await content.evaluate((el) => el.scrollWidth <= el.clientWidth),
+          await content.evaluate((el) => el.scrollHeight <= el.clientHeight),
         ).toBe(true);
       }
       expect(
@@ -178,6 +200,10 @@ for (const [width, height] of [
 for (const mode of ["3bld", "corners"] as const)
   for (const [width, height] of [
     [1440, 900],
+    [1280, 720],
+    [1024, 768],
+    [900, 560],
+    [390, 844],
     [320, 568],
   ])
     test(`long ${mode} memo remains readable in its reserved footer at ${width}`, async ({
@@ -216,16 +242,84 @@ for (const mode of ["3bld", "corners"] as const)
         footer.getByRole("region", { name: "Previous corners memo" }),
       ).toBeVisible();
       const before = await footer.boundingBox();
+      expect(before!.height).toBe(80);
+      const label = footer.getByRole("heading", { name: "Last memo" });
+      const labelBefore = await label.boundingBox();
+      const entries = footer.locator("li");
+      const rows = await entries.evaluateAll((elements) =>
+        elements.map((el) => ({
+          y: el.getBoundingClientRect().y,
+          height: el.getBoundingClientRect().height,
+          whiteSpace: getComputedStyle(el).whiteSpace,
+        })),
+      );
+      expect(rows.length).toBeGreaterThanOrEqual(20);
+      expect(new Set(rows.map((row) => row.y)).size).toBe(1);
+      expect(
+        rows.every((row) => row.whiteSpace === "nowrap" && row.height <= 20),
+      ).toBe(true);
+      expect(
+        await content.evaluate((el) => el.scrollWidth > el.clientWidth),
+      ).toBe(true);
+      await content.hover();
+      if (width === 320) {
+        const box = (await content.boundingBox())!;
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true });
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchStart",
+          touchPoints: [
+            { x: box.x + box.width - 10, y: box.y + box.height / 2 },
+          ],
+        });
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ x: box.x + 10, y: box.y + box.height / 2 }],
+        });
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchEnd",
+          touchPoints: [],
+        });
+        await expect
+          .poll(() => content.evaluate((el) => el.scrollLeft))
+          .toBeGreaterThan(0);
+        await cdp.detach();
+        await content.evaluate((el) => {
+          el.scrollLeft = 0;
+        });
+      }
+      await page.mouse.wheel(0, 220);
+      await expect
+        .poll(() => content.evaluate((el) => el.scrollLeft))
+        .toBeGreaterThan(0);
+      expect(await label.boundingBox()).toEqual(labelBefore);
       const last = footer
         .getByRole("region", { name: "Previous corners memo" })
-        .getByText("Mnemonic 20", { exact: true });
+        .getByText(/^Mnemonic 20 � Operating Room/);
       await last.scrollIntoViewIfNeeded();
       await expect(last).toBeInViewport();
       expect(
-        await content.evaluate((el) => el.scrollWidth <= el.clientWidth),
+        await content.evaluate((el) => el.scrollHeight <= el.clientHeight),
       ).toBe(true);
       const after = await footer.boundingBox();
       expect(after).toEqual(before);
+      expect(await label.boundingBox()).toEqual(labelBefore);
+      expect(
+        await last.evaluate(
+          (el) =>
+            el.scrollWidth <= el.clientWidth &&
+            getComputedStyle(el).textOverflow !== "ellipsis",
+        ),
+      ).toBe(true);
+      if (process.env.TIMER_REFINEMENT_DIR) {
+        await mkdir(process.env.TIMER_REFINEMENT_DIR, { recursive: true });
+        await page.screenshot({
+          path: join(
+            process.env.TIMER_REFINEMENT_DIR,
+            `long-${mode}-${width}.png`,
+          ),
+        });
+      }
     });
 
 for (const reduced of [false, true])

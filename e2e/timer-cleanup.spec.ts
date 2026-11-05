@@ -106,7 +106,8 @@ for (const [width, height] of sizes)
       .getByRole("region", { name: "Scramble", exact: true })
       .boundingBox())!;
     expect(modeBox.height).toBeLessThanOrEqual(28);
-    expect(modeBox.y).toBeGreaterThanOrEqual(
+    expect(modeBox.y).toBeGreaterThan(scrambleBox.y);
+    expect(modeBox.y + modeBox.height).toBeLessThanOrEqual(
       scrambleBox.y + scrambleBox.height,
     );
     await contained(page);
@@ -121,10 +122,24 @@ for (const [width, height] of sizes)
     const panel = page.getByRole("dialog");
     const summary = panel.getByRole("region", { name: "Solve summary" });
     await expect(summary).toContainText("8:28.66");
-    await expect(summary).toContainText("Memorisation");
-    await expect(summary).toContainText("Execution");
+    await expect(summary).toContainText("memo");
+    await expect(summary).toContainText("exec");
     await expect(summary.locator("time")).toContainText(/2026, \d\d:\d\d/);
-    await expect(summary).not.toContainText(/#\d|·|key [123]/);
+    await expect(summary).not.toContainText(/·|key [123]/);
+    await expect(summary).toContainText("#2");
+    expect(
+      await summary.evaluate(
+        (el) =>
+          getComputedStyle(el.parentElement!.parentElement!).backgroundColor,
+      ),
+    ).toBe("rgb(31, 31, 32)");
+    await page.keyboard.press("3");
+    await expect(summary.getByLabel("raw 8:28.66")).toBeVisible();
+    expect(
+      await summary
+        .getByLabel("raw 8:28.66")
+        .evaluate((el) => getComputedStyle(el).textDecorationLine),
+    ).toContain("line-through");
     await expect(
       panel.getByRole("button", { name: "Delete solve", exact: true }),
     ).toBeVisible();

@@ -7,7 +7,7 @@ interface ResultControlProps {
   value: Penalty;
   onChange: (p: Penalty) => void;
   className?: string;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "original";
 }
 
 const OPTIONS: { value: Penalty; label: string }[] = [
@@ -36,7 +36,8 @@ export function ResultControl({
             OPTIONS.length) %
           OPTIONS.length;
         onChange(OPTIONS[next].value);
-        const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>("button");
+        const buttons =
+          event.currentTarget.querySelectorAll<HTMLButtonElement>("button");
         buttons[next]?.focus();
       }}
       className={`inline-flex rounded-[5px] border border-line p-[3px] ${className}`}
@@ -53,9 +54,11 @@ export function ResultControl({
             aria-keyshortcuts={String(i + 1)}
             onClick={() => onChange(o.value)}
             className={`relative rounded-[3px] transition-colors duration-150 ease-out ${
-              size === "sm"
-                ? "h-7 min-w-[38px] px-2 text-[12px]"
-                : "h-8 min-w-[48px] px-3 text-[13px]"
+              size === "original"
+                ? "h-7 min-w-[46px] px-3 font-mono text-[12.5px]"
+                : size === "sm"
+                  ? "h-7 min-w-[38px] px-2 text-[12px]"
+                  : "h-8 min-w-[48px] px-3 text-[13px]"
             } ${active ? "text-ink" : "text-ink-3 hover:text-ink-2"}`}
           >
             {active && (

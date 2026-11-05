@@ -67,10 +67,11 @@ export function WorkspaceSolveDetails({
         transition={{ duration: 0.22, ease: EASE_OUT }}
         className="absolute inset-y-0 right-0 flex w-[min(780px,100vw)] flex-col border-l border-line bg-raised shadow-overlay"
       >
-        <div className="grid shrink-0 grid-cols-1 border-b border-line sm:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="min-w-0 px-5 py-4 md:px-9">
+        <div className="grid h-[clamp(200px,34vh,300px)] shrink-0 grid-cols-1 border-b border-line bg-surface sm:grid-cols-[minmax(0,1fr)_clamp(150px,34vh,300px)]">
+          <div className="flex min-w-0 flex-col px-5 py-[clamp(16px,3.5vh,32px)] md:px-9">
             <SolveSummary
               date={solve.date}
+              index={solve.index}
               time={solve.time}
               memoTime={solve.memoTime}
               penalty={solve.penalty}
@@ -79,7 +80,7 @@ export function WorkspaceSolveDetails({
           </div>
           <div
             ref={cubeRef}
-            className="hidden min-h-0 items-center justify-center overflow-hidden sm:flex"
+            className="hidden min-h-0 items-center justify-center overflow-hidden border-l border-line sm:flex"
           >
             <Cube3D state={cube} size={cubeSize} label="Cube after scramble" />
           </div>
