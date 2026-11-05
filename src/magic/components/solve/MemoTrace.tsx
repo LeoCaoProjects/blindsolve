@@ -10,6 +10,8 @@ interface MemoTraceProps {
   words?: string[];
   renderWord?: (pair: string, i: number) => React.ReactNode;
   hideWords?: boolean;
+  /** Keep the historical pair-over-word presentation in one untruncated row. */
+  nowrap?: boolean;
   size?: TraceSize;
   className?: string;
 }
@@ -45,17 +47,18 @@ export function MemoTrace({
   words,
   renderWord,
   hideWords = false,
+  nowrap = false,
   size = 'md',
   className = ''
 }: MemoTraceProps) {
   return (
-    <ol className={`flex flex-wrap ${GAP[size]} ${className}`}>
+    <ol className={`flex ${nowrap ? 'flex-nowrap' : 'flex-wrap'} ${GAP[size]} ${className}`}>
       {pairs.map((pair, i) => {
         const start = i * 2;
         const pending = breakAt !== null && !resolved && start + pair.length - 1 >= breakAt;
         const active = activePair === pair;
         return (
-          <li key={`${pair}-${i}`} className="flex min-w-[2.6ch] flex-col">
+          <li key={`${pair}-${i}`} className={`flex min-w-[2.6ch] flex-col ${nowrap ? 'shrink-0 whitespace-nowrap' : ''}`}>
             <span
               className={`font-mono leading-none tracking-[0.14em] ${LETTER_SIZE[size]} ${
               active ? 'text-accent' : 'text-ink'}`
@@ -89,7 +92,7 @@ export function MemoTrace({
               })}
             </span>
             {!hideWords &&
-            <span className={`mt-1.5 max-w-[11rem] truncate leading-snug text-ink-2 ${WORD_SIZE[size]}`}>
+            <span className={`mt-1.5 ${nowrap ? '' : 'max-w-[11rem] truncate'} leading-snug text-ink-2 ${WORD_SIZE[size]}`}>
                 {pending ? '\u00a0' : renderWord ? renderWord(pair, i) : words?.[i] ?? '\u00a0'}
               </span>
             }

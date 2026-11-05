@@ -10,14 +10,12 @@ import { SplitMeter } from "./SplitMeter";
  */
 export function SolveSummary({
   date,
-  index,
   time,
   memoTime,
   penalty,
   onPenalty,
 }: {
   date: string;
-  index?: number;
   time: number;
   memoTime?: number;
   penalty: Penalty;
@@ -30,9 +28,6 @@ export function SolveSummary({
     >
       <div className="flex items-center justify-between">
         <p className="flex items-baseline gap-3 text-[12.5px] text-ink-3">
-          {index !== undefined && (
-            <span className="font-mono tnum">#{index}</span>
-          )}
           <time dateTime={date}>{formatSolveDate(date)}</time>
         </p>
       </div>

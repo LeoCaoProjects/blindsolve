@@ -80,7 +80,7 @@ export function WorkspaceTimer({
 
   return (
     <div className="theme-workspace flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
-      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(92px,22dvh)] md:grid-cols-[minmax(0,1fr)_clamp(280px,28vw,392px)] md:grid-rows-1">
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(128px,25dvh)] md:grid-cols-[minmax(0,1fr)_clamp(280px,28vw,392px)] md:grid-rows-1">
         <main className="flex min-h-0 min-w-0 flex-col">
           <section
             aria-label="Scramble"
@@ -129,16 +129,6 @@ export function WorkspaceTimer({
             >
               <RefreshCwIcon size={14} strokeWidth={1.75} />
             </button>
-            <TimerModeControl
-              value={s.timerMode}
-              onChange={s.setTimerMode}
-              disabled={
-                s.running ||
-                s.overlayOpen ||
-                phase === "armed" ||
-                phase === "ready"
-              }
-            />
             {s.scrambleError && s.scramble && (
               <span
                 role="alert"
@@ -177,20 +167,42 @@ export function WorkspaceTimer({
         <aside
           className={`flex min-h-0 flex-col border-t border-line bg-surface transition-opacity duration-300 ease-out md:border-l md:border-t-0 ${recede}`}
         >
-          <div
-            ref={cubeRef}
-            className="relative hidden h-[clamp(170px,36vh,330px)] shrink-0 items-center justify-center border-b border-line md:flex"
-          >
-            <Cube3D state={s.cubeState} size={cubeSize} showLetters={letters} />
-            <IconButton
-              size="sm"
-              label="Sticker letters"
-              pressed={letters}
-              onClick={() => setLetters((v) => !v)}
-              className="absolute bottom-3 right-3"
+          <div className="flex h-8 shrink-0 flex-col border-b border-line md:h-[clamp(170px,36vh,330px)]">
+            <div
+              role="group"
+              aria-label="Timer utilities"
+              className="flex h-8 shrink-0 items-center justify-end px-3"
             >
-              <CaseSensitiveIcon />
-            </IconButton>
+              <TimerModeControl
+                value={s.timerMode}
+                onChange={s.setTimerMode}
+                disabled={
+                  s.running ||
+                  s.overlayOpen ||
+                  phase === "armed" ||
+                  phase === "ready"
+                }
+              />
+            </div>
+            <div
+              ref={cubeRef}
+              className="relative hidden min-h-0 flex-1 items-center justify-center md:flex"
+            >
+              <Cube3D
+                state={s.cubeState}
+                size={cubeSize}
+                showLetters={letters}
+              />
+              <IconButton
+                size="sm"
+                label="Sticker letters"
+                pressed={letters}
+                onClick={() => setLetters((v) => !v)}
+                className="absolute bottom-3 right-3"
+              >
+                <CaseSensitiveIcon />
+              </IconButton>
+            </div>
           </div>
           <WorkspaceHistory
             solves={s.solves}

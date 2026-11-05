@@ -71,7 +71,6 @@ export function WorkspaceSolveDetails({
           <div className="flex min-w-0 flex-col px-5 py-[clamp(16px,3.5vh,32px)] md:px-9">
             <SolveSummary
               date={solve.date}
-              index={solve.index}
               time={solve.time}
               memoTime={solve.memoTime}
               penalty={solve.penalty}
