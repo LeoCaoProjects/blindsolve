@@ -3,8 +3,8 @@
 Training, Settings and Letter Pairs use the persistent `SubNavFrame` in the route shell. Pages render their existing state-driven controls through `SubNavigation` into that column; they keep ownership of their state, callbacks and dialogs. Timer and other pages have zero contextual-column width.
 
 - Width: `SUB_NAV_WIDTH = 224` in `src/magic/components/layout/SubNavigation.tsx`, reduced from Training's previous 264px. It fits the longest labels with comfortable padding and gives the exercise more room.
-- Desktop: real flex-column width animates between 0 and 224px. The workspace flexes alongside it. Navigation between contextual pages preserves the same column and width; only its contents change.
-- Motion: width 220ms, content opacity 160ms, Pieces/Show shared sliding indicator 180ms. All use cubic-bezier `(0.22, 1, 0.36, 1)` without a spring. Reduced motion sets these durations to zero.
+- Desktop: the real flex-column width commits once to 0 or 224px. A translation visually moves the workspace from its previous position without scaling text or animating layout dimensions. Navigation between contextual pages preserves the same column and width; only its contents change.
+- Motion: workspace translation 180ms, content opacity 160ms, Pieces/Show shared sliding indicator 180ms. All use cubic-bezier `(0.22, 1, 0.36, 1)` without a spring. Reduced motion sets these durations to zero.
 - Narrow screens: below 1024px, each page has one contextual-navigation trigger opening the existing Sheet component. No empty desktop column is reserved. Choosing a Settings section or letter closes its sheet; Training keeps the sheet open for mode/scope/display adjustments.
 - Styling: shared row padding, typography, active surface, section heading hierarchy, overflow and focus treatment use the current application theme. No global font or colour changes.
 
@@ -14,7 +14,7 @@ Training removes only the four redundant navigation descriptions. Its four modes
 
 Settings supplies its six existing section actions and scrollspy state. The setup route stays a separate utility link beneath the sections. The workspace has no internal navigation column or old reserved left footer padding. Staged setup changes, immediate preferences, loading, saving and leave confirmation retain their original handlers.
 
-Letter Pairs supplies its existing tokens, selected token and computed counts. A compact vertical index separates the stronger token from a quieter right-aligned count. It scrolls independently and keeps the selected entry visible without scrolling the animated shell. Existing pair-grid keyboard behavior stays unchanged; the token index also has a roving tab stop and Up/Down/Home/End navigation.
+Letter Pairs supplies its existing tokens, selected token and computed counts. A compact two-column grid places each token beside its quieter count. Its thin scrollbar has a transparent track and stable gutter. It scrolls independently and keeps the selected entry visible without scrolling the animated shell. Existing pair-grid keyboard behavior stays unchanged; the token index also has a roving tab stop and Up/Down/Home/End navigation.
 
 ## Changed implementation
 
@@ -30,4 +30,4 @@ Verification uses isolated guest fixtures; it does not modify the user's product
 
 ## Verification
 
-Local verification passed: 195 unit tests; the full 41-test browser suite; production build/type checking; lint; SEO checks. After the final Settings alignment refinement, all five focused sub-navigation tests passed again against the rebuilt production output. Browser review covered desktop and mobile surfaces. Automated checks cover 1440×900, 1280×720, 1024×768, 900×560, 390×844 and 320×568, including actual intermediate layout/indicator positions, reduced motion, stable contextual-to-contextual width and horizontal containment.
+The integrity/performance pass passed 222 unit tests, the full existing 43-test browser suite, and 21 focused checks against the final build (including overlapping sub-navigation tests). Type checking, production build, lint and SEO checks passed. The combined CI suite includes 57 browser tests. Coverage includes 1440x900, 1280x720, 1024x768, 900x560, 390x844 and 320x568, measured intermediate workspace/indicator positions, reduced motion, stable contextual width, scramble geometry, equal control segments and horizontal containment.

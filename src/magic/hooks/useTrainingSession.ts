@@ -68,40 +68,53 @@ const SEEDED_MS: Record<TrainMode, { total: number; split?: number }> = {
   exec: { total: 48210 },
   guided: { total: 61270, split: 25120 },
 };
-const MODE_SEED_OFFSET: Record<TrainMode, number> = { exec: 0, guided: 101, recall: 202, trace: 303 };
+const MODE_SEED_OFFSET: Record<TrainMode, number> = {
+  exec: 0,
+  guided: 101,
+  recall: 202,
+  trace: 303,
+};
 
-export function useTrainingSession(init: TrainInit, active = true, sharedFilter?: TrainFilter, onSharedFilterChange?: (filter: TrainFilter) => void) {
+export function useTrainingSession(
+  init: TrainInit,
+  active = true,
+  sharedFilter?: TrainFilter,
+  onSharedFilterChange?: (filter: TrainFilter) => void,
+) {
   const store = useStore();
   const { setup, pairs, prefs } = useAppData();
   const vocabulary = useMemo(() => tokensOf(setup.scheme), [setup.scheme]);
   const [mode, setModeState] = useState<TrainMode>(init.mode ?? "exec");
-  const [localFilter, setFilterState] = useState<TrainFilter>(init.filter ?? "both");
+  const [localFilter, setFilterState] = useState<TrainFilter>(
+    init.filter ?? "both",
+  );
   const filter = sharedFilter ?? localFilter;
   const [phase, setPhase] = useState<TrainPhase>(init.phase ?? "idle");
-  const initialSeed = init.seed ?? FIRST_EXEC_SEED + MODE_SEED_OFFSET[init.mode ?? "exec"];
+  const initialSeed =
+    init.seed ?? FIRST_EXEC_SEED + MODE_SEED_OFFSET[init.mode ?? "exec"];
   const [seed, setSeed] = useState(initialSeed);
   // Local/account/cloud data arrives after mount; history must follow the store.
-  const history = useMemo<Attempt[]>(() =>
-    store.data.attempts
-      .filter(
-        (attempt) =>
-          attempt.kind === "memo" &&
-          attempt.trainingMode &&
-          attempt.trainingMode !== "full" &&
-          attempt.durationMs !== undefined,
-      )
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .map((attempt) => ({
-        id: attempt.id,
-        mode: attempt.trainingMode as TrainMode,
-        ms: attempt.durationMs!,
-        targets: attempt.targets ?? 0,
-        correct: attempt.correct,
-        pairs: attempt.pairs,
-        memoMs: attempt.memoMs,
-        executionMs: attempt.executionMs,
-      })),
-    [store.data.attempts],
+  const history = useMemo<Attempt[]>(
+    () =>
+      store.data.attempts
+        .filter(
+          (attempt) =>
+            attempt.kind === "memo" &&
+            attempt.trainingMode === mode &&
+            attempt.durationMs !== undefined,
+        )
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map((attempt) => ({
+          id: attempt.id,
+          mode: attempt.trainingMode as TrainMode,
+          ms: attempt.durationMs!,
+          targets: attempt.targets ?? 0,
+          correct: attempt.correct,
+          pairs: attempt.pairs,
+          memoMs: attempt.memoMs,
+          executionMs: attempt.executionMs,
+        })),
+    [store.data.attempts, mode],
   );
   const [now, setNow] = useState(() => performance.now());
   const [display, setDisplay] = useState<ExecDisplay>(
@@ -120,10 +133,14 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
   const submittedAttemptIdRef = useRef<string | null>(null);
 
   // Execution-oriented drills trace the exact state produced by the shown scramble.
+  const [failedScrambleKey, setFailedScrambleKey] = useState<string | null>(
+    null,
+  );
   const preparedScramble = useExecScramble(
     filter,
     seed,
     mode === "exec" || mode === "guided",
+    setFailedScrambleKey,
   );
   const scramble = preparedScramble ?? "";
   const scrambleReady =
@@ -173,7 +190,10 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
     previousFilterRef.current = filter;
     submittedChallengeRef.current = null;
     phaseRef.current = "idle";
-    setPhase("idle"); setInputs([]); setReport("solved"); setTimes(seededTimes({ mode }));
+    setPhase("idle");
+    setInputs([]);
+    setReport("solved");
+    setTimes(seededTimes({ mode }));
   }, [filter, mode]);
   const running =
     phase === "active" ||
@@ -308,9 +328,7 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
     (id: string) => {
       store.update((data) => ({
         ...data,
-        attempts: data.attempts.filter(
-          (attempt) => attempt.id !== id,
-        ),
+        attempts: data.attempts.filter((attempt) => attempt.id !== id),
       }));
     },
     [store],
@@ -347,7 +365,8 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
       if (!attemptId) return;
       store.update((data) => {
         const index = data.attempts.findIndex(
-          (attempt) => attempt.id === attemptId && attempt.trainingMode === "exec",
+          (attempt) =>
+            attempt.id === attemptId && attempt.trainingMode === "exec",
         );
         if (index < 0) return data;
         const attempts = [...data.attempts];
@@ -447,7 +466,8 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
   };
   const setFilter = (f: TrainFilter) => {
     if (phaseRef.current !== "idle" || f === filter) return;
-    if (onSharedFilterChange) onSharedFilterChange(f); else setFilterState(f);
+    if (onSharedFilterChange) onSharedFilterChange(f);
+    else setFilterState(f);
     submittedChallengeRef.current = null;
     phaseRef.current = "idle";
     setPhase("idle");
@@ -507,7 +527,16 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, phase, mode, toRecall, submit, startExecution, stopGuided, finishGuided]);
+  }, [
+    active,
+    phase,
+    mode,
+    toRecall,
+    submit,
+    startExecution,
+    stopGuided,
+    finishGuided,
+  ]);
 
   const clock = running ? now : (times.end ?? now);
   const elapsed = {
@@ -529,6 +558,7 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
     challengeId: `${filter}:${seed}`,
     scramble,
     scrambleReady,
+    scrambleError: failedScrambleKey === `${filter}:${seed}` && !scrambleReady,
     groups,
     vocabulary,
     targets,
@@ -552,7 +582,7 @@ export function useTrainingSession(init: TrainInit, active = true, sharedFilter?
     results,
     allCorrect: results.every((g) => g.correct),
     elapsed,
-    history: history.filter((h) => h.mode === mode),
+    history,
     display,
     setDisplay,
     report,

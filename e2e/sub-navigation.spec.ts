@@ -70,7 +70,10 @@ async function recordNavigation(page: Page, label: string) {
       });
       if (recorder.navFrames.length < 40) requestAnimationFrame(sample);
     };
-    requestAnimationFrame(sample);
+    document.addEventListener("click", () => requestAnimationFrame(sample), {
+      once: true,
+      capture: true,
+    });
   });
   await page
     .getByRole("navigation", { name: "Sections" })
@@ -103,18 +106,21 @@ test("shared sub nav moves the real workspace and stays stable between contextua
     const frames = await recordNavigation(page, label);
     expect(
       frames.every(
-        (frame) => !frame.overflow && Math.abs(frame.x - 72 - frame.width) < 1,
+        (frame) =>
+          !frame.overflow &&
+          (Math.abs(frame.width) < 1 || Math.abs(frame.width - 224) < 1) &&
+          frame.x >= 71 &&
+          frame.x <= 297,
       ),
     ).toBe(true);
     expect(Math.abs(frames.at(-1)!.width - to)).toBeLessThan(0.5);
+    expect(Math.abs(frames.at(-1)!.x - 72 - to)).toBeLessThan(0.5);
     if (from === to)
       expect(frames.every((frame) => Math.abs(frame.width - 224) < 0.5)).toBe(
         true,
       );
     else
-      expect(frames.some((frame) => frame.width > 1 && frame.width < 223)).toBe(
-        true,
-      );
+      expect(frames.some((frame) => frame.x > 73 && frame.x < 295)).toBe(true);
     if (label === "Settings") {
       const headings = frames.flatMap((frame) =>
         frame.headingX === null ? [] : [frame.headingX],
@@ -152,7 +158,11 @@ test("sliding selection is shared, responsive and respects reduced motion", asyn
             if (positions.length < 30) requestAnimationFrame(sample);
             else resolve(positions);
           };
-          requestAnimationFrame(sample);
+          document.addEventListener(
+            "click",
+            () => requestAnimationFrame(sample),
+            { once: true, capture: true },
+          );
         }),
       group,
     );
@@ -312,4 +322,68 @@ test("Letter Pairs keeps every token, live counts and workspace keyboard navigat
   await expect(
     page.getByRole("heading", { name: "Pairs starting with C", exact: true }),
   ).toBeVisible();
+});
+
+test("reversing a sidebar transition preserves its current visual position", async ({
+  page,
+}) => {
+  await page.goto("/training");
+  await expect(
+    page.getByRole("region", { name: "Scramble" }).locator(".sr-only"),
+  ).toContainText("Scramble ");
+  const positions = await page.evaluate(async () => {
+    const workspace = document.querySelector<HTMLElement>(
+      "[data-page-workspace]",
+    )!;
+    const outgoing = await new Promise<Animation>((resolve) => {
+      const observer = new MutationObserver(() => {
+        const animation = workspace.getAnimations()[0];
+        if (!animation) return;
+        animation.pause();
+        animation.currentTime = 45;
+        observer.disconnect();
+        resolve(animation);
+      });
+      observer.observe(document.querySelector("[data-subnav-column]")!, {
+        attributes: true,
+        attributeFilter: ["style"],
+      });
+      document
+        .querySelector<HTMLAnchorElement>(
+          'nav[aria-label="Sections"] a[href="/"]',
+        )!
+        .click();
+    });
+    const before = workspace.getBoundingClientRect().x;
+    const after = await new Promise<number>((resolve) => {
+      const observer = new MutationObserver(() => {
+        const incoming = workspace
+          .getAnimations()
+          .find((animation) => animation !== outgoing);
+        if (!incoming) return;
+        incoming.pause();
+        incoming.currentTime = 0;
+        observer.disconnect();
+        resolve(workspace.getBoundingClientRect().x);
+        incoming.finish();
+      });
+      observer.observe(document.querySelector("[data-subnav-column]")!, {
+        attributes: true,
+        attributeFilter: ["style"],
+      });
+      document
+        .querySelector<HTMLAnchorElement>(
+          'nav[aria-label="Sections"] a[href="/training"]',
+        )!
+        .click();
+    });
+    return { before, after };
+  });
+  expect(Math.abs(positions.before - positions.after)).toBeLessThan(1);
+  await expect
+    .poll(
+      async () =>
+        (await page.locator("[data-page-workspace]").boundingBox())!.x,
+    )
+    .toBe(296);
 });

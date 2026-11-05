@@ -2,6 +2,8 @@ import React, {
   createContext,
   useContext,
   useMemo,
+  useLayoutEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -32,7 +34,7 @@ const Context = createContext<{
   target: HTMLDivElement | null;
 }>({ desktop: false, target: null });
 
-/** Persistent real layout column: route changes never remount its width animation. */
+/** Persistent layout column; only the workspace translation animates on width changes. */
 export function SubNavFrame({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const desktop = useSyncExternalStore(subscribe, snapshot, () => true);
@@ -40,6 +42,32 @@ export function SubNavFrame({ children }: { children: React.ReactNode }) {
   const page = pages[pathname];
   const [target, setTarget] = useState<HTMLDivElement | null>(null);
   const value = useMemo(() => ({ desktop, target }), [desktop, target]);
+  const workspace = useRef<HTMLDivElement>(null);
+  const previousInset = useRef<number | null>(null);
+  const animation = useRef<Animation | null>(null);
+  const inset = desktop && page ? SUB_NAV_WIDTH : 0;
+  useLayoutEffect(() => {
+    const previous = previousInset.current;
+    previousInset.current = inset;
+    if (reduced) {
+      animation.current?.cancel();
+      return;
+    }
+    if (previous === null || previous === inset || !workspace.current) return;
+    const transform = getComputedStyle(workspace.current).transform;
+    const interruptedOffset =
+      transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
+    animation.current?.cancel();
+    // Commit the final column once; animate only the visual displacement.
+    animation.current = workspace.current.animate(
+      [
+        { transform: `translateX(${previous - inset + interruptedOffset}px)` },
+        { transform: "translateX(0)" },
+      ],
+      { duration: 180, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    );
+  }, [inset, reduced]);
+  useLayoutEffect(() => () => animation.current?.cancel(), []);
   return (
     <Context.Provider value={value}>
       <div
@@ -47,13 +75,11 @@ export function SubNavFrame({ children }: { children: React.ReactNode }) {
         data-subnav-shell
       >
         {desktop && (
-          <motion.aside
+          <aside
             aria-label={page?.label ?? "Contextual navigation"}
             aria-hidden={!page}
             data-subnav-column
-            initial={false}
-            animate={{ width: page ? SUB_NAV_WIDTH : 0 }}
-            transition={{ duration: reduced ? 0 : 0.22, ease: SUB_NAV_EASE }}
+            style={{ width: inset }}
             className="min-h-0 shrink-0 overflow-hidden bg-bg"
           >
             <motion.div
@@ -72,9 +98,13 @@ export function SubNavFrame({ children }: { children: React.ReactNode }) {
                 className="scroll-quiet min-h-0 flex-1 overflow-y-auto"
               />
             </motion.div>
-          </motion.aside>
+          </aside>
         )}
-        <div className="min-h-0 min-w-0 flex-1" data-page-workspace>
+        <div
+          ref={workspace}
+          className="min-h-0 min-w-0 flex-1"
+          data-page-workspace
+        >
           {children}
         </div>
       </div>

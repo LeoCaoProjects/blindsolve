@@ -1,26 +1,37 @@
-import { useEffect, useState } from 'react';
-import { TrainFilter } from '../utils/bld';
-import { cachedScramble, prepareScrambles, randomStateScramble } from '../utils/randomStateScramble';
+import { useEffect, useState } from "react";
+import { TrainFilter } from "../utils/bld";
+import {
+  cachedScramble,
+  prepareScrambles,
+  randomStateScramble,
+} from "../utils/randomStateScramble";
 
 /**
  * Execution Sprint's scramble for (filter, seed). Returns a prepared one straight away when it's
  * waiting in the cache (the normal case); null only while one is still being prepared.
  * Always keeps the next scrambles for this piece choice preparing in the background.
  */
-export function useExecScramble(filter: TrainFilter, seed: number, enabled: boolean): string | null {
+export function useExecScramble(
+  filter: TrainFilter,
+  seed: number,
+  enabled: boolean,
+  onError?: (key: string) => void,
+): string | null {
   const key = `${filter}:${seed}`;
-  const [ready, setReady] = useState<{key: string;scramble: string;} | null>(() => {
-    const scramble = cachedScramble(filter, seed);
-    return scramble ? { key, scramble } : null;
-  });
+  const [ready, setReady] = useState<{ key: string; scramble: string } | null>(
+    () => {
+      const scramble = cachedScramble(filter, seed);
+      return scramble ? { key, scramble } : null;
+    },
+  );
 
   useEffect(() => {
     // Look ahead even when Execution Sprint isn't open, so switching to it is instant.
     prepareScrambles([
-    { filter, seed },
-    { filter, seed: seed + 1 },
-    { filter, seed: seed + 2 }]
-    );
+      { filter, seed },
+      { filter, seed: seed + 1 },
+      { filter, seed: seed + 2 },
+    ]);
     if (!enabled) return;
     const cached = cachedScramble(filter, seed);
     if (cached) {
@@ -33,13 +44,17 @@ export function useExecScramble(filter: TrainFilter, seed: number, enabled: bool
       return;
     }
     let live = true;
-    randomStateScramble(filter, seed).then((scramble) => {
-      if (live) setReady({ key, scramble });
-    });
+    randomStateScramble(filter, seed)
+      .then((scramble) => {
+        if (live) setReady({ key, scramble });
+      })
+      .catch(() => {
+        if (live) onError?.(key);
+      });
     return () => {
       live = false;
     };
-  }, [filter, seed, enabled, key]);
+  }, [filter, seed, enabled, key, onError]);
 
   return ready?.key === key ? ready.scramble : null;
 }

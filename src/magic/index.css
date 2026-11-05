@@ -1,10 +1,10 @@
 /* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&family=Hanken+Grotesk:wght@400;500;600&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@200;300;400;500&family=Red+Hat+Display:wght@300;400;500&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&family=Hanken+Grotesk:wght@400;500;600&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@200;300;400;500&family=Red+Hat+Display:wght@300;400;500&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@400;500&display=swap");
 
 /* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
 
 /* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
 
@@ -24,10 +24,11 @@
   --accent: #d4a862;
   --scrim: rgba(10, 9, 8, 0.66);
   --cube-body: #0c0b0a;
-  --shadow-overlay: 0 32px 90px -24px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.35);
-  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
-  --font-timer: 'IBM Plex Sans', system-ui, sans-serif;
+  --shadow-overlay:
+    0 32px 90px -24px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-timer: "IBM Plex Sans", system-ui, sans-serif;
 }
 /* Concept B — cool ink, pale steel accent */
 .theme-stage {
@@ -45,9 +46,9 @@
   --scrim: rgba(6, 8, 11, 0.62);
   --cube-body: #0a0b0d;
   --shadow-overlay: 0 -24px 80px -20px rgba(0, 0, 0, 0.6);
-  --font-sans: 'Hanken Grotesk', system-ui, sans-serif;
-  --font-mono: 'DM Mono', ui-monospace, monospace;
-  --font-timer: 'DM Mono', ui-monospace, monospace;
+  --font-sans: "Hanken Grotesk", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+  --font-timer: "DM Mono", ui-monospace, monospace;
 }
 /* Concept C — neutral charcoal, vermilion signal */
 .theme-workspace {
@@ -65,9 +66,9 @@
   --scrim: rgba(8, 8, 9, 0.6);
   --cube-body: #0c0c0d;
   --shadow-overlay: -24px 0 80px -20px rgba(0, 0, 0, 0.6);
-  --font-sans: 'Instrument Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --font-timer: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: "Instrument Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-timer: "JetBrains Mono", ui-monospace, monospace;
 }
 /* Concept D — warm black, terracotta whisper */
 .theme-quiet {
@@ -85,9 +86,9 @@
   --scrim: rgba(8, 7, 6, 0.94);
   --cube-body: #0a0908;
   --shadow-overlay: 0 30px 80px -20px rgba(0, 0, 0, 0.7);
-  --font-sans: 'Red Hat Text', system-ui, sans-serif;
-  --font-mono: 'Red Hat Mono', ui-monospace, monospace;
-  --font-timer: 'Red Hat Display', system-ui, sans-serif;
+  --font-sans: "Red Hat Text", system-ui, sans-serif;
+  --font-mono: "Red Hat Mono", ui-monospace, monospace;
+  --font-timer: "Red Hat Display", system-ui, sans-serif;
 }
 /* Destructive actions only (removing saved data). Kept distinct from the vermilion accent. */
 :root {
@@ -110,7 +111,7 @@ body {
 }
 .tnum {
   font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
+  font-feature-settings: "tnum" 1;
 }
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -143,8 +144,20 @@ body {
     mask-image: linear-gradient(to top, transparent 0, #000 28px);
   }
   .fade-both {
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 28px,
+      #000 calc(100% - 28px),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 28px,
+      #000 calc(100% - 28px),
+      transparent 100%
+    );
   }
 }
 /* Inset from the viewport floor for action regions: never flush with the bottom edge */
@@ -153,4 +166,23 @@ body {
 }
 .scroll-none::-webkit-scrollbar {
   display: none;
+}
+
+.scroll-subnav {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-gutter: stable;
+}
+.scroll-subnav::-webkit-scrollbar {
+  width: 5px;
+}
+.scroll-subnav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-subnav::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+.scroll-subnav:hover::-webkit-scrollbar-thumb {
+  background: var(--ink-3);
 }

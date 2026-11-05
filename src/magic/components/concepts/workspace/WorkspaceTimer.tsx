@@ -1,3 +1,4 @@
+import { ScrambleRegion } from "../../solve/ScrambleRegion";
 import React, { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
@@ -38,7 +39,10 @@ export function WorkspaceTimer({
   showLiveTimer,
   stage: _stage,
   session,
-}: ConceptProps & { showLiveTimer: boolean; session: ReturnType<typeof useTimerSession> }) {
+}: ConceptProps & {
+  showLiveTimer: boolean;
+  session: ReturnType<typeof useTimerSession>;
+}) {
   const init = useScreenInit() as {
     sessions?: "open" | "confirm";
     letters?: boolean;
@@ -118,33 +122,38 @@ export function WorkspaceTimer({
             <span className="hidden w-8 shrink-0 pt-[5px] font-mono text-[11px] text-ink-3 tnum md:block">
               #{s.nextIndex}
             </span>
-            {s.scramblePending ? (
-              <p
-                role="status"
-                className="min-w-0 flex-1 font-mono text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink-3"
-              >
-                Preparing scramble…
-              </p>
-            ) : s.scrambleError && !s.scramble ? (
-              <p
-                role="alert"
-                className="min-w-0 flex-1 font-mono text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-danger"
-              >
-                Scramble unavailable. Try again.
-              </p>
-            ) : (
-              <>
-                <ScrambleText
-                  scramble={s.scramble}
-                  className="min-w-0 flex-1 text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink"
-                />
-                {s.scrambleError && (
-                  <span className="shrink-0 self-center text-[12px] text-danger" role="alert">
-                    New scramble failed
-                  </span>
-                )}
-              </>
-            )}
+            <ScrambleRegion>
+              {s.scramblePending ? (
+                <p
+                  role="status"
+                  className="min-w-0 flex-1 font-mono text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink-3"
+                >
+                  Preparing scramble…
+                </p>
+              ) : s.scrambleError && !s.scramble ? (
+                <p
+                  role="alert"
+                  className="min-w-0 flex-1 font-mono text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-danger"
+                >
+                  Scramble unavailable. Try again.
+                </p>
+              ) : (
+                <>
+                  <ScrambleText
+                    scramble={s.scramble}
+                    className="min-w-0 flex-1 text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink"
+                  />
+                  {s.scrambleError && (
+                    <span
+                      className="shrink-0 self-center text-[12px] text-danger"
+                      role="alert"
+                    >
+                      New scramble failed
+                    </span>
+                  )}
+                </>
+              )}
+            </ScrambleRegion>
             <button
               type="button"
               onClick={s.newScramble}

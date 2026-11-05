@@ -19,9 +19,12 @@ import {
   mergeData,
   hasMeaningfulData,
   coalesceSyncChanges,
-  pruneAcknowledgedSyncChanges,
+  reconcileSync,
+  reconcilePeer,
+  trackDeletions,
+  applyTombstones,
+  deletionIndex,
   diffSyncChanges,
-  seedSyncChanges,
   syncRetryDelay,
   SyncConflictError,
   type AppData,
@@ -124,8 +127,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     markAttempt();
     setSync("saving");
     try {
-      const write = () => saveCloudChanges(batch, snapshot.revision);
-      const revision = await withAccountCloudLock(owner.current, write);
+      const account = owner.current;
+      const write = () => {
+        if (generation !== epoch.current || owner.current !== account)
+          throw new Error("Account changed before sync");
+        return saveCloudChanges(batch, snapshot.revision, {
+          owner: account,
+          isCurrent: () =>
+            epoch.current === generation && owner.current === account,
+        });
+      };
+      const revision = await withAccountCloudLock(account, write);
       if (generation !== epoch.current) return;
       const sent = new Map(
         batch.map((change) => [
@@ -163,21 +175,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           try {
             const remote = await withAccountCloudLock(owner.current, loadCloud);
             if (generation !== epoch.current) return;
-            const merged = mergeData(current.current.data, remote.data);
-            const pending = coalesceSyncChanges(
-              pruneAcknowledgedSyncChanges(
-                remote.data,
-                current.current.pending,
-              ),
-              diffSyncChanges(remote.data, merged.data),
-            );
-            current.current = {
-              data: merged.data,
-              revision: remote.revision,
-              pending,
-              dirty: Object.keys(pending).length > 0,
-              lastAttemptAt: current.current.lastAttemptAt,
-            };
+            const merged = reconcileSync(current.current, remote);
+            current.current = merged;
             setData(merged.data);
             persist();
             if (merged.conflicts)
@@ -266,13 +265,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           markAttempt();
           const remote = await withAccountCloudLock(nextUser.id, loadCloud);
           if (disposed || generation !== epoch.current) return;
-          let merged = mergeData(local.data, remote.data);
+          const latestLocal = current.current;
+          let merged = reconcileSync(latestLocal, remote);
           const guest = loadLocal(null).data;
           const guestHasData = hasMeaningfulData(guest);
           const accountHasData =
             hasMeaningfulData(local.data) || hasMeaningfulData(remote.data);
           if (guestHasData && !accountHasData) {
-            merged = mergeData(merged.data, guest);
+            const imported = mergeData(merged.data, guest);
+            merged = reconcileSync({ ...merged, data: imported.data }, remote);
             guestForMigration.current = guest;
             clearGuestAfterSync.current = true;
           } else if (guestHasData && accountHasData) {
@@ -285,20 +286,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             guestForMigration.current = null;
             clearGuestAfterSync.current = false;
           }
-          const pending = coalesceSyncChanges(
-            pruneAcknowledgedSyncChanges(remote.data, local.pending),
-            remote.pending === undefined
-              ? seedSyncChanges(merged.data)
-              : diffSyncChanges(remote.data, merged.data),
-          );
           connected.current = true;
-          current.current = {
-            data: merged.data,
-            revision: remote.revision,
-            pending,
-            dirty: Object.keys(pending).length > 0,
-            lastAttemptAt: current.current.lastAttemptAt,
-          };
+          current.current = merged;
+          const pending = merged.pending ?? {};
           setData(merged.data);
           setSync(Object.keys(pending).length ? "saving" : "saved");
           if (merged.conflicts)
@@ -356,26 +346,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return;
       try {
         const incoming = loadLocal(owner.current);
-        const merged = mergeData(current.current.data, incoming.data);
-        const basePending =
-          incoming.revision > current.current.revision
-            ? incoming.pending
-            : coalesceSyncChanges(
-                current.current.pending,
-                Object.values(incoming.pending ?? {}),
-              );
-        const pending = coalesceSyncChanges(
-          basePending,
-          diffSyncChanges(current.current.data, merged.data),
-        );
-        current.current = {
-          data: merged.data,
-          revision: Math.max(current.current.revision, incoming.revision),
-          pending,
-          dirty: Object.keys(pending).length > 0,
-          lastAttemptAt: current.current.lastAttemptAt,
-        };
+        const merged = reconcilePeer(current.current, incoming);
+        current.current = merged;
         setData(merged.data);
+        // Reconciled data differences are represented by pending operations.
+        // Dictionary insertion order must not cause tabs to rebroadcast forever.
+        const equalEntries = (
+          left: Record<string, unknown> = {},
+          right: Record<string, unknown> = {},
+        ) =>
+          Object.keys(left).length === Object.keys(right).length &&
+          Object.entries(left).every(
+            ([key, value]) =>
+              JSON.stringify(value) === JSON.stringify(right[key]),
+          );
+        if (
+          merged.revision !== incoming.revision ||
+          !equalEntries(merged.tombstones, incoming.tombstones) ||
+          !equalEntries(merged.pending, incoming.pending)
+        )
+          persist();
         if (owner.current)
           setSync(
             current.current.dirty && connected.current ? "saving" : "saved",
@@ -405,15 +395,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             updatedAt: previous.schemeUpdatedAt,
           },
         ].slice(-20);
-      const changes = owner.current ? diffSyncChanges(previous, next) : [];
-      const pending = coalesceSyncChanges(current.current.pending, changes);
+      const changes = diffSyncChanges(previous, next);
+      if (!changes.length) return;
+      const tombstones = trackDeletions(
+        deletionIndex(current.current),
+        changes,
+      );
+      const safeNext = applyTombstones(next, tombstones);
+      const pending = owner.current
+        ? coalesceSyncChanges(
+            current.current.pending,
+            changes.filter(
+              (change) =>
+                change.deleted ||
+                !tombstones[`${change.kind}:${change.recordId}`],
+            ),
+          )
+        : {};
+
       current.current = {
         ...current.current,
-        data: next,
+        data: safeNext,
+        tombstones,
         pending,
         dirty: !!owner.current && Object.keys(pending).length > 0,
       };
-      setData(next);
+      setData(safeNext);
       if (owner.current)
         setSync(
           connected.current
@@ -445,21 +452,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const remote = await withAccountCloudLock(owner.current, loadCloud);
       if (generation !== epoch.current) return;
-      const merged = mergeData(current.current.data, remote.data);
-      const pending = coalesceSyncChanges(
-        pruneAcknowledgedSyncChanges(remote.data, current.current.pending),
-        remote.pending === undefined
-          ? seedSyncChanges(merged.data)
-          : diffSyncChanges(remote.data, merged.data),
-      );
+      const merged = reconcileSync(current.current, remote);
       connected.current = true;
-      current.current = {
-        data: merged.data,
-        revision: remote.revision,
-        pending,
-        dirty: Object.keys(pending).length > 0,
-        lastAttemptAt: current.current.lastAttemptAt,
-      };
+      current.current = merged;
       setData(merged.data);
       persist();
       if (merged.conflicts)
