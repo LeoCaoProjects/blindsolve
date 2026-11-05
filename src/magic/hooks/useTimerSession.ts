@@ -17,40 +17,50 @@ import type { MemoPair } from "../types/solve";
 import { DemoStage, Penalty, SolveDraft } from "../types/solve";
 import { stateFromScramble } from "../utils/cube";
 import { isTypingTarget } from "../utils/keyboard";
-import { sessionStats } from "../utils/time";
+import { sessionStats, storedTimerTimes } from "../utils/time";
 import type { ReconResult } from "./useReconstruction";
 import { TimerResult, isRunning, useTimer } from "./useTimer";
+import { randomStateScramble } from "../utils/randomStateScramble";
+import {
+  timerCategory,
+  timerPieces,
+  type TimerMode,
+} from "../utils/timerModes";
 
 interface Options {
   multiphase: boolean;
   stage: DemoStage;
-  initialSessionsOpen?: boolean;
   active?: boolean;
 }
 
 export function useTimerSession({
   multiphase,
   stage: _stage,
-  initialSessionsOpen = false,
   active = true,
 }: Options) {
   const store = useStore();
+  const ownerKey = store.user?.id ?? "guest";
+  const ownerRef = useRef(ownerKey);
+  ownerRef.current = ownerKey;
+  const alive = useRef(true);
   const {
     solves,
     setSolves,
     timerDb: db,
     applyTimerDbUpdates,
-    activeSessionId,
+    timerMode,
+    setTimerMode,
     prefs,
   } = useAppData();
   const [scramble, setScramble] = useState("");
+  const [scrambleMode, setScrambleMode] = useState<TimerMode>(timerMode);
   const [scramblePending, setScramblePending] = useState(false);
   const [scrambleError, setScrambleError] = useState(false);
   const [draft, setDraft] = useState<SolveDraft | null>(null);
   const [reconOpen, setReconOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [sessionsOpen, setSessionsOpen] = useState(initialSessionsOpen);
+  const [processingStop, setProcessingStop] = useState(false);
 
   const traceRef = useRef<MemoTrace | null>(null);
   const scrambleRequestRef = useRef(0);
@@ -62,149 +72,167 @@ export function useTimerSession({
   const handleStop = useCallback(
     (r: TimerResult) => {
       void (async () => {
-        const scheme = store.data.scheme;
-        // Scramble notation is always interpreted in the fixed white-top/green-front frame.
-        const state = await scrambleToState(scrambleRef.current);
-        const { trace, choices } = traceWithCanonicalBreaks(state, scheme);
-        const edgeExecution = m2ExecutionRepresentation(
-          trace.edges,
-          scheme,
-          prefs.m2SecondTargetSwap && scheme.edgeMethod === "m2",
-        );
-        const presentedTrace = {
-          ...trace,
-          edges: { ...trace.edges, targets: edgeExecution.executionTargets },
-        };
-        traceRef.current = trace;
-        const pair = (tokens: string[]) =>
-          Array.from(
-            { length: Math.ceil(tokens.length / 2) },
-            (_, i) => (tokens[i * 2] ?? "") + (tokens[i * 2 + 1] ?? ""),
+        setProcessingStop(true);
+        const stoppedScramble = scrambleRef.current;
+        const stoppedMode = timerMode;
+        const stoppedOwner = ownerKey;
+        const pieces = timerPieces(stoppedMode);
+        try {
+          const scheme = store.data.scheme;
+          // Scramble notation is always interpreted in the fixed white-top/green-front frame.
+          const state = await scrambleToState(stoppedScramble);
+          if (!alive.current || ownerRef.current !== stoppedOwner) return;
+          const { trace, choices } = traceWithCanonicalBreaks(state, scheme);
+          const edgeExecution = m2ExecutionRepresentation(
+            trace.edges,
+            scheme,
+            prefs.m2SecondTargetSwap && scheme.edgeMethod === "m2",
           );
-        const sampleFor = (piece: "corners" | "edges") => {
-          const section = presentedTrace[piece],
-            tokens = section.targets.map((t) => t.token);
-          const at = section.targets.findIndex((t) => t.cycleBreak);
-          if (at < 0) return { pairs: pair(tokens) };
-          const partial = traceMemo(state, scheme, {
-            corners: piece === "corners" ? [] : choices.corners,
-            edges: piece === "edges" ? [] : choices.edges,
-          })[piece];
-          const options = partial.validCycleBreaks.map(
-            (id) =>
-              scheme.stickers[
-                piece === "edges" &&
-                prefs.m2SecondTargetSwap &&
-                isClassicM2Configuration(scheme)
-                  ? m2SecondTargetStickerId(
-                      id,
-                      partial.targets.length,
-                      inferM2OrientationFromBuffer(scheme.edgeBuffer)!,
-                    )
-                  : id
-              ].label,
-          );
-          return {
-            pairs: pair(tokens),
-            break: {
-              at,
-              options: options.length ? options : [section.targets[at].token],
-              answer: section.targets[at].token,
-            },
+          const presentedTrace = {
+            ...trace,
+            edges: { ...trace.edges, targets: edgeExecution.executionTargets },
           };
-        };
-        const corners = sampleFor("corners"),
-          edges = sampleFor("edges");
-        const solveId = crypto.randomUUID(),
-          date = new Date().toISOString();
-        store.update((data) => ({
-          ...data,
-          solves: [
-            {
-              id: solveId,
-              scramble: scrambleRef.current,
-              memoMs: Math.round(r.memo ?? 0),
-              executionMs: Math.round(r.total - (r.memo ?? 0)),
-              totalMs: Math.round(r.total),
-              result: "success",
-              edgeMemo: [],
-              cornerMemo: [],
-              cycleBreaks: choices,
-              schemeSnapshot: scheme,
-              reconstruction: "pending",
-              engineVersion: 3,
-              multiphase,
-              sessionId: activeSessionId,
-              createdAt: date,
+          traceRef.current = trace;
+          const pair = (tokens: string[]) =>
+            Array.from(
+              { length: Math.ceil(tokens.length / 2) },
+              (_, i) => (tokens[i * 2] ?? "") + (tokens[i * 2 + 1] ?? ""),
+            );
+          const sampleFor = (piece: "corners" | "edges") => {
+            if (!pieces.includes(piece)) return { pairs: [] };
+            const section = presentedTrace[piece],
+              tokens = section.targets.map((t) => t.token);
+            const at = section.targets.findIndex((t) => t.cycleBreak);
+            if (at < 0) return { pairs: pair(tokens) };
+            const partial = traceMemo(state, scheme, {
+              corners: piece === "corners" ? [] : choices.corners,
+              edges: piece === "edges" ? [] : choices.edges,
+            })[piece];
+            const options = partial.validCycleBreaks.map(
+              (id) =>
+                scheme.stickers[
+                  piece === "edges" &&
+                  prefs.m2SecondTargetSwap &&
+                  isClassicM2Configuration(scheme)
+                    ? m2SecondTargetStickerId(
+                        id,
+                        partial.targets.length,
+                        inferM2OrientationFromBuffer(scheme.edgeBuffer)!,
+                      )
+                    : id
+                ].label,
+            );
+            return {
+              pairs: pair(tokens),
+              break: {
+                at,
+                options: options.length ? options : [section.targets[at].token],
+                answer: section.targets[at].token,
+              },
+            };
+          };
+          const corners = sampleFor("corners"),
+            edges = sampleFor("edges");
+          const solveId = crypto.randomUUID(),
+            date = new Date().toISOString();
+          store.update((data) => ({
+            ...data,
+            solves: [
+              {
+                id: solveId,
+                scramble: stoppedScramble,
+                ...storedTimerTimes(r.total, r.memo),
+                result: "success",
+                edgeMemo: [],
+                cornerMemo: [],
+                cycleBreaks: choices,
+                schemeSnapshot: scheme,
+                reconstruction: "pending",
+                engineVersion: 3,
+                multiphase,
+                timerMode: stoppedMode,
+                sessionId: timerCategory(stoppedMode),
+                createdAt: date,
+              },
+              ...data.solves,
+            ],
+          }));
+          setDraft({
+            solveId,
+            timerMode: stoppedMode,
+            time: r.total,
+            memoTime: r.memo,
+            scramble: stoppedScramble,
+            date,
+            sample: {
+              corners: corners.pairs,
+              edges: edges.pairs,
+              hasM2Parity: edgeExecution.hasM2Parity,
+              targetRepresentation:
+                prefs.m2SecondTargetSwap && isClassicM2Configuration(scheme)
+                  ? "m2-execution"
+                  : "raw",
+              ...(corners.break ? { cornerBreak: corners.break } : {}),
+              ...(edges.break ? { edgeBreak: edges.break } : {}),
             },
-            ...data.solves,
-          ],
-        }));
-        setDraft({
-          solveId,
-          time: r.total,
-          memoTime: r.memo,
-          scramble: scrambleRef.current,
-          date,
-          sample: {
-            corners: corners.pairs,
-            edges: edges.pairs,
-            hasM2Parity: edgeExecution.hasM2Parity,
-            targetRepresentation:
-              prefs.m2SecondTargetSwap && isClassicM2Configuration(scheme)
-                ? "m2-execution"
-                : "raw",
-            ...(corners.break ? { cornerBreak: corners.break } : {}),
-            ...(edges.break ? { edgeBreak: edges.break } : {}),
-          },
-          engine: { state, scheme },
-          memoPrefs: {
-            m2SecondTargetSwap: prefs.m2SecondTargetSwap,
-            memoOrder: prefs.memoOrder,
-          },
-        });
+            engine: { state, scheme },
+            memoPrefs: {
+              m2SecondTargetSwap: prefs.m2SecondTargetSwap,
+              memoOrder: prefs.memoOrder,
+            },
+          });
+        } finally {
+          setProcessingStop(false);
+        }
       })();
     },
-    [
-      multiphase,
-      store,
-      activeSessionId,
-      prefs.m2SecondTargetSwap,
-      prefs.memoOrder,
-    ],
+    [multiphase, store, timerMode, ownerKey, prefs.m2SecondTargetSwap, prefs.memoOrder],
   );
 
   const overlayOpen =
-    draft !== null || selectedId !== null || shortcutsOpen || sessionsOpen;
+    draft !== null || selectedId !== null || shortcutsOpen || processingStop;
   const timer = useTimer({
     multiphase,
-    disabled: overlayOpen || !active || scramblePending || !scramble,
+    disabled:
+      overlayOpen ||
+      !active ||
+      !store.ready ||
+      scramblePending ||
+      !scramble ||
+      scrambleMode !== timerMode,
     onStop: handleStop,
   });
   const running = isRunning(timer.phase);
-  const newScramble = useCallback(
-    async () => {
-      const request = ++scrambleRequestRef.current;
-      setScramblePending(true);
-      setScrambleError(false);
-      try {
-        const next = await generateBlindScramble();
-        if (request === scrambleRequestRef.current) setScramble(next);
-      } catch {
-        if (request === scrambleRequestRef.current) setScrambleError(true);
-      } finally {
-        if (request === scrambleRequestRef.current) setScramblePending(false);
+  const newScramble = useCallback(async () => {
+    const request = ++scrambleRequestRef.current;
+    setScramblePending(true);
+    setScrambleError(false);
+    try {
+      const next =
+        timerMode === "3bld"
+          ? await generateBlindScramble()
+          : await randomStateScramble(
+              timerMode,
+              crypto.getRandomValues(new Uint32Array(1))[0],
+            );
+      if (request === scrambleRequestRef.current) {
+        setScramble(next);
+        setScrambleMode(timerMode);
       }
-    },
-    [],
-  );
+    } catch {
+      if (request === scrambleRequestRef.current) setScrambleError(true);
+    } finally {
+      if (request === scrambleRequestRef.current) setScramblePending(false);
+    }
+  }, [timerMode]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
       scrambleRequestRef.current++;
-    },
-    [],
-  );
+    };
+  }, []);
 
   // Hold the finished time on screen for a beat before reconstruction takes over.
   useEffect(() => {
@@ -249,17 +277,25 @@ export function useTimerSession({
               ? {
                   ...solve,
                   result: result.penalty === "ok" ? "success" : result.penalty,
-                  cornerMemo: rawTrace!.corners.targets.map((t) => t.token),
-                  edgeMemo: rawTrace!.edges.targets.map((t) => t.token),
+                  cornerMemo: timerPieces(d.timerMode).includes("corners")
+                    ? rawTrace!.corners.targets.map((t) => t.token)
+                    : [],
+                  edgeMemo: timerPieces(d.timerMode).includes("edges")
+                    ? rawTrace!.edges.targets.map((t) => t.token)
+                    : [],
                   cycleBreaks: result.cycleBreaks,
                   memoSnapshot: {
                     corners: snapshot(
-                      rawTrace!.corners.targets,
+                      timerPieces(d.timerMode).includes("corners")
+                        ? rawTrace!.corners.targets
+                        : [],
                       result.memo.corners,
                       trace.corners.targets,
                     ),
                     edges: snapshot(
-                      rawTrace!.edges.targets,
+                      timerPieces(d.timerMode).includes("edges")
+                        ? rawTrace!.edges.targets
+                        : [],
                       result.memo.edges,
                       trace.edges.targets,
                     ),
@@ -309,7 +345,7 @@ export function useTimerSession({
         setShortcutsOpen(false);
         return;
       }
-      if (sessionsOpen || draftRef.current || selectedId || shortcutsOpen)
+      if (draftRef.current || selectedId || shortcutsOpen || processingStop)
         return;
       if (
         (e.key === "n" || e.key === "N") &&
@@ -321,11 +357,19 @@ export function useTimerSession({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, newScramble, running, scramblePending, selectedId, shortcutsOpen, sessionsOpen]);
+  }, [
+    active,
+    newScramble,
+    running,
+    scramblePending,
+    selectedId,
+    shortcutsOpen,
+    processingStop,
+  ]);
 
   useEffect(() => {
-    if (!scramble) void newScramble();
-  }, [newScramble, scramble]);
+    void newScramble();
+  }, [newScramble]);
 
   const cubeState = useMemo(() => stateFromScramble(scramble), [scramble]);
   const stats = useMemo(() => sessionStats(solves), [solves]);
@@ -345,8 +389,9 @@ export function useTimerSession({
     solves,
     latest,
     db,
-    scramble,
-    scramblePending,
+    scramble: scrambleMode === timerMode ? scramble : "",
+    scramblePending:
+      scramblePending || (scrambleMode !== timerMode && !scrambleError),
     scrambleError,
     cubeState,
     newScramble,
@@ -363,13 +408,22 @@ export function useTimerSession({
     overlayOpen,
     stats,
     lastPenalty,
-    nextIndex: (latest?.index ?? 0) + 1,
     shortcutsOpen,
     openShortcuts: () => setShortcutsOpen(true),
     closeShortcuts: () => setShortcutsOpen(false),
-    sessionsOpen,
-    openSessions: () => setSessionsOpen(true),
-    closeSessions: () => setSessionsOpen(false),
+    timerMode,
+    setTimerMode: (mode: TimerMode) => {
+      if (
+        running ||
+        overlayOpen ||
+        timer.phase === "armed" ||
+        timer.phase === "ready" ||
+        mode === timerMode
+      )
+        return;
+      timer.reset();
+      setTimerMode(mode);
+    },
   };
 }
 

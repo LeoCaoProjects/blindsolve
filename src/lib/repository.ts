@@ -22,8 +22,9 @@ export interface SolveRecord {
   reconstruction?: "pending" | "complete";
   engineVersion?: number;
   multiphase?: boolean;
-  /** Timer sessions are a user-facing grouping; legacy solves belong to Today. */
+  /** Legacy grouping metadata is retained verbatim; new solves use fixed mode categories. */
   sessionId?: string;
+  timerMode?: "3bld" | "edges" | "corners";
   memoSnapshot?: {
     corners: MemoPairSnapshot[];
     edges: MemoPairSnapshot[];
@@ -73,6 +74,7 @@ export interface AppData {
   attempts: PracticeAttempt[];
   timerSessions?: Array<{ id: string; name: string; createdAt: string }>;
   activeTimerSessionId?: string;
+  activeTimerMode?: "3bld" | "edges" | "corners";
   onboarded: boolean;
   schemeUpdatedAt: string;
   multiphaseTiming: boolean;
@@ -132,7 +134,8 @@ export function hasMeaningfulData(data: AppData): boolean {
       JSON.stringify(defaults.defaultCubeView) ||
     JSON.stringify(data.timerSessions ?? defaults.timerSessions) !==
       JSON.stringify(defaults.timerSessions) ||
-    (data.activeTimerSessionId ?? "today") !== defaults.activeTimerSessionId
+    (data.activeTimerSessionId ?? "today") !== defaults.activeTimerSessionId ||
+    (data.activeTimerMode ?? "3bld") !== "3bld"
   );
 }
 const text = z.string().max(1000),
@@ -201,6 +204,7 @@ const solveSchema = z
     engineVersion: z.number().optional(),
     multiphase: z.boolean().optional(),
     sessionId: text.optional(),
+    timerMode: z.enum(["3bld", "edges", "corners"]).optional(),
     memoSnapshot: z
       .object({
         corners: z.array(
@@ -308,6 +312,7 @@ const dataSchema = z.object({
       { id: "today", name: "Today", createdAt: new Date(0).toISOString() },
     ]),
   activeTimerSessionId: text.default("today"),
+  activeTimerMode: z.enum(["3bld", "edges", "corners"]).optional(),
   onboarded: z.boolean().default(true),
   schemeUpdatedAt: iso.default(new Date(0).toISOString()),
   multiphaseTiming: z.boolean().default(true),
@@ -484,6 +489,7 @@ const settingsPayload = (data: AppData) => ({
   scheme: data.scheme,
   timerSessions: data.timerSessions,
   activeTimerSessionId: data.activeTimerSessionId,
+  activeTimerMode: data.activeTimerMode,
   onboarded: data.onboarded,
   schemeUpdatedAt: data.schemeUpdatedAt,
   multiphaseTiming: data.multiphaseTiming,
@@ -942,6 +948,9 @@ export function mergeData(
       activeTimerSessionId: incomingPreferences
         ? incoming.activeTimerSessionId
         : local.activeTimerSessionId,
+      activeTimerMode: incomingPreferences
+        ? incoming.activeTimerMode
+        : local.activeTimerMode,
       onboarded: local.onboarded || incoming.onboarded,
       multiphaseTiming: incomingPreferences
         ? incoming.multiphaseTiming

@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { VirtualHistory } from "../components/common/VirtualHistory";
 import { ArrowRightIcon, CheckIcon, XIcon } from "lucide-react";
 import { Link } from "react-router-dom";
-import { HistoryHeader, RowDelete } from "../components/common/HistoryHeader";
+import { RowDelete } from "../components/common/HistoryHeader";
 import { useHistoryCleanup } from "../hooks/useHistoryCleanup";
 import { ShortcutSheet } from "../components/common/ShortcutSheet";
 import { AppBar } from "../components/layout/AppBar";
@@ -169,12 +169,6 @@ export function Flashcards() {
               ["remembered", String(f.stats.remembered)],
               ["forgot", String(f.stats.forgot)],
             ]}
-          />
-
-          <HistoryHeader
-            label="Recent cards"
-            count={f.log.length}
-            onClear={cleanup.askClear}
           />
           <VirtualHistory
             label="Recent cards"

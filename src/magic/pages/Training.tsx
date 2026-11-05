@@ -226,7 +226,6 @@ export function Training() {
           {showAside && (
             <TrainingAside
               t={t}
-              onClear={cleanup.askClear}
               recede={busy ? "opacity-[0.15]" : holding ? "opacity-60" : ""}
             />
           )}
