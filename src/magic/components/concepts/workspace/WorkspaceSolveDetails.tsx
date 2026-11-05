@@ -68,7 +68,7 @@ export function WorkspaceSolveDetails({
         className="absolute inset-y-0 right-0 flex w-[min(780px,100vw)] flex-col border-l border-line bg-raised shadow-overlay"
       >
         <div className="grid shrink-0 grid-cols-1 border-b border-line sm:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="min-w-0 px-5 py-5 md:px-9">
+          <div className="min-w-0 px-5 py-4 md:px-9">
             <SolveSummary
               date={solve.date}
               time={solve.time}

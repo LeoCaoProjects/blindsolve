@@ -12,14 +12,14 @@ export function SolveBreakdown({
   className?: string;
 }) {
   return (
-    <dl className={`grid grid-cols-2 gap-x-6 gap-y-1 ${className}`}>
+    <dl className={`grid grid-cols-1 gap-y-2 ${className}`}>
       {[
         ["Memorisation", memo],
         ["Execution", Math.max(0, total - memo)],
       ].map(([label, value]) => (
         <div key={label}>
-          <dt className="text-[12px] text-ink-3">{label}</dt>
-          <dd className="mt-1 font-mono text-[14px] text-ink-2 tnum">
+          <dt className="text-[12px] leading-4 text-ink-3">{label}</dt>
+          <dd className="mt-0.5 font-mono text-[13px] leading-4 text-ink-2 tnum">
             {formatTime(Number(value))}
           </dd>
         </div>
@@ -44,11 +44,11 @@ export function SolveSummary({
 }) {
   return (
     <section aria-label="Solve summary" className="min-w-0">
-      <time dateTime={date} className="block text-[12px] text-ink-3">
+      <time dateTime={date} className="block text-[12px] leading-4 text-ink-3">
         {formatSolveDate(date)}
       </time>
-      <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="font-timer text-[clamp(40px,6.5vh,60px)] font-extralight leading-none tracking-[-0.05em] text-ink tnum">
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="font-timer text-[clamp(34px,5.5vh,48px)] font-extralight leading-none tracking-[-0.05em] text-ink tnum">
           {formatTime(time + (penalty === "+2" ? 2000 : 0))}
         </span>
         {penalty !== "ok" && (
@@ -60,9 +60,14 @@ export function SolveSummary({
         )}
       </div>
       {memoTime !== undefined && (
-        <SolveBreakdown memo={memoTime} total={time} className="mt-5" />
+        <SolveBreakdown memo={memoTime} total={time} className="mt-3" />
       )}
-      <ResultControl className="mt-5" value={penalty} onChange={onPenalty} />
+      <ResultControl
+        size="sm"
+        className="mt-3"
+        value={penalty}
+        onChange={onPenalty}
+      />
     </section>
   );
 }
