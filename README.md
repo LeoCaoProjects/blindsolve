@@ -32,3 +32,5 @@ supabase functions deploy wca-oauth --no-verify-jwt
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are supplied to deployed functions by Supabase. Never place the service-role key or WCA secret in a `VITE_` variable or frontend code.
 
 Run checks with `npm test`, `npm run lint`, `npm run build`, and `npm run test:e2e`.
+
+See [maintenance checks](docs/maintenance.md) for read-only capacity SQL, cache verification, storage recovery and isolated database contract tests.

@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
+import { isHashedAsset, immutablePolicy } from './cache-headers.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { JSDOM } from 'jsdom';
@@ -39,3 +40,11 @@ assert.equal(globalBlock.includes('X-Robots-Tag: noindex'), preview);
 const missing = new JSDOM(await readFile('dist/404.html', 'utf8')).window.document;
 assert.equal(missing.querySelector('meta[name=robots]').content, 'noindex, follow');
 console.log(`SEO output verified: ${titles.size} unique route heads, ${urls.length} sitemap URLs, JSON-LD/CSP, preview rules and 404.`);
+const cacheRules = headers.split(/\n\n/).filter((block) => block.includes('immutable'));
+const assets = (await readdir('dist/assets')).filter(isHashedAsset).sort();
+assert.deepEqual(cacheRules.map((block) => block.trim().split('\n')[0]).sort(), assets.map((name) => `/assets/${name}`));
+for (const rule of cacheRules) assert.equal(rule.trim().split('\n')[1].trim(), `Cache-Control: ${immutablePolicy}`);
+assert.ok(headers.includes('/\n  Cache-Control: public, max-age=0, must-revalidate'));
+assert.ok(headers.includes('/404.html\n  Cache-Control: no-store'));
+assert.ok(!headers.includes('/assets/*'), 'Missing assets must not match immutable rules');
+console.log(`Cache output verified: ${assets.length} exact hashed assets, fresh HTML, no immutable wildcard/error rule.`);

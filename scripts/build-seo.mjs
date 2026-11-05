@@ -1,5 +1,6 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { addAssetCacheHeaders } from './cache-headers.mjs';
 
 const pages = JSON.parse(await readFile(new URL('../src/seo/pages.json', import.meta.url), 'utf8'));
 const template = await readFile('dist/index.html', 'utf8');
@@ -45,4 +46,7 @@ headers = headers.replace("script-src 'self';", `script-src 'self' 'sha256-${has
 if (preview) headers += '  X-Robots-Tag: noindex, follow\n';
 headers += '\nhttps://blindsolve.pages.dev/*\n  X-Robots-Tag: noindex, follow\n\nhttps://:branch.blindsolve.pages.dev/*\n  X-Robots-Tag: noindex, follow\n';
 for (const [path, page] of Object.entries(pages)) if (page.noindex) headers += `\n${path}\n  X-Robots-Tag: noindex, follow\n`;
-await writeFile('dist/_headers', headers);
+for (const path of ['/', '/index.html', ...Object.keys(pages).filter((path) => path !== '/').flatMap((path) => [path, `${path}.html`])]) {
+  headers += `\n${path}\n  Cache-Control: public, max-age=0, must-revalidate\n`;
+}
+await writeFile('dist/_headers', await addAssetCacheHeaders(headers));
