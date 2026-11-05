@@ -18,7 +18,7 @@ export const shortcuts: ShortcutItem[] = [
 { keys: ['↵'], label: 'Continue / save' },
 { keys: ['Esc'], label: 'Close · save without questions' },
 { keys: ['⌫'], label: 'Delete latest solve' },
-{ keys: ['⇧', '⌫'], label: 'Clear this session' },
+{ keys: ['⇧', '⌫'], label: 'Clear this mode’s history' },
 { keys: ['?'], label: 'This sheet' }];
 
 
