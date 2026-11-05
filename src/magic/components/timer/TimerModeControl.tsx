@@ -71,7 +71,11 @@ export function TimerModeControl({
           onKeyDown={(event) => {
             event.stopPropagation();
             onMenuKeyDown(event);
-            if (event.key === "Tab") close();
+            if (event.key === "Tab") {
+              close();
+              // Let native Tab continue from the trigger, not a removed portal item.
+              trigger.current?.focus();
+            }
             if (event.key === "Home" || event.key === "End") {
               event.preventDefault();
               const choices =

@@ -527,6 +527,20 @@ for (const width of [1440, 320])
     await page.keyboard.press("Escape");
     await expect(menu).toHaveCount(0);
     await expect(trigger).toBeFocused();
+    const refresh = page.getByRole("button", {
+      name: "New scramble",
+      exact: true,
+    });
+    await expect(refresh).toBeEnabled({ timeout: 45000 });
+    await trigger.click();
+    await expect(menu).toBeVisible();
+    await page.keyboard.press(width === 320 ? "Shift+Tab" : "Tab");
+    await expect(menu).toHaveCount(0);
+    await expect(
+      width === 320
+        ? refresh
+        : page.getByRole("button", { name: "Sticker letters", exact: true }),
+    ).toBeFocused();
     await trigger.click();
     await expect(menu).toBeVisible();
     await page
