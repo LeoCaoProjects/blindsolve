@@ -129,11 +129,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const write = () => {
         if (generation !== epoch.current || owner.current !== account)
           throw new Error("Account changed before sync");
-        return saveCloudChanges(
-          batch,
-          snapshot.revision,
-          () => epoch.current === generation && owner.current === account,
-        );
+        return saveCloudChanges(batch, snapshot.revision, {
+          owner: account,
+          isCurrent: () =>
+            epoch.current === generation && owner.current === account,
+        });
       };
       const revision = await withAccountCloudLock(account, write);
       if (generation !== epoch.current) return;

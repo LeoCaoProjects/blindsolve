@@ -1100,15 +1100,20 @@ export function splitSyncBatches(changes: SyncChange[]) {
 export async function saveCloudChanges(
   changes: SyncChange[],
   revision: number,
-  isCurrent: () => boolean = () => true,
+  context?: { owner: string; isCurrent: () => boolean },
 ): Promise<number> {
   if (!supabase) throw new Error("Cloud storage is not configured.");
   if (!changes.length) return revision;
   let currentRevision = revision;
   for (const batch of splitSyncBatches(changes)) {
-    if (!isCurrent())
+    if (context && !context.isCurrent())
       throw new Error("Account changed during synchronization.");
-    const { data, error } = await supabase.rpc("apply_bld_sync_changes", {
+    const session = context
+      ? (await supabase.auth.getSession()).data.session
+      : null;
+    if (context && (!context.isCurrent() || session?.user.id !== context.owner))
+      throw new Error("Account changed during synchronization.");
+    const request = supabase.rpc("apply_bld_sync_changes", {
       changes: batch.map((change) => ({
         kind: change.kind,
         record_id: change.recordId,
@@ -1118,6 +1123,11 @@ export async function saveCloudChanges(
       })),
       expected_revision: currentRevision,
     });
+    // The SDK awaits its current token internally. Bind this batch to its checked
+    // owner so an auth change during that await cannot retarget queued history.
+    if (session)
+      request.setHeader("Authorization", `Bearer ${session.access_token}`);
+    const { data, error } = await request;
     if (error) {
       if (error.code === "40001") throw new SyncConflictError(error.message);
       throw new Error(error.message);

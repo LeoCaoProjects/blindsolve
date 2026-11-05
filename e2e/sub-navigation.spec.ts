@@ -158,7 +158,11 @@ test("sliding selection is shared, responsive and respects reduced motion", asyn
             if (positions.length < 30) requestAnimationFrame(sample);
             else resolve(positions);
           };
-          requestAnimationFrame(sample);
+          document.addEventListener(
+            "click",
+            () => requestAnimationFrame(sample),
+            { once: true, capture: true },
+          );
         }),
       group,
     );
