@@ -30,4 +30,4 @@ Verification uses isolated guest fixtures; it does not modify the user's product
 
 ## Verification
 
-The integrity/performance pass passed 218 unit tests, the full existing 43-test browser suite, and 21 focused checks against the final build (including overlapping sub-navigation tests). Type checking, production build, lint and SEO checks passed. The combined CI suite includes 57 browser tests. Coverage includes 1440x900, 1280x720, 1024x768, 900x560, 390x844 and 320x568, measured intermediate workspace/indicator positions, reduced motion, stable contextual width, scramble geometry, equal control segments and horizontal containment.
+The integrity/performance pass passed 222 unit tests, the full existing 43-test browser suite, and 21 focused checks against the final build (including overlapping sub-navigation tests). Type checking, production build, lint and SEO checks passed. The combined CI suite includes 57 browser tests. Coverage includes 1440x900, 1280x720, 1024x768, 900x560, 390x844 and 320x568, measured intermediate workspace/indicator positions, reduced motion, stable contextual width, scramble geometry, equal control segments and horizontal containment.

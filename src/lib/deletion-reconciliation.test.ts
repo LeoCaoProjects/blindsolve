@@ -3,6 +3,7 @@ import {
   emptyData,
   mergeData,
   reconcileSync,
+  reconcilePeer,
   syncSnapshotEnvelope,
   diffSyncChanges,
   saveLocal,
@@ -200,5 +201,71 @@ describe("bounded sync writes", () => {
         { ...deletion, deleted: false, payload: solve() },
       ])["solve:" + id],
     ).toEqual(deletion);
+  });
+});
+
+describe("cross-tab delivery is not cloud acknowledgement", () => {
+  it("keeps a peer upsert queued even though the peer already displays its data", () => {
+    const pending = {
+      ["solve:" + id]: { ...deletion, deleted: false, payload: solve() },
+    };
+    const local = { ...envelope([solve()]), pending, dirty: true };
+    expect(reconcilePeer(local, local).pending).toEqual(pending);
+  });
+  it("keeps peer deletions queued until the cloud has acknowledged them", () => {
+    const local = {
+      ...envelope(),
+      tombstones: { ["solve:" + id]: stamp },
+      pending: { ["solve:" + id]: deletion },
+      dirty: true,
+    };
+    const first = reconcilePeer(local, local);
+    expect(first.pending?.["solve:" + id]).toEqual(deletion);
+    const synced = reconcileSync(first, remoteDeleted());
+    expect(reconcilePeer(first, synced).pending).toEqual({});
+  });
+  it("converges repeated peer hydration without losing newer pending attempt edits", () => {
+    const old = {
+      id,
+      kind: "memo" as const,
+      correct: false,
+      createdAt: stamp,
+      trainingMode: "exec" as const,
+      durationMs: 1000,
+    };
+    const edited = { ...old, correct: true };
+    const local = {
+      ...envelope(),
+      data: { ...emptyData(), attempts: [edited] },
+      pending: {
+        ["attempt:" + id]: {
+          ...deletion,
+          kind: "attempt" as const,
+          deleted: false,
+          payload: edited,
+          updatedAt: "2026-11-05T02:00:00Z",
+        },
+      },
+    };
+    const peer = {
+      ...envelope(),
+      data: { ...emptyData(), attempts: [old] },
+      pending: {
+        ["attempt:" + id]: {
+          ...deletion,
+          kind: "attempt" as const,
+          deleted: false,
+          payload: old,
+        },
+      },
+    };
+    const merged = reconcilePeer(local, peer);
+    expect(merged.data.attempts).toEqual([edited]);
+    expect(merged.pending?.["attempt:" + id].updatedAt).toBe(
+      "2026-11-05T02:00:00Z",
+    );
+    const repeated = reconcilePeer(merged, merged);
+    expect(repeated.pending).toEqual(merged.pending);
+    expect(repeated.data.attempts).toEqual([edited]);
   });
 });

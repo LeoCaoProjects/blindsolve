@@ -35,6 +35,7 @@ import { StoreProvider, useStore } from "./Store";
 import {
   emptyData,
   loadLocal,
+  saveLocal,
   parseData,
   SyncConflictError,
   syncSnapshotEnvelope,
@@ -124,6 +125,68 @@ async function auth(id: string | null, event = "SIGNED_IN") {
   });
 }
 describe("account state and sync", () => {
+  it("preserves old soft-deletion evidence when an edit happens during hydration", async () => {
+    const id = "8d00ae21-5444-41df-a008-d7bfcdf2f741";
+    const stamp = "2026-11-05T01:00:00.000Z";
+    const solve: SolveRecord = {
+      id,
+      scramble: "R U",
+      memoMs: 1000,
+      executionMs: 2000,
+      totalMs: 3000,
+      result: "success",
+      edgeMemo: [],
+      cornerMemo: [],
+      cycleBreaks: { edges: [], corners: [] },
+      createdAt: stamp,
+    };
+    saveLocal("alice", {
+      data: {
+        ...emptyData(),
+        solves: [{ ...solve, deleted: true, updatedAt: stamp }],
+      },
+      revision: 1,
+      dirty: false,
+      pending: {},
+    });
+    let finish!: (value: ReturnType<typeof syncSnapshotEnvelope>) => void;
+    mocks.load.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    render(
+      <StoreProvider>
+        <Harness />
+      </StoreProvider>,
+    );
+    await auth("alice");
+    fireEvent.click(screen.getByText("Edit"));
+    expect(loadLocal("alice").tombstones?.["solve:" + id]).toBe(stamp);
+    await act(async () =>
+      finish(
+        syncSnapshotEnvelope(
+          [
+            {
+              kind: "solve",
+              record_id: id,
+              payload: solve,
+              deleted: false,
+              updated_at: stamp,
+            },
+          ],
+          1,
+        ),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("state").textContent).toContain("ready|alice"),
+    );
+    expect(screen.getByTestId("solve-count").textContent).toBe("0");
+    expect(loadLocal("alice").tombstones?.["solve:" + id]).toBe(stamp);
+  });
+
   it("stays synced after unchanged renders and no-op edits", async () => {
     mocks.load.mockResolvedValue({
       data: emptyData(),

@@ -20,8 +20,10 @@ import {
   hasMeaningfulData,
   coalesceSyncChanges,
   reconcileSync,
+  reconcilePeer,
   trackDeletions,
   applyTombstones,
+  deletionIndex,
   diffSyncChanges,
   syncRetryDelay,
   SyncConflictError,
@@ -344,30 +346,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return;
       try {
         const incoming = loadLocal(owner.current);
-        const basePending =
-          incoming.revision > current.current.revision
-            ? incoming.pending
-            : coalesceSyncChanges(
-                current.current.pending,
-                Object.values(incoming.pending ?? {}),
-              );
-        const merged = reconcileSync(
-          { ...current.current, pending: basePending },
-          { ...incoming, pending: incoming.pending ?? {} },
-        );
-        current.current = {
-          ...merged,
-          revision: Math.max(current.current.revision, incoming.revision),
-        };
+        const merged = reconcilePeer(current.current, incoming);
+        current.current = merged;
         setData(merged.data);
-        const content = (value: LocalEnvelope) =>
-          JSON.stringify([
-            value.data,
-            value.tombstones,
-            value.pending,
-            value.revision,
-          ]);
-        if (content(current.current) !== content(incoming)) persist();
+        // Reconciled data differences are represented by pending operations.
+        // Dictionary insertion order must not cause tabs to rebroadcast forever.
+        const equalEntries = (
+          left: Record<string, unknown> = {},
+          right: Record<string, unknown> = {},
+        ) =>
+          Object.keys(left).length === Object.keys(right).length &&
+          Object.entries(left).every(
+            ([key, value]) =>
+              JSON.stringify(value) === JSON.stringify(right[key]),
+          );
+        if (
+          merged.revision !== incoming.revision ||
+          !equalEntries(merged.tombstones, incoming.tombstones) ||
+          !equalEntries(merged.pending, incoming.pending)
+        )
+          persist();
         if (owner.current)
           setSync(
             current.current.dirty && connected.current ? "saving" : "saved",
@@ -399,7 +397,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ].slice(-20);
       const changes = diffSyncChanges(previous, next);
       if (!changes.length) return;
-      const tombstones = trackDeletions(current.current.tombstones, changes);
+      const tombstones = trackDeletions(
+        deletionIndex(current.current),
+        changes,
+      );
       const safeNext = applyTombstones(next, tombstones);
       const pending = owner.current
         ? coalesceSyncChanges(

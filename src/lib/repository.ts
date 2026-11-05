@@ -731,6 +731,7 @@ export function trackDeletions(
 export function reconcileSync(
   local: LocalEnvelope,
   remote: LocalEnvelope,
+  cloudAcknowledgement = true,
 ): LocalEnvelope & { conflicts: number } {
   const merged = mergeData(local.data, remote.data);
   const tombstones = deletionIndex(local);
@@ -751,15 +752,27 @@ export function reconcileSync(
     )
       attempts.set(change.recordId, change.payload as PracticeAttempt);
   data = { ...data, attempts: [...attempts.values()] };
-  const pending = coalesceSyncChanges(
-    pruneAcknowledgedSyncChanges(
-      remote.data,
-      local.pending,
-      deletionIndex(remote),
-    ),
+  const outstanding = cloudAcknowledgement
+    ? pruneAcknowledgedSyncChanges(
+        remote.data,
+        local.pending,
+        deletionIndex(remote),
+      )
+    : local.pending;
+  const differences =
     remote.pending === undefined
       ? seedSyncChanges(data)
-      : diffSyncChanges(remote.data, data),
+      : diffSyncChanges(remote.data, data);
+  const pending = coalesceSyncChanges(
+    outstanding,
+    differences.filter((change) => {
+      const queued = outstanding?.[syncKey(change)];
+      return (
+        !queued ||
+        queued.deleted !== change.deleted ||
+        JSON.stringify(queued.payload) !== JSON.stringify(change.payload)
+      );
+    }),
   );
   const remoteDeleted = deletionIndex(remote);
   for (const [key, updatedAt] of Object.entries(tombstones)) {
@@ -767,6 +780,7 @@ export function reconcileSync(
     const kind = key.slice(0, split) as SyncRecordKind;
     const recordId = key.slice(split + 1);
     if (kind === "pair" && data.pairs[recordId]) continue;
+    if (!cloudAcknowledgement && pending[key]?.deleted) continue;
     delete pending[key];
     if (!remoteDeleted[key])
       pending[key] = {
@@ -786,6 +800,29 @@ export function reconcileSync(
     lastAttemptAt: local.lastAttemptAt,
     conflicts: merged.conflicts,
   };
+}
+
+/** A peer's local data is not proof that its queued operations reached the server. */
+export function reconcilePeer(local: LocalEnvelope, incoming: LocalEnvelope) {
+  const localPending =
+    incoming.revision > local.revision
+      ? pruneAcknowledgedSyncChanges(
+          incoming.data,
+          local.pending,
+          deletionIndex(incoming),
+        )
+      : local.pending;
+  const changes = [
+    ...Object.values(localPending ?? {}),
+    ...Object.values(incoming.pending ?? {}),
+  ].sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt));
+  const pending = coalesceSyncChanges({}, changes);
+  const result = reconcileSync(
+    { ...local, pending },
+    { ...incoming, pending: incoming.pending ?? {} },
+    false,
+  );
+  return { ...result, revision: Math.max(local.revision, incoming.revision) };
 }
 
 export function syncSnapshotEnvelope(
