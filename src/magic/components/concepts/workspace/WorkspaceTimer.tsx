@@ -84,7 +84,7 @@ export function WorkspaceTimer({
         <main className="flex min-h-0 min-w-0 flex-col">
           <section
             aria-label="Scramble"
-            className={`timer-workspace-inset flex shrink-0 items-start gap-3 border-b border-line py-3 transition-opacity duration-300 ease-out ${
+            className={`timer-workspace-inset relative flex shrink-0 items-start gap-3 border-b border-line pb-8 pt-5 transition-opacity duration-300 ease-out md:pb-9 md:pt-6 ${
               s.running ? "opacity-25" : ""
             }`}
           >
@@ -109,14 +109,6 @@ export function WorkspaceTimer({
                     scramble={s.scramble}
                     className="min-w-0 flex-1 text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink"
                   />
-                  {s.scrambleError && (
-                    <span
-                      className="shrink-0 self-center text-[12px] text-danger"
-                      role="alert"
-                    >
-                      New scramble failed
-                    </span>
-                  )}
                 </>
               )}
             </ScrambleRegion>
@@ -137,12 +129,6 @@ export function WorkspaceTimer({
             >
               <RefreshCwIcon size={14} strokeWidth={1.75} />
             </button>
-          </section>
-
-          <div
-            className="timer-workspace-inset relative flex min-h-0 flex-1 cursor-default touch-none select-none flex-col justify-center overflow-hidden pt-8"
-            {...s.timer.pointerHandlers}
-          >
             <TimerModeControl
               value={s.timerMode}
               onChange={s.setTimerMode}
@@ -153,6 +139,20 @@ export function WorkspaceTimer({
                 phase === "ready"
               }
             />
+            {s.scrambleError && s.scramble && (
+              <span
+                role="alert"
+                className="absolute bottom-2 left-6 text-[11px] text-danger md:left-24"
+              >
+                New scramble failed
+              </span>
+            )}
+          </section>
+
+          <div
+            className="timer-workspace-inset relative flex min-h-0 flex-1 cursor-default touch-none select-none flex-col justify-center overflow-hidden"
+            {...s.timer.pointerHandlers}
+          >
             <div className="[container-type:inline-size]" data-timer-clock>
               <TimerReadout
                 phase={phase}

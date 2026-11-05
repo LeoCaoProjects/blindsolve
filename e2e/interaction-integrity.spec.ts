@@ -60,6 +60,48 @@ for (const surface of ["timer", "training"])
       const after = await region.boundingBox();
       expect(Math.abs(after!.height - before!.height)).toBeLessThan(1);
       expect(Math.abs(after!.y - before!.y)).toBeLessThan(1);
+      if (surface === "timer") {
+        const clock = page.locator("[data-timer-clock]");
+        const clockBefore = await clock.boundingBox();
+        // Fail only this isolated fixture's next restricted-scramble request.
+        await page.evaluate(() => {
+          crypto.getRandomValues = () => {
+            throw new Error("fixture scramble failure");
+          };
+        });
+        await page.getByRole("radio", { name: "Edges", exact: true }).click();
+        await expect(region.getByRole("alert")).toContainText(
+          "Scramble unavailable. Try again.",
+        );
+        expect(await region.boundingBox()).toEqual(after);
+        expect(await clock.boundingBox()).toEqual(clockBefore);
+        await page.evaluate(() => {
+          delete (crypto as unknown as Record<string, unknown>).getRandomValues;
+        });
+        const refresh = region.getByRole("button", {
+          name: "New scramble",
+          exact: true,
+        });
+        await refresh.click();
+        await expect(refresh).toBeEnabled({ timeout: 30000 });
+        await expect(region.getByRole("alert")).toHaveCount(0);
+        await page.evaluate(() => {
+          crypto.getRandomValues = () => {
+            throw new Error("fixture refresh failure");
+          };
+        });
+        await refresh.click();
+        await expect(region.getByRole("alert")).toContainText(
+          "New scramble failed",
+        );
+        expect(await region.boundingBox()).toEqual(after);
+        expect(await clock.boundingBox()).toEqual(clockBefore);
+        const error = (await region.getByRole("alert").boundingBox())!;
+        const modes = (await page
+          .getByRole("radiogroup", { name: "Timer mode" })
+          .boundingBox())!;
+        expect(error.x + error.width).toBeLessThan(modes.x);
+      }
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth,

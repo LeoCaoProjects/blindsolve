@@ -1,6 +1,9 @@
 import { TIMER_MODES, type TimerMode } from "../../utils/timerModes";
+import { useId } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { EASE_OUT } from "../../utils/keyboard";
 
-/** Inline choices in the timing surface, without a separate navigation row. */
+/** Training's sliding-choice treatment, scaled down into the scramble header. */
 export function TimerModeControl({
   value,
   onChange,
@@ -10,11 +13,13 @@ export function TimerModeControl({
   onChange: (mode: TimerMode) => void;
   disabled: boolean;
 }) {
+  const id = useId();
+  const reduced = useReducedMotion();
   return (
     <div
       role="radiogroup"
       aria-label="Timer mode"
-      className="absolute right-6 top-1 flex h-7 items-center gap-2 md:right-10"
+      className="absolute bottom-1 right-6 grid h-6 w-[138px] grid-cols-3 rounded bg-hover p-0.5 md:right-10"
       onPointerDown={(event) => event.stopPropagation()}
       onPointerUp={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
@@ -45,9 +50,19 @@ export function TimerModeControl({
           tabIndex={value === mode.value ? 0 : -1}
           disabled={disabled}
           onClick={() => onChange(mode.value)}
-          className={`h-7 px-1 text-[11.5px] transition-colors hover:text-ink focus-visible:rounded-sm focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:opacity-40 ${value === mode.value ? "text-ink-2 underline decoration-line-strong underline-offset-4" : "text-ink-3"}`}
+          className={`relative h-5 min-w-0 whitespace-nowrap rounded-sm px-1 text-[10px] transition-colors hover:text-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:opacity-40 ${value === mode.value ? "text-ink-2" : "text-ink-3"}`}
         >
-          {mode.label}
+          {value === mode.value && (
+            <motion.span
+              aria-hidden
+              data-selection-indicator
+              layoutId={`timer-mode-${id}`}
+              initial={false}
+              transition={{ duration: reduced ? 0 : 0.16, ease: EASE_OUT }}
+              className="absolute inset-0 rounded-sm border border-line-strong bg-selected"
+            />
+          )}
+          <span className="relative">{mode.label}</span>
         </button>
       ))}
     </div>
