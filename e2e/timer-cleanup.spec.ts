@@ -101,7 +101,14 @@ for (const [width, height] of sizes)
     await expect(
       page.getByRole("list", { name: "Solves", exact: true }).locator("li"),
     ).toHaveCount(2);
-    expect((await modes.boundingBox())!.y).toBeLessThan(40);
+    const modeBox = (await modes.boundingBox())!;
+    const scrambleBox = (await page
+      .getByRole("region", { name: "Scramble", exact: true })
+      .boundingBox())!;
+    expect(modeBox.height).toBeLessThanOrEqual(28);
+    expect(modeBox.y).toBeGreaterThanOrEqual(
+      scrambleBox.y + scrambleBox.height,
+    );
     await contained(page);
     await screenshot(page, `timer-${width}`);
     await page

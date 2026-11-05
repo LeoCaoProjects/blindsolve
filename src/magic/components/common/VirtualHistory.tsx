@@ -64,6 +64,9 @@ export function VirtualHistory<T>({
         display: "grid",
         gridTemplateColumns: `repeat(${columns},minmax(0,1fr))`,
         alignContent: "start",
+        // Windowing owns the scroll offset; browser anchoring can undo Home/End jumps
+        // when the focused row is replaced by a spacer.
+        overflowAnchor: "none",
       }}
       onScroll={(event) => {
         const top = event.currentTarget.scrollTop;
