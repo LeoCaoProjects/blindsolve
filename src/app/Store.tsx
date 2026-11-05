@@ -41,8 +41,11 @@ interface StoreValue {
   sync: SyncState;
   lastAttemptAt: string | null;
   message: string;
+  storageIssue: string;
+  retryStorage: () => void;
+  recoveryEnvelope: () => LocalEnvelope;
   notify: (s: string) => void;
-  update: (fn: (d: AppData) => AppData) => void;
+  update: (fn: (d: AppData) => AppData) => boolean;
   upsertPair: (p: LetterPair) => void;
   retry: () => void;
   importData: (data: AppData) => void;
@@ -64,6 +67,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [sync, setSync] = useState<SyncState>("loading"),
     [lastAttemptAt, setLastAttemptAt] = useState<string | null>(null),
     [message, notify] = useState(""),
+    [storageIssue, setStorageIssue] = useState(""),
     [focus, setFocus] = useState(false),
     [guestMigration, setGuestMigration] =
       useState<StoreValue["guestMigration"]>(null);
@@ -85,16 +89,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     clearGuestAfterSync = useRef(false);
   const flushRef = useRef<() => Promise<void>>(async () => {});
   const storageReadable = useRef(true);
+  // A failed atomic setItem must not discard new work on an account transition.
+  // These copies live only in this tab; the persistent warning/unload guard says so.
+  const unsaved = useRef(new Map<string | null, LocalEnvelope>());
+  const unreadableOwners = useRef(new Set<string | null>());
   const persist = useCallback(() => {
     try {
       if (!storageReadable.current)
         throw new Error("Original data requires recovery");
       saveLocal(owner.current, current.current);
+      unsaved.current.delete(owner.current);
+      setStorageIssue(
+        unsaved.current.size
+          ? "Another account has changes only in this tab. Switch back to save or export them before closing."
+          : "",
+      );
       return true;
     } catch {
-      setSync("error");
-      notify(
-        "Browser storage is full or unavailable. Export a backup before closing this tab.",
+      unsaved.current.set(owner.current, current.current);
+      setStorageIssue(
+        storageReadable.current
+          ? "Changes are only in this tab: browser storage is full or unavailable. Keep this tab open, export a backup, then retry saving."
+          : "Saved data could not be read. The original copy is preserved. Export this tab’s data before closing; do not clear browser storage.",
       );
       return false;
     }
@@ -114,6 +130,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       !current.current.dirty
     )
       return;
+    // Never dispatch an outbox which has not been committed on this device.
+    if (!persist()) return;
     const generation = epoch.current,
       snapshot = current.current,
       batch = Object.values(snapshot.pending ?? {});
@@ -158,14 +176,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       };
       retryAttempts.current = 0;
       setSync(current.current.dirty ? "saving" : "saved");
-      persist();
-      if (!current.current.dirty && clearGuestAfterSync.current) {
-        saveLocal(null, {
-          data: emptyData(),
-          dirty: false,
-          revision: 0,
-          pending: {},
-        });
+      const persisted = persist();
+      if (persisted && !current.current.dirty && clearGuestAfterSync.current) {
+        try {
+          saveLocal(null, {
+            data: emptyData(),
+            dirty: false,
+            revision: 0,
+            pending: {},
+          });
+        } catch {
+          // Account data is safe; keep the guest source rather than losing it.
+          notify(
+            "Account saved. The guest copy could not be cleared and has been preserved.",
+          );
+          return;
+        }
         clearGuestAfterSync.current = false;
         guestForMigration.current = null;
       }
@@ -229,26 +255,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       initialized.current = true;
       connected.current = false;
       saving.current = false;
-      storageReadable.current = true;
+      storageReadable.current = !unreadableOwners.current.has(
+        nextUser?.id ?? null,
+      );
       clearTimeout(saveTimer.current);
       clearTimeout(retryTimer.current);
       retryAttempts.current = 0;
       owner.current = nextUser?.id ?? null;
+      setStorageIssue(
+        unsaved.current.size
+          ? "Changes remain only in this tab. Retry saving or export a backup before closing."
+          : "",
+      );
       setGuestMigration(null);
       notify("");
       setUser(nextUser);
       setReady(false);
       setSync(nextUser ? "loading" : "local");
-      let local: LocalEnvelope = {
+      let local: LocalEnvelope = unsaved.current.get(owner.current) ?? {
         data: emptyData(),
         revision: 0,
         dirty: false,
         pending: {},
       };
       try {
-        local = loadLocal(owner.current);
+        const stored = loadLocal(owner.current);
+        local = unsaved.current.has(owner.current)
+          ? reconcilePeer(local, stored)
+          : stored;
       } catch (e) {
         storageReadable.current = false;
+        unreadableOwners.current.add(owner.current);
+        unsaved.current.set(owner.current, local);
+        setStorageIssue(
+          "Saved data could not be read. The original copy is preserved. Do not clear browser storage.",
+        );
         notify(
           `Saved data could not be read: ${(e as Error).message}. The original storage has been preserved.`,
         );
@@ -396,7 +437,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           },
         ].slice(-20);
       const changes = diffSyncChanges(previous, next);
-      if (!changes.length) return;
+      if (!changes.length)
+        return unsaved.current.has(owner.current) ? persist() : true;
       const tombstones = trackDeletions(
         deletionIndex(current.current),
         changes,
@@ -429,7 +471,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : "offline"
             : "error",
         );
-      persist();
+      return persist();
     },
     [persist],
   );
@@ -473,6 +515,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
   };
+  const retryStorage = () => {
+    if (!storageReadable.current) {
+      try {
+        const stored = loadLocal(owner.current);
+        current.current = reconcilePeer(current.current, stored);
+        setData(current.current.data);
+        storageReadable.current = true;
+        unreadableOwners.current.delete(owner.current);
+      } catch {
+        return; // Never replace an unreadable original with a default document.
+      }
+    }
+    if (!persist()) return;
+    if (!owner.current) setSync("local");
+    else if (connected.current && current.current.dirty) {
+      if (navigator.onLine) void flushRef.current();
+      else setSync("offline");
+    }
+  };
+  useEffect(() => {
+    const protect = (event: BeforeUnloadEvent) => {
+      if (!unsaved.current.size) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protect);
+    return () => window.removeEventListener("beforeunload", protect);
+  }, []);
   useEffect(() => {
     const online = () => {
       retryAttempts.current = 0;
@@ -506,10 +576,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
   const importData = (incoming: AppData) => {
     const result = mergeData(current.current.data, incoming);
-    update(() => result.data);
-    notify(
-      `Backup merged. ${result.conflicts} differing mnemonics preserved as alternates.`,
-    );
+    const persisted = update(() => result.data);
+    if (persisted)
+      notify(
+        `Backup merged. ${result.conflicts} differing mnemonics preserved as alternates.`,
+      );
   };
   const resolveGuestMigration = useCallback(
     (choice: "merge" | "account") => {
@@ -532,9 +603,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         data,
         user,
         ready,
-        sync,
+        sync: storageIssue ? "error" : sync,
         lastAttemptAt,
         message,
+        storageIssue,
+        retryStorage,
+        recoveryEnvelope: () => current.current,
         notify,
         update,
         upsertPair,

@@ -37,9 +37,9 @@ export function BackupSection({ preview }: {preview?: 'valid' | 'invalid';}) {
 
   const doImport = () => {
     if (!summary?.ok) return;
-    store.update((current) => mergeBackup(current, summary.file.data, strategy));
+    const saved = store.update((current) => mergeBackup(current, summary.file.data, strategy));
     setSummary(null);
-    flash(`Imported ${summary.pairs.total} pairs`);
+    flash(saved ? `Imported ${summary.pairs.total} pairs` : 'Import is only in this tab. Export a backup or retry saving.');
   };
 
   return (

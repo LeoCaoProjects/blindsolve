@@ -10,6 +10,28 @@ permissions:
   contents: read
 
 jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Initialize isolated local database configuration
+        run: |
+          mkdir -p "$RUNNER_TEMP/blindsolve-db"
+          npx --yes supabase@3.0.0 init --workdir "$RUNNER_TEMP/blindsolve-db" --yes
+          cp -R supabase/migrations supabase/tests "$RUNNER_TEMP/blindsolve-db/supabase/"
+      - name: Run current sync RPC contract tests
+        run: |
+          npx --yes supabase@3.0.0 start --workdir "$RUNNER_TEMP/blindsolve-db" --exclude studio,imgproxy,edge-runtime,logflare,vector,supavisor
+          npx --yes supabase@3.0.0 test db --workdir "$RUNNER_TEMP/blindsolve-db"
+      - name: Stop isolated database
+        if: always()
+        run: npx --yes supabase@3.0.0 stop --workdir "$RUNNER_TEMP/blindsolve-db"
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
