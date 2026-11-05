@@ -10,13 +10,15 @@ interface PopoverProps {
   label: string;
   width?: number;
   children: React.ReactNode;
+  /** Preserve the caller's theme across the document-body portal. */
+  className?: string;
 }
 
 /**
  * Small floating panel anchored to a control. Rendered above everything (portal), so opening it
  * never resizes the row it came from. Closes on outside click, Escape, or when its owner says so.
  */
-export function Popover({ open, onClose, anchorRef, label, width = 216, children }: PopoverProps) {
+export function Popover({ open, onClose, anchorRef, label, width = 216, children, className = '' }: PopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{top: number;left: number;above: boolean;} | null>(null);
 
@@ -91,7 +93,7 @@ export function Popover({ open, onClose, anchorRef, label, width = 216, children
           width,
           transformOrigin: pos?.above ? 'bottom right' : 'top right'
         }}
-        className="z-[70] rounded-[6px] border border-line-strong bg-raised p-1 font-sans shadow-overlay">
+        className={`z-[70] rounded-[6px] border border-line-strong bg-raised p-1 font-sans shadow-overlay ${className}`}>
         
           {children}
         </motion.div>

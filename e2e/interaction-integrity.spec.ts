@@ -1,3 +1,4 @@
+import { chooseTimerMode } from "./helpers/timerMode";
 import { test, expect } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
 const sizes = [
@@ -69,9 +70,7 @@ for (const surface of ["timer", "training"])
             throw new Error("fixture scramble failure");
           };
         });
-        await page
-          .getByRole("combobox", { name: "Timer mode" })
-          .selectOption("edges");
+        await chooseTimerMode(page, "edges");
         await expect(region.getByRole("alert")).toContainText(
           "Scramble unavailable. Try again.",
         );
@@ -100,7 +99,7 @@ for (const surface of ["timer", "training"])
         expect(await clock.boundingBox()).toEqual(clockBefore);
         const error = (await region.getByRole("alert").boundingBox())!;
         const modes = (await page
-          .getByRole("combobox", { name: "Timer mode" })
+          .getByRole("button", { name: "Timer mode", exact: true })
           .boundingBox())!;
         expect(error.x + error.width).toBeLessThan(modes.x);
       }

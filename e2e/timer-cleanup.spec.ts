@@ -1,3 +1,4 @@
+import { chooseTimerMode } from "./helpers/timerMode";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -92,8 +93,10 @@ for (const [width, height] of sizes)
     await expect(
       page.getByRole("button", { name: "New scramble", exact: true }),
     ).toBeEnabled({ timeout: 45000 });
-    const modes = page.getByRole("combobox", { name: "Timer mode" });
-    await expect(modes.getByRole("option")).toHaveCount(3);
+    const modes = page.getByRole("button", { name: "Timer mode", exact: true });
+    await modes.click();
+    await expect(page.getByRole("menuitemradio")).toHaveCount(3);
+    await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: /^Clear/ })).toHaveCount(0);
     await expect(
       page.getByRole("region", { name: "Scramble", exact: true }),
@@ -112,7 +115,7 @@ for (const [width, height] of sizes)
     await expect(
       page
         .getByRole("region", { name: "Scramble", exact: true })
-        .getByRole("combobox"),
+        .getByRole("button", { name: "Timer mode", exact: true }),
     ).toHaveCount(0);
     expect(modeBox.width).toBeLessThan(90);
     expect(scrambleBox.height).toBeGreaterThan(80);
@@ -170,8 +173,8 @@ for (const mode of ["Edges", "Corners"])
   }) => {
     await seed(page);
     await page.goto("/");
-    const modes = page.getByRole("combobox", { name: "Timer mode" });
-    await modes.selectOption(mode === "3BLD" ? "3bld" : mode.toLowerCase());
+    const modes = page.getByRole("button", { name: "Timer mode", exact: true });
+    await chooseTimerMode(page, mode === "3BLD" ? "3bld" : mode.toLowerCase());
     await expect(
       page.getByRole("button", { name: "New scramble", exact: true }),
     ).toBeEnabled({ timeout: 45000 });
@@ -220,7 +223,7 @@ for (const mode of ["Edges", "Corners"])
     for (const [face, stickers] of Object.entries(state))
       for (const slot of slots) expect(stickers[slot]).toBe(face);
     await page.reload();
-    await expect(modes).toHaveValue(mode.toLowerCase());
+    await expect(modes).toHaveText(mode);
     await expect(
       page.getByRole("list", { name: "Solves", exact: true }).locator("li"),
     ).toHaveCount(2);
@@ -246,19 +249,15 @@ test("clear shortcut removes only current Timer mode and does not resurrect afte
       .getByRole("list", { name: "Solves", exact: true })
       .locator("[data-virtual-row]"),
   ).toHaveCount(0);
-  await page
-    .getByRole("combobox", { name: "Timer mode" })
-    .selectOption("edges");
+  await chooseTimerMode(page, "edges");
   await expect(
     page.getByRole("list", { name: "Solves", exact: true }).locator("li"),
   ).toHaveCount(1);
-  await page
-    .getByRole("combobox", { name: "Timer mode" })
-    .selectOption("corners");
+  await chooseTimerMode(page, "corners");
   await expect(
     page.getByRole("list", { name: "Solves", exact: true }).locator("li"),
   ).toHaveCount(1);
-  await page.getByRole("combobox", { name: "Timer mode" }).selectOption("3bld");
+  await chooseTimerMode(page, "3bld");
   await expect(
     page
       .getByRole("list", { name: "Solves", exact: true })
