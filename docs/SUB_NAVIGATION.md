@@ -31,3 +31,12 @@ Verification uses isolated guest fixtures; it does not modify the user's product
 ## Verification
 
 The integrity/performance pass passed 222 unit tests, the full existing 43-test browser suite, and 21 focused checks against the final build (including overlapping sub-navigation tests). Type checking, production build, lint and SEO checks passed. The combined CI suite includes 57 browser tests. Coverage includes 1440x900, 1280x720, 1024x768, 900x560, 390x844 and 320x568, measured intermediate workspace/indicator positions, reduced motion, stable contextual width, scramble geometry, equal control segments and horizontal containment.
+
+
+## Static global navigation anchor
+
+`GlobalNavigationShell` renders the global rail/mobile dock as a persistent sibling of `RouteFrame`, outside `SubNavFrame` and its translated page workspace. A transform creates a containing block for fixed descendants: rendering the rail inside a page previously moved it with the FLIP transform, then snapped it back when that transform ended. The navigation must never return to that transformed subtree.
+
+Page `AppBar` components retain page-specific header controls and register their shortcut handler/activity dimming with the shell. Global navigation links, route guards, shortcut access and responsive styles retain their existing behavior. No counter-transform or compensating offset is applied to the rail/dock.
+
+`e2e/global-navigation-anchor.spec.ts` checks every requested route transition at all six viewport sizes. Each animation frame must retain the same visible navigation DOM node, exactly the same bounding rectangle, no transformed ancestor and no duplicate visible navigation. Contextual-to-contextual transitions must preserve the 224px column and workspace position. The existing motion/reduced-motion tests remain intact; the new regression fails on the previous production build. A separate check verifies page-owned shortcut dialogs still open from the persistent global button.
