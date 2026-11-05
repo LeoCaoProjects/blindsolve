@@ -35,7 +35,9 @@ describe("Timer refinement", () => {
     expect(
       screen.getByRole("region", { name: "Last solve memo" }),
     ).toBeTruthy();
-    expect(screen.getByLabelText("No previous memo").textContent).toBe("\u2014");
+    expect(screen.getByLabelText("No previous memo").textContent).toBe(
+      "\u2014",
+    );
   });
   it("shows only the selected piece type", () => {
     render(
@@ -44,22 +46,37 @@ describe("Timer refinement", () => {
     expect(screen.getByText("Apple")).toBeTruthy();
     expect(screen.queryByText("Cloud")).toBeNull();
   });
-  it("offers the three modes in a compact native dropdown and disables it while running", () => {
-    const changed = vi.fn();
+  it("uses the shared utility trigger with a compact keyboard-accessible menu", () => {
+    const changed = vi.fn(),
+      key = vi.fn();
     const view = render(
-      <TimerModeControl value="3bld" disabled={false} onChange={changed} />,
+      <div onKeyDown={key}>
+        <TimerModeControl value="3bld" disabled={false} onChange={changed} />
+      </div>,
     );
-    const dropdown = screen.getByRole("combobox", { name: "Timer mode" });
-    expect(
-      screen.getAllByRole("option").map((option) => option.textContent),
-    ).toEqual(["3BLD", "Edges", "Corners"]);
-    fireEvent.change(dropdown, { target: { value: "edges" } });
+    const trigger = screen.getByRole("button", { name: "Timer mode" });
+    fireEvent.keyDown(trigger, { key: " " });
+    expect(key).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+    const choices = screen.getAllByRole("menuitemradio");
+    expect(choices.map((option) => option.textContent)).toEqual([
+      "3BLD",
+      "Edges",
+      "Corners",
+    ]);
+    expect(choices[0].getAttribute("aria-checked")).toBe("true");
+    fireEvent.keyDown(choices[0], { key: "ArrowDown" });
+    expect(document.activeElement).toBe(choices[1]);
+    fireEvent.click(choices[1]);
     expect(changed).toHaveBeenCalledWith("edges");
+    expect(document.activeElement).toBe(trigger);
     view.rerender(
       <TimerModeControl value="edges" disabled onChange={changed} />,
     );
-    expect((dropdown as HTMLSelectElement).disabled).toBe(true);
-    expect((dropdown as HTMLSelectElement).value).toBe("edges");
+    expect(
+      (screen.getByRole("button", { name: "Timer mode" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
   });
   it("changes the phase label immediately without displaying split metrics", () => {
     const view = render(<TimerPhaseCue phase="memo" />);

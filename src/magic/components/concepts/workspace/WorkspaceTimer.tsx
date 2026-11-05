@@ -167,11 +167,15 @@ export function WorkspaceTimer({
         <aside
           className={`flex min-h-0 flex-col border-t border-line bg-surface transition-opacity duration-300 ease-out md:border-l md:border-t-0 ${recede}`}
         >
-          <div className="flex h-8 shrink-0 flex-col border-b border-line md:h-[clamp(170px,36vh,330px)]">
+          <div
+            ref={cubeRef}
+            data-timer-cube-viewport
+            className="relative h-8 shrink-0 border-b border-line md:h-[clamp(170px,36vh,330px)]"
+          >
             <div
               role="group"
               aria-label="Timer utilities"
-              className="flex h-8 shrink-0 items-center justify-end px-3"
+              className="absolute inset-y-0 right-3 z-10 flex items-center gap-1 md:inset-y-auto md:bottom-1"
             >
               <TimerModeControl
                 value={s.timerMode}
@@ -183,25 +187,22 @@ export function WorkspaceTimer({
                   phase === "ready"
                 }
               />
-            </div>
-            <div
-              ref={cubeRef}
-              className="relative hidden min-h-0 flex-1 items-center justify-center md:flex"
-            >
-              <Cube3D
-                state={s.cubeState}
-                size={cubeSize}
-                showLetters={letters}
-              />
               <IconButton
                 size="sm"
                 label="Sticker letters"
                 pressed={letters}
                 onClick={() => setLetters((v) => !v)}
-                className="absolute bottom-3 right-3"
+                className="hidden md:inline-flex"
               >
                 <CaseSensitiveIcon />
               </IconButton>
+            </div>
+            <div className="absolute inset-0 hidden items-center justify-center md:flex">
+              <Cube3D
+                state={s.cubeState}
+                size={cubeSize}
+                showLetters={letters}
+              />
             </div>
           </div>
           <WorkspaceHistory

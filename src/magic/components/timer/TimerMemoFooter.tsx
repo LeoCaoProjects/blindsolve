@@ -59,7 +59,7 @@ export function TimerMemoFooter({
   return (
     <section
       aria-label="Last solve memo"
-      className={`timer-workspace-inset flex h-20 min-h-20 max-h-20 shrink-0 items-center overflow-hidden border-t border-line py-2 transition-opacity duration-200 ${className}`}
+      className={`timer-workspace-inset flex h-[84px] min-h-[84px] max-h-[84px] shrink-0 items-center overflow-hidden border-t border-line pb-3 pt-2 transition-opacity duration-200 ${className}`}
     >
       <div
         ref={content}
