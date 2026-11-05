@@ -69,7 +69,9 @@ for (const surface of ["timer", "training"])
             throw new Error("fixture scramble failure");
           };
         });
-        await page.getByRole("radio", { name: "Edges", exact: true }).click();
+        await page
+          .getByRole("combobox", { name: "Timer mode" })
+          .selectOption("edges");
         await expect(region.getByRole("alert")).toContainText(
           "Scramble unavailable. Try again.",
         );
@@ -98,7 +100,7 @@ for (const surface of ["timer", "training"])
         expect(await clock.boundingBox()).toEqual(clockBefore);
         const error = (await region.getByRole("alert").boundingBox())!;
         const modes = (await page
-          .getByRole("radiogroup", { name: "Timer mode" })
+          .getByRole("combobox", { name: "Timer mode" })
           .boundingBox())!;
         expect(error.x + error.width).toBeLessThan(modes.x);
       }

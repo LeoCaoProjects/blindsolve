@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useState } from "react";
+
 import { TimerMemoFooter } from "./TimerMemoFooter";
 import { TimerModeControl } from "./TimerModeControl";
 import { TimerPhaseCue } from "./TimerPhaseCue";
 import type { Solve } from "../../types/solve";
-import type { TimerMode } from "../../utils/timerModes";
+
 afterEach(cleanup);
 const solve: Solve = {
   id: "fixture",
@@ -25,7 +25,7 @@ describe("Timer refinement", () => {
     const view = render(
       <TimerMemoFooter latest={solve} mode="3bld" memoOrder="edges-first" />,
     );
-    expect(screen.getByRole("heading", { name: "Last memo" })).toBeTruthy();
+    expect(screen.queryByText("Last memo")).toBeNull();
     expect(screen.getByText("Apple")).toBeTruthy();
     expect(screen.queryByText("DNF")).toBeNull();
     expect(screen.queryByText("8:28.66")).toBeNull();
@@ -35,7 +35,7 @@ describe("Timer refinement", () => {
     expect(
       screen.getByRole("region", { name: "Last solve memo" }),
     ).toBeTruthy();
-    expect(screen.getByLabelText("No previous memo")).toBeTruthy();
+    expect(screen.getByLabelText("No previous memo").textContent).toBe("\u2014");
   });
   it("shows only the selected piece type", () => {
     render(
@@ -44,37 +44,22 @@ describe("Timer refinement", () => {
     expect(screen.getByText("Apple")).toBeTruthy();
     expect(screen.queryByText("Cloud")).toBeNull();
   });
-  it("isolates mode clicks, preserves the global Space shortcut and supports arrows", () => {
-    const pointer = vi.fn(),
-      key = vi.fn(),
-      changed = vi.fn();
-    function Harness() {
-      const [mode, setMode] = useState<TimerMode>("3bld");
-      return (
-        <div onPointerDown={pointer} onKeyDown={key}>
-          <TimerModeControl
-            value={mode}
-            disabled={false}
-            onChange={(next) => {
-              changed(next);
-              setMode(next);
-            }}
-          />
-        </div>
-      );
-    }
-    render(<Harness />);
-    const first = screen.getByRole("radio", { name: "3BLD" });
-    fireEvent.pointerDown(first);
-    fireEvent.keyDown(first, { key: " " });
-    expect(pointer).not.toHaveBeenCalled();
-    expect(key).toHaveBeenCalledTimes(1);
-    fireEvent.keyDown(first, { key: "ArrowRight" });
-    expect(changed).toHaveBeenCalledWith("edges");
-    expect(key).toHaveBeenCalledTimes(1);
+  it("offers the three modes in a compact native dropdown and disables it while running", () => {
+    const changed = vi.fn();
+    const view = render(
+      <TimerModeControl value="3bld" disabled={false} onChange={changed} />,
+    );
+    const dropdown = screen.getByRole("combobox", { name: "Timer mode" });
     expect(
-      screen.getByRole("radio", { name: "Edges" }).getAttribute("aria-checked"),
-    ).toBe("true");
+      screen.getAllByRole("option").map((option) => option.textContent),
+    ).toEqual(["3BLD", "Edges", "Corners"]);
+    fireEvent.change(dropdown, { target: { value: "edges" } });
+    expect(changed).toHaveBeenCalledWith("edges");
+    view.rerender(
+      <TimerModeControl value="edges" disabled onChange={changed} />,
+    );
+    expect((dropdown as HTMLSelectElement).disabled).toBe(true);
+    expect((dropdown as HTMLSelectElement).value).toBe("edges");
   });
   it("changes the phase label immediately without displaying split metrics", () => {
     const view = render(<TimerPhaseCue phase="memo" />);

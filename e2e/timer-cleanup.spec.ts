@@ -92,8 +92,8 @@ for (const [width, height] of sizes)
     await expect(
       page.getByRole("button", { name: "New scramble", exact: true }),
     ).toBeEnabled({ timeout: 45000 });
-    const modes = page.getByRole("radiogroup", { name: "Timer mode" });
-    await expect(modes.getByRole("radio")).toHaveCount(3);
+    const modes = page.getByRole("combobox", { name: "Timer mode" });
+    await expect(modes.getByRole("option")).toHaveCount(3);
     await expect(page.getByRole("button", { name: /^Clear/ })).toHaveCount(0);
     await expect(
       page.getByRole("region", { name: "Scramble", exact: true }),
@@ -106,10 +106,16 @@ for (const [width, height] of sizes)
       .getByRole("region", { name: "Scramble", exact: true })
       .boundingBox())!;
     expect(modeBox.height).toBeLessThanOrEqual(28);
-    expect(modeBox.y).toBeGreaterThan(scrambleBox.y);
-    expect(modeBox.y + modeBox.height).toBeLessThanOrEqual(
-      scrambleBox.y + scrambleBox.height,
-    );
+    expect(
+      await page.getByRole("group", { name: "Timer utilities" }).boundingBox(),
+    ).toBeTruthy();
+    await expect(
+      page
+        .getByRole("region", { name: "Scramble", exact: true })
+        .getByRole("combobox"),
+    ).toHaveCount(0);
+    expect(modeBox.width).toBeLessThan(90);
+    expect(scrambleBox.height).toBeGreaterThan(80);
     await contained(page);
     await screenshot(page, `timer-${width}`);
     await page
@@ -126,7 +132,7 @@ for (const [width, height] of sizes)
     await expect(summary).toContainText("exec");
     await expect(summary.locator("time")).toContainText(/2026, \d\d:\d\d/);
     await expect(summary).not.toContainText(/·|key [123]/);
-    await expect(summary).toContainText("#2");
+    await expect(summary).not.toContainText(/#\d/);
     expect(
       await summary.evaluate(
         (el) =>
@@ -164,8 +170,8 @@ for (const mode of ["Edges", "Corners"])
   }) => {
     await seed(page);
     await page.goto("/");
-    const modes = page.getByRole("radiogroup", { name: "Timer mode" });
-    await modes.getByRole("radio", { name: mode, exact: true }).click();
+    const modes = page.getByRole("combobox", { name: "Timer mode" });
+    await modes.selectOption(mode === "3BLD" ? "3bld" : mode.toLowerCase());
     await expect(
       page.getByRole("button", { name: "New scramble", exact: true }),
     ).toBeEnabled({ timeout: 45000 });
@@ -179,9 +185,7 @@ for (const mode of ["Edges", "Corners"])
     await page.waitForTimeout(400);
     await page.keyboard.up("Space");
     await expect(page.getByText("Memorising", { exact: true })).toBeVisible();
-    await expect(
-      modes.getByRole("radio", { name: "3BLD", exact: true }),
-    ).toBeDisabled();
+    await expect(modes).toBeDisabled();
     await page.keyboard.press("Space");
     await expect(page.getByText("Executing", { exact: true })).toBeVisible();
     await page.keyboard.press("Space");
@@ -216,9 +220,7 @@ for (const mode of ["Edges", "Corners"])
     for (const [face, stickers] of Object.entries(state))
       for (const slot of slots) expect(stickers[slot]).toBe(face);
     await page.reload();
-    await expect(
-      modes.getByRole("radio", { name: mode, exact: true }),
-    ).toHaveAttribute("aria-checked", "true");
+    await expect(modes).toHaveValue(mode.toLowerCase());
     await expect(
       page.getByRole("list", { name: "Solves", exact: true }).locator("li"),
     ).toHaveCount(2);
@@ -244,15 +246,19 @@ test("clear shortcut removes only current Timer mode and does not resurrect afte
       .getByRole("list", { name: "Solves", exact: true })
       .locator("[data-virtual-row]"),
   ).toHaveCount(0);
-  await page.getByRole("radio", { name: "Edges", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Timer mode" })
+    .selectOption("edges");
   await expect(
     page.getByRole("list", { name: "Solves", exact: true }).locator("li"),
   ).toHaveCount(1);
-  await page.getByRole("radio", { name: "Corners", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Timer mode" })
+    .selectOption("corners");
   await expect(
     page.getByRole("list", { name: "Solves", exact: true }).locator("li"),
   ).toHaveCount(1);
-  await page.getByRole("radio", { name: "3BLD", exact: true }).click();
+  await page.getByRole("combobox", { name: "Timer mode" }).selectOption("3bld");
   await expect(
     page
       .getByRole("list", { name: "Solves", exact: true })

@@ -92,7 +92,7 @@ for (const [width, height] of [
     const footer = page.getByRole("region", { name: "Last solve memo" });
     const clock = page.locator("[data-timer-clock]");
     const phase = clock.locator('[aria-live="polite"]');
-    const modes = page.getByRole("radiogroup", { name: "Timer mode" });
+    const modes = page.getByRole("combobox", { name: "Timer mode" });
     const measure = async () =>
       Promise.all([
         scramble.boundingBox(),
@@ -110,29 +110,32 @@ for (const [width, height] of [
       footer: before[4]!.height,
       selector: before[5]!.height,
     });
-    const scrambleContent = (await scramble
-      .locator(":scope > div")
-      .first()
+    await expect(scramble.getByRole("combobox")).toHaveCount(0);
+    const utility = (await page
+      .getByRole("group", { name: "Timer utilities" })
       .boundingBox())!;
-    expect(before[5]!.y).toBeGreaterThanOrEqual(
-      scrambleContent.y + scrambleContent.height,
+    expect(before[5]!.x + before[5]!.width).toBeLessThanOrEqual(
+      utility.x + utility.width,
     );
+    expect(before[5]!.y).toBeGreaterThanOrEqual(utility.y);
+    expect(before[5]!.y + before[5]!.height).toBeLessThanOrEqual(
+      utility.y + utility.height,
+    );
+    if (width >= 768) {
+      const letters = (await page
+        .getByRole("button", { name: "Sticker letters", exact: true })
+        .boundingBox())!;
+      expect(before[5]!.y + before[5]!.height).toBeLessThan(letters.y);
+    }
     expect(before[2]!.x).toBe(width >= 768 ? 168 : 24);
     expect(
       (await scramble.locator(":scope > div").first().boundingBox())!.x,
     ).toBe(before[2]!.x);
-    expect(
-      (await footer.getByRole("heading", { name: "Last memo" }).boundingBox())!
-        .x,
-    ).toBe(before[2]!.x);
+    await expect(footer.getByText("Last memo", { exact: true })).toHaveCount(0);
     expect(before[1]!.y).toBeLessThan(before[0]!.y + 40);
-    expect(before[5]!.height).toBe(24);
+    expect(before[5]!.height).toBe(28);
+    expect(before[5]!.width).toBe(82);
     expect(before[4]!.height).toBe(80);
-    expect(before[5]!.y).toBeGreaterThan(before[0]!.y);
-    expect(before[5]!.y + before[5]!.height).toBeLessThanOrEqual(
-      before[0]!.y + before[0]!.height,
-    );
-    expect(before[5]!.width).toBeLessThan(170);
     await expect(footer).not.toContainText("DNF");
     await expect(footer).not.toContainText("8:28.66");
     expect(
@@ -150,7 +153,7 @@ for (const [width, height] of [
       expect(b.x - a.x - a.width).toBeLessThanOrEqual(34);
     }
     for (const mode of ["Edges", "Corners", "3BLD"]) {
-      await modes.getByRole("radio", { name: mode, exact: true }).click();
+      await modes.selectOption(mode === "3BLD" ? "3bld" : mode.toLowerCase());
       await expect(icon).toBeEnabled({ timeout: 45000 });
       const after = await measure();
       for (let i = 0; i < before.length; i++)
@@ -243,8 +246,9 @@ for (const mode of ["3bld", "corners"] as const)
       ).toBeVisible();
       const before = await footer.boundingBox();
       expect(before!.height).toBe(80);
-      const label = footer.getByRole("heading", { name: "Last memo" });
-      const labelBefore = await label.boundingBox();
+      await expect(footer.getByText("Last memo", { exact: true })).toHaveCount(
+        0,
+      );
       const entries = footer.locator("li");
       const rows = await entries.evaluateAll((elements) =>
         elements.map((el) => ({
@@ -254,9 +258,24 @@ for (const mode of ["3bld", "corners"] as const)
         })),
       );
       expect(rows.length).toBeGreaterThanOrEqual(20);
+      expect(
+        await entries.evaluateAll((items) =>
+          items.every((item) => {
+            const pair = item.children[0].getBoundingClientRect();
+            const word = item.children[1].getBoundingClientRect();
+            return word.top >= pair.bottom && word.left === pair.left;
+          }),
+        ),
+      ).toBe(true);
+      for (const group of await footer.getByRole("region").all()) {
+        const heading = (await group.getByRole("heading").boundingBox())!;
+        const pair = (await group.locator("li > span").first().boundingBox())!;
+        expect(heading.y + heading.height).toBeLessThanOrEqual(pair.y);
+      }
+
       expect(new Set(rows.map((row) => row.y)).size).toBe(1);
       expect(
-        rows.every((row) => row.whiteSpace === "nowrap" && row.height <= 20),
+        rows.every((row) => row.whiteSpace === "nowrap" && row.height <= 36),
       ).toBe(true);
       expect(
         await content.evaluate((el) => el.scrollWidth > el.clientWidth),
@@ -292,7 +311,7 @@ for (const mode of ["3bld", "corners"] as const)
       await expect
         .poll(() => content.evaluate((el) => el.scrollLeft))
         .toBeGreaterThan(0);
-      expect(await label.boundingBox()).toEqual(labelBefore);
+
       const last = footer
         .getByRole("region", { name: "Previous corners memo" })
         .getByText(/^Mnemonic 20 � Operating Room/);
@@ -303,7 +322,7 @@ for (const mode of ["3bld", "corners"] as const)
       ).toBe(true);
       const after = await footer.boundingBox();
       expect(after).toEqual(before);
-      expect(await label.boundingBox()).toEqual(labelBefore);
+
       expect(
         await last.evaluate(
           (el) =>
@@ -338,11 +357,16 @@ for (const reduced of [false, true])
         .getByRole("region", { name: "Scramble", exact: true })
         .click({ position: { x: 5, y: 5 } });
     else {
-      await page.getByRole("radio", { name: "Edges", exact: true }).click();
+      await page
+        .getByRole("combobox", { name: "Timer mode" })
+        .selectOption("edges");
       await expect(
         page.getByRole("button", { name: "New scramble", exact: true }),
       ).toBeEnabled({ timeout: 45000 });
     }
+    await page
+      .getByRole("region", { name: "Scramble", exact: true })
+      .click({ position: { x: 5, y: 5 } });
     await page.keyboard.down("Space");
     await page.waitForTimeout(400);
     await page.keyboard.up("Space");

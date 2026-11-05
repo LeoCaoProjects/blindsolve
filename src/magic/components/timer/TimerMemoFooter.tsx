@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { MemoTrace } from "../solve/MemoTrace";
 import type { Solve } from "../../types/solve";
 import type { TimerMode } from "../../utils/timerModes";
 
@@ -58,76 +59,45 @@ export function TimerMemoFooter({
   return (
     <section
       aria-label="Last solve memo"
-      className={`timer-workspace-inset flex h-20 min-h-20 max-h-20 shrink-0 items-center gap-5 overflow-hidden border-t border-line py-3 transition-opacity duration-200 ${className}`}
+      className={`timer-workspace-inset flex h-20 min-h-20 max-h-20 shrink-0 items-center overflow-hidden border-t border-line py-2 transition-opacity duration-200 ${className}`}
     >
-      <h2 className="shrink-0 whitespace-nowrap text-[11.5px] font-medium text-ink-2">
-        Last memo
-      </h2>
       <div
         ref={content}
         tabIndex={pieces.length ? 0 : undefined}
         aria-label="Previous memo content"
-        className="scroll-quiet min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain py-2 focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+        className="scroll-quiet min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain py-0.5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
       >
         {latest && pieces.length ? (
-          <div className="flex w-max flex-nowrap items-center gap-4 whitespace-nowrap">
-            {pieces.map((piece, groupIndex) => {
-              const memo = latest.memo[piece];
-              const breakAt =
-                (piece === "edges"
-                  ? latest.memo.edgeBreakAt
-                  : latest.memo.cornerBreakAt) ?? null;
-              return (
-                <section
-                  key={piece}
-                  aria-label={`Previous ${piece} memo`}
-                  className={`flex shrink-0 items-center gap-3 ${groupIndex ? "border-l border-line-strong pl-4" : ""}`}
-                >
-                  <h3 className="text-[10.5px] text-ink-3">
-                    {piece === "edges" ? "Edges" : "Corners"}
-                  </h3>
-                  <ol className="flex flex-nowrap items-center gap-4">
-                    {memo.map((pair, i) => (
-                      <li
-                        key={i}
-                        className="flex shrink-0 items-baseline gap-1.5 whitespace-nowrap"
-                      >
-                        <span className="font-mono text-[13px] leading-5 tracking-[0.14em] text-ink">
-                          {pair.pair.split("").map((letter, j) => (
-                            <span key={j} className="relative">
-                              {breakAt === i * 2 + j && (
-                                <>
-                                  <span
-                                    aria-hidden
-                                    className="absolute -left-[0.2em] top-[-12%] h-[124%] w-px bg-accent"
-                                  />
-                                  <span className="sr-only">
-                                    cycle break at{" "}
-                                  </span>
-                                </>
-                              )}
-                              {letter}
-                            </span>
-                          ))}
-                        </span>
-                        {pair.word && (
-                          <span className="text-[11.5px] leading-5 text-ink-2">
-                            {pair.word}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              );
-            })}
+          <div className="flex w-max flex-nowrap items-start gap-8">
+            {pieces.map((piece) => (
+              <section
+                key={piece}
+                aria-label={`Previous ${piece} memo`}
+                className="shrink-0"
+              >
+                <h3 className="mb-1 text-[10.5px] leading-3 text-ink-3">
+                  {piece === "edges" ? "Edges" : "Corners"}
+                </h3>
+                <MemoTrace
+                  size="sm"
+                  nowrap
+                  pairs={latest.memo[piece].map((pair) => pair.pair)}
+                  words={latest.memo[piece].map((pair) => pair.word)}
+                  breakAt={
+                    (piece === "edges"
+                      ? latest.memo.edgeBreakAt
+                      : latest.memo.cornerBreakAt) ?? null
+                  }
+                />
+              </section>
+            ))}
           </div>
         ) : (
           <span
             aria-label="No previous memo"
-            className="whitespace-nowrap text-[12px] text-ink-3"
+            className="text-[12px] text-ink-3"
           >
-            No previous memo
+            {"\u2014"}
           </span>
         )}
       </div>
