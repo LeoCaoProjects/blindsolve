@@ -5,7 +5,7 @@ import { clamp, useElementSize } from "../../hooks/useElementSize";
 import { TrainingSession } from "../../hooks/useTrainingSession";
 import { SOLVED_STATE } from "../../utils/bld";
 import { formatTime } from "../../utils/time";
-import { HistoryHeader, RowDelete } from "../common/HistoryHeader";
+import { RowDelete } from "../common/HistoryHeader";
 import { Cube3D } from "../cube/Cube3D";
 import { SessionReadout } from "../practice/SessionReadout";
 
@@ -15,12 +15,10 @@ import { SessionReadout } from "../practice/SessionReadout";
  */
 export function TrainingAside({
   t,
-  onClear,
   recede = "",
   className = "",
 }: {
   t: TrainingSession;
-  onClear: () => void;
   /** Fades the readout and attempts while an attempt runs. The cube has its own state-driven look. */ recede?: string;
   className?: string;
 }) {
@@ -98,7 +96,6 @@ export function TrainingAside({
         className={`flex min-h-0 flex-1 flex-col transition-opacity duration-300 ease-out ${recede}`}
       >
         <SessionReadout cells={cells} />
-        <HistoryHeader label="Attempts" count={n} onClear={onClear} />
         <VirtualHistory
           label="Attempts"
           items={h}

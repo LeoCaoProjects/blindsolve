@@ -33,7 +33,9 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
     prefs.memoOrder === "edges-first"
       ? ["edges", "corners"]
       : ["corners", "edges"]
-  ).map((piece) => rowsByPiece[piece as Piece]);
+  )
+    .map((piece) => rowsByPiece[piece as Piece])
+    .filter((row) => row.pairs.length > 0);
 
   return (
     <div>
@@ -81,7 +83,9 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
           <span className="text-accent">+</span>{" "}
           {r.newPairs.map(({ pair, piece }, i) => (
             <span key={`${piece}:${pair}`}>
-              <span className="font-mono tracking-[0.1em] text-ink-2">{pair}</span>{" "}
+              <span className="font-mono tracking-[0.1em] text-ink-2">
+                {pair}
+              </span>{" "}
               {r.wordFor(pair, piece)}
               {i < r.newPairs.length - 1 ? ", " : ""}
             </span>

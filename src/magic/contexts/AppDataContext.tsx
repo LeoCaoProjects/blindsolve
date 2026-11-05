@@ -21,6 +21,7 @@ import type {
   SyncStatus,
 } from "../types/app";
 import type { LetterPairDb, Solve } from "../types/solve";
+import { modeOf, solvesForMode, type TimerMode } from "../utils/timerModes";
 import { pairKey, splitKey, toTimerDb } from "../utils/pairs";
 import { ALL_STICKERS, speffzScheme } from "../utils/scheme";
 import { supabase } from "../../lib/supabase";
@@ -43,6 +44,8 @@ interface AppDataValue {
   applyTimerDbUpdates: (updates: LetterPairDb) => void;
   solves: Solve[];
   setSolves: React.Dispatch<React.SetStateAction<Solve[]>>;
+  timerMode: TimerMode;
+  setTimerMode: (mode: TimerMode) => void;
   sessions: Array<{ id: string; name: string }>;
   activeSessionId: string;
   sessionCounts: Record<string, number>;
@@ -206,6 +209,7 @@ export function solveFromStore(s: SolveRecord, index: number): Solve {
     id: s.id,
     index,
     time: s.totalMs,
+    timerMode: modeOf(s),
     memoTime: s.multiphase === false ? undefined : s.memoMs,
     penalty: s.result === "success" ? "ok" : s.result,
     scramble: s.scramble,
@@ -228,13 +232,17 @@ export function applySolveViews(
   records: SolveRecord[],
   before: Solve[],
   after: Solve[],
-  sessionId: string,
+  sessionId: string | undefined,
   updatedAt = new Date().toISOString(),
 ) {
   const known = new Set(before.map((solve) => solve.id));
   const next = new Map(after.map((solve) => [solve.id, solve]));
   return records.map((record) => {
-    if ((record.sessionId ?? "today") !== sessionId || !known.has(record.id))
+    if (
+      (sessionId !== undefined &&
+        (record.sessionId ?? "today") !== sessionId) ||
+      !known.has(record.id)
+    )
       return record;
     const view = next.get(record.id);
     if (!view)
@@ -292,12 +300,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     : sessions[0].id;
   const solves = useMemo(
     () =>
-      data.solves
-        .filter(
-          (s) => !s.deleted && (s.sessionId ?? "today") === activeSessionId,
-        )
-        .map((s, i, all) => solveFromStore(s, all.length - i)),
-    [data.solves, activeSessionId],
+      solvesForMode(data.solves, data.activeTimerMode ?? "3bld").map(
+        (s, i, all) => solveFromStore(s, all.length - i),
+      ),
+    [data.solves, data.activeTimerMode],
   );
   const sessionCounts = useMemo(() => {
     const counts: Record<string, number> = Object.fromEntries(
@@ -437,10 +443,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       const next = typeof action === "function" ? action(solves) : action;
       store.update((current) => ({
         ...current,
-        solves: applySolveViews(current.solves, solves, next, activeSessionId),
+        solves: applySolveViews(current.solves, solves, next, undefined),
       }));
     },
-    [activeSessionId, solves, store],
+    [solves, store],
   );
   const setActiveSession = useCallback(
     (id: string) =>
@@ -570,6 +576,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }),
     solves,
     setSolves,
+    timerMode: data.activeTimerMode ?? "3bld",
+    setTimerMode: (mode) =>
+      store.update((current) => ({
+        ...current,
+        activeTimerMode: mode,
+        preferencesUpdatedAt: new Date().toISOString(),
+      })),
     sessions: sessions.map(({ id, name }) => ({ id, name })),
     activeSessionId,
     sessionCounts,

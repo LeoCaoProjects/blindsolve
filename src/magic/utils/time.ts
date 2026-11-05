@@ -16,8 +16,15 @@ export function effectiveTime(time: number, penalty: Penalty): number {
   return penalty === "+2" ? time + 2000 : time;
 }
 
+/** Round total and memo, then derive execution so integer splits always sum. */
+export function storedTimerTimes(total: number, memo = 0) {
+  const totalMs = Math.max(0, Math.round(total));
+  const memoMs = Math.min(totalMs, Math.max(0, Math.round(memo)));
+  return { totalMs, memoMs, executionMs: totalMs - memoMs };
+}
+
 export function formatSolveDate(iso: string): string {
-  return format(new Date(iso), "EEE d MMM yyyy '·' HH:mm");
+  return format(new Date(iso), "EEE d MMM yyyy, HH:mm");
 }
 
 export function formatSolveClock(iso: string): string {
@@ -43,7 +50,7 @@ export function sessionStats(solves: Solve[]): SessionStats {
         );
   }
   return {
-    best: best === null ? "—" : formatTime(best),
+    best: Number.isFinite(best) ? formatTime(best) : "—",
     mo3,
     success: `${validCount}/${solves.length}`,
     count: solves.length,

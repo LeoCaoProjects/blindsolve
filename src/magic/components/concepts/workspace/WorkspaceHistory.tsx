@@ -2,7 +2,7 @@ import React from "react";
 import { VirtualHistory } from "../../common/VirtualHistory";
 import { SessionStats, Solve } from "../../../types/solve";
 import { formatTime } from "../../../utils/time";
-import { HistoryHeader, RowDelete } from "../../common/HistoryHeader";
+import { RowDelete } from "../../common/HistoryHeader";
 import { SolveTime } from "../../solve/SolveTime";
 
 interface WorkspaceHistoryProps {
@@ -10,7 +10,6 @@ interface WorkspaceHistoryProps {
   stats: SessionStats;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
-  onClear: () => void;
 }
 
 /** Dense two-column time grid under a three-cell readout. Rows can be removed one at a time. */
@@ -19,7 +18,6 @@ export function WorkspaceHistory({
   stats,
   onSelect,
   onDelete,
-  onClear,
 }: WorkspaceHistoryProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -42,13 +40,12 @@ export function WorkspaceHistory({
           </div>
         ))}
       </dl>
-      <HistoryHeader label="Solves" count={solves.length} onClear={onClear} />
       <VirtualHistory
         label="Solves"
         items={solves}
         columns={2}
         rowHeight={36}
-        empty="No solves in this session"
+        empty="No solves yet"
         renderItem={(s, i) => (
           <>
             <button

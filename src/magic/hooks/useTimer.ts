@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
-import { isTypingTarget } from '../utils/keyboard';
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
+import { isTypingTarget } from "../utils/keyboard";
 
-export type TimerPhase = 'idle' | 'armed' | 'ready' | 'memo' | 'exec' | 'running' | 'stopped';
+export type TimerPhase =
+  "idle" | "armed" | "ready" | "memo" | "exec" | "running" | "stopped";
 
 export interface TimerResult {
   total: number;
   memo?: number;
 }
 
-export const isRunning = (p: TimerPhase) => p === 'memo' || p === 'exec' || p === 'running';
+export const isRunning = (p: TimerPhase) =>
+  p === "memo" || p === "exec" || p === "running";
 
 interface UseTimerOptions {
   multiphase: boolean;
@@ -18,17 +20,22 @@ interface UseTimerOptions {
   holdMs?: number;
 }
 
-export function useTimer({ multiphase, disabled, onStop, holdMs = 280 }: UseTimerOptions) {
-  const [phase, setPhaseState] = useState<TimerPhase>('idle');
+export function useTimer({
+  multiphase,
+  disabled,
+  onStop,
+  holdMs = 280,
+}: UseTimerOptions) {
+  const [phase, setPhaseState] = useState<TimerPhase>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [split, setSplit] = useState<number | null>(null);
 
-  const phaseRef = useRef<TimerPhase>('idle');
+  const phaseRef = useRef<TimerPhase>("idle");
   const startRef = useRef(0);
   const rafRef = useRef(0);
   const holdRef = useRef<number | undefined>(undefined);
   const lockRef = useRef(false);
-  const restRef = useRef<TimerPhase>('idle');
+  const restRef = useRef<TimerPhase>("idle");
   const splitRef = useRef<number | null>(null);
   const onStopRef = useRef(onStop);
   const multiRef = useRef(multiphase);
@@ -54,30 +61,30 @@ export function useTimer({ multiphase, disabled, onStop, holdMs = 280 }: UseTime
     cancelAnimationFrame(rafRef.current);
     const total = performance.now() - startRef.current;
     setElapsed(total);
-    setPhase('stopped');
+    setPhase("stopped");
     onStopRef.current({ total, memo: splitRef.current ?? undefined });
   }, [setPhase]);
 
   const press = useCallback(() => {
     const p = phaseRef.current;
-    if (p === 'memo') {
+    if (p === "memo") {
       const s = performance.now() - startRef.current;
       splitRef.current = s;
       setSplit(s);
-      setPhase('exec');
+      setPhase("exec");
       lockRef.current = true;
       return;
     }
-    if (p === 'exec' || p === 'running') {
+    if (p === "exec" || p === "running") {
       stop();
       lockRef.current = true;
       return;
     }
     if (lockRef.current) return;
-    if (p === 'idle' || p === 'stopped') {
+    if (p === "idle" || p === "stopped") {
       restRef.current = p;
-      setPhase('armed');
-      holdRef.current = window.setTimeout(() => setPhase('ready'), holdMs);
+      setPhase("armed");
+      holdRef.current = window.setTimeout(() => setPhase("ready"), holdMs);
     }
   }, [holdMs, setPhase, stop]);
 
@@ -87,17 +94,17 @@ export function useTimer({ multiphase, disabled, onStop, holdMs = 280 }: UseTime
       return;
     }
     const p = phaseRef.current;
-    if (p === 'armed') {
+    if (p === "armed") {
       window.clearTimeout(holdRef.current);
       setPhase(restRef.current);
       return;
     }
-    if (p === 'ready') {
+    if (p === "ready") {
       startRef.current = performance.now();
       splitRef.current = null;
       setSplit(null);
       setElapsed(0);
-      setPhase(multiRef.current ? 'memo' : 'running');
+      setPhase(multiRef.current ? "memo" : "running");
       startLoop();
     }
   }, [setPhase, startLoop]);
@@ -106,25 +113,26 @@ export function useTimer({ multiphase, disabled, onStop, holdMs = 280 }: UseTime
     if (disabled) {
       lockRef.current = false;
       window.clearTimeout(holdRef.current);
-      if (phaseRef.current === 'armed' || phaseRef.current === 'ready') setPhase(restRef.current);
+      if (phaseRef.current === "armed" || phaseRef.current === "ready")
+        setPhase(restRef.current);
       return;
     }
     const down = (e: KeyboardEvent) => {
-      if (e.code !== 'Space' || isTypingTarget(e.target)) return;
+      if (e.code !== "Space" || isTypingTarget(e.target)) return;
       e.preventDefault();
       if (e.repeat) return;
       press();
     };
     const up = (e: KeyboardEvent) => {
-      if (e.code !== 'Space' || isTypingTarget(e.target)) return;
+      if (e.code !== "Space" || isTypingTarget(e.target)) return;
       e.preventDefault();
       release();
     };
-    window.addEventListener('keydown', down);
-    window.addEventListener('keyup', up);
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
     return () => {
-      window.removeEventListener('keydown', down);
-      window.removeEventListener('keyup', up);
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
     };
   }, [disabled, press, release, setPhase]);
 
@@ -136,13 +144,13 @@ export function useTimer({ multiphase, disabled, onStop, holdMs = 280 }: UseTime
       if (memo !== undefined) {
         splitRef.current = memo;
         setSplit(memo);
-        setPhase('exec');
+        setPhase("exec");
       } else {
-        setPhase(multiRef.current ? 'memo' : 'running');
+        setPhase(multiRef.current ? "memo" : "running");
       }
       startLoop();
     },
-    [setPhase, startLoop]
+    [setPhase, startLoop],
   );
 
   const forceStopped = useCallback(
@@ -150,9 +158,9 @@ export function useTimer({ multiphase, disabled, onStop, holdMs = 280 }: UseTime
       setElapsed(total);
       splitRef.current = memo ?? null;
       setSplit(memo ?? null);
-      setPhase('stopped');
+      setPhase("stopped");
     },
-    [setPhase]
+    [setPhase],
   );
 
   const pointerHandlers = {
@@ -162,17 +170,27 @@ export function useTimer({ multiphase, disabled, onStop, holdMs = 280 }: UseTime
     },
     onPointerUp: () => {
       if (!disabled) release();
-    }
+    },
   };
 
   return {
     phase,
-    display: phase === 'ready' ? 0 : elapsed,
+    display: phase === "ready" ? 0 : elapsed,
     elapsed,
     split,
     pointerHandlers,
     forceRunning,
-    forceStopped
+    forceStopped,
+    reset: () => {
+      cancelAnimationFrame(rafRef.current);
+      window.clearTimeout(holdRef.current);
+      lockRef.current = false;
+      restRef.current = "idle";
+      splitRef.current = null;
+      setSplit(null);
+      setElapsed(0);
+      setPhase("idle");
+    },
   };
 }
 

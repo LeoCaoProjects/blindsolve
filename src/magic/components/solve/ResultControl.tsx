@@ -1,25 +1,46 @@
-import React, { useId } from 'react';
-import { motion } from 'framer-motion';
-import { Penalty } from '../../types/solve';
-import { EASE_OUT } from '../../utils/keyboard';
+import React, { useId } from "react";
+import { motion } from "framer-motion";
+import { Penalty } from "../../types/solve";
+import { EASE_OUT } from "../../utils/keyboard";
 
 interface ResultControlProps {
   value: Penalty;
   onChange: (p: Penalty) => void;
   className?: string;
-  size?: 'sm' | 'md';
+  size?: "sm" | "md";
 }
 
-const OPTIONS: {value: Penalty;label: string;}[] = [
-{ value: 'ok', label: 'OK' },
-{ value: '+2', label: '+2' },
-{ value: 'dnf', label: 'DNF' }];
+const OPTIONS: { value: Penalty; label: string }[] = [
+  { value: "ok", label: "OK" },
+  { value: "+2", label: "+2" },
+  { value: "dnf", label: "DNF" },
+];
 
-
-export function ResultControl({ value, onChange, className = '', size = 'md' }: ResultControlProps) {
+export function ResultControl({
+  value,
+  onChange,
+  className = "",
+  size = "md",
+}: ResultControlProps) {
   const id = useId();
   return (
-    <div role="radiogroup" aria-label="Result" className={`inline-flex rounded-[5px] border border-line p-[3px] ${className}`}>
+    <div
+      role="radiogroup"
+      aria-label="Result"
+      onKeyDown={(event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        const next =
+          (OPTIONS.findIndex((option) => option.value === value) +
+            (event.key === "ArrowRight" ? 1 : -1) +
+            OPTIONS.length) %
+          OPTIONS.length;
+        onChange(OPTIONS[next].value);
+        const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>("button");
+        buttons[next]?.focus();
+      }}
+      className={`inline-flex rounded-[5px] border border-line p-[3px] ${className}`}
+    >
       {OPTIONS.map((o, i) => {
         const active = value === o.value;
         return (
@@ -28,23 +49,26 @@ export function ResultControl({ value, onChange, className = '', size = 'md' }: 
             type="button"
             role="radio"
             aria-checked={active}
+            tabIndex={active ? 0 : -1}
+            aria-keyshortcuts={String(i + 1)}
             onClick={() => onChange(o.value)}
-            className={`relative rounded-[3px] font-mono transition-colors duration-150 ease-out ${
-            size === 'sm' ? 'h-6 min-w-[38px] px-2 text-[11.5px]' : 'h-7 min-w-[46px] px-3 text-[12.5px]'} ${
-            active ? 'text-ink' : 'text-ink-3 hover:text-ink-2'}`}>
-            
-            {active &&
-            <motion.span
-              layoutId={`result-${id}`}
-              className="absolute inset-0 rounded-[3px] bg-selected"
-              transition={{ duration: 0.18, ease: EASE_OUT }} />
-
-            }
+            className={`relative rounded-[3px] transition-colors duration-150 ease-out ${
+              size === "sm"
+                ? "h-7 min-w-[38px] px-2 text-[12px]"
+                : "h-8 min-w-[48px] px-3 text-[13px]"
+            } ${active ? "text-ink" : "text-ink-3 hover:text-ink-2"}`}
+          >
+            {active && (
+              <motion.span
+                layoutId={`result-${id}`}
+                className="absolute inset-0 rounded-[3px] bg-selected"
+                transition={{ duration: 0.18, ease: EASE_OUT }}
+              />
+            )}
             <span className="relative">{o.label}</span>
-            <span className="sr-only">, key {i + 1}</span>
-          </button>);
-
+          </button>
+        );
       })}
-    </div>);
-
+    </div>
+  );
 }

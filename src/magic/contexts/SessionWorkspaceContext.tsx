@@ -6,14 +6,12 @@ import {
   TrainingSession,
   useTrainingSession,
 } from "../hooks/useTrainingSession";
-import {
-  TimerSession,
-  useTimerSession,
-} from "../hooks/useTimerSession";
+import { TimerSession, useTimerSession } from "../hooks/useTimerSession";
 import { DemoStage } from "../types/solve";
 import { TrainFilter } from "../utils/bld";
 import { useScreenInit } from "../useScreenInit.js";
 import { useAppData } from "./AppDataContext";
+import { useStore } from "../../app/Store";
 
 interface SessionWorkspaceValue {
   timer: TimerSession;
@@ -29,7 +27,15 @@ const SessionWorkspaceContext = createContext<SessionWorkspaceValue | null>(
  * BlindSolve cannot create a new scramble or discard an in-progress attempt.
  * Nothing in this provider is part of the persisted/Supabase workspace.
  */
-export function SessionWorkspaceProvider({
+export function SessionWorkspaceProvider(props: {
+  children: React.ReactNode;
+  stage: DemoStage;
+}) {
+  const { user } = useStore();
+  return <OwnerWorkspace key={user?.id ?? "guest"} {...props} />;
+}
+
+function OwnerWorkspace({
   children,
   stage,
 }: {
@@ -44,7 +50,9 @@ export function SessionWorkspaceProvider({
   const { prefs } = useAppData();
   const trainingActive = pathname === "/training" || pathname === "/memo";
   const [mode, setMode] = useState<TrainMode>(init.mode ?? "exec");
-  const [trainingScope, setTrainingScope] = useState<TrainFilter>(init.filter ?? "both");
+  const [trainingScope, setTrainingScope] = useState<TrainFilter>(
+    init.filter ?? "both",
+  );
   const initFor = (candidate: TrainMode): TrainInit =>
     mode === candidate
       ? { ...init, mode: candidate, filter: trainingScope }
@@ -53,22 +61,26 @@ export function SessionWorkspaceProvider({
   const exec = useTrainingSession(
     initFor("exec"),
     trainingActive && mode === "exec",
-    trainingScope, setTrainingScope,
+    trainingScope,
+    setTrainingScope,
   );
   const guided = useTrainingSession(
     initFor("guided"),
     trainingActive && mode === "guided",
-    trainingScope, setTrainingScope,
+    trainingScope,
+    setTrainingScope,
   );
   const recall = useTrainingSession(
     initFor("recall"),
     trainingActive && mode === "recall",
-    trainingScope, setTrainingScope,
+    trainingScope,
+    setTrainingScope,
   );
   const trace = useTrainingSession(
     initFor("trace"),
     trainingActive && mode === "trace",
-    trainingScope, setTrainingScope,
+    trainingScope,
+    setTrainingScope,
   );
   const sessions = { exec, guided, recall, trace };
   const selected = sessions[mode];
@@ -80,7 +92,6 @@ export function SessionWorkspaceProvider({
   const timer = useTimerSession({
     multiphase: prefs.multiphase,
     stage: init.stage ?? stage,
-    initialSessionsOpen: !!init.sessions,
     active: pathname === "/",
   });
 

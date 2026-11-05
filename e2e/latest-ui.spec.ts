@@ -534,9 +534,9 @@ test('Timer hold, memo split, execution stop and reconstruction save form one so
   await page.goto('/');
   await waitForTimerScramble(page);
   await holdSpace(page);
-  await expect(page.getByText('memo', { exact: true })).toBeVisible();
+  await expect(page.getByText('Memorising', { exact: true })).toBeVisible();
   await page.keyboard.press('Space');
-  await expect(page.getByText('exec', { exact: true })).toBeVisible();
+  await expect(page.getByText('Executing', { exact: true })).toBeVisible();
   await page.waitForTimeout(30);
   await page.keyboard.press('Space');
   await expect(page.getByRole('dialog', { name: 'Memo reconstruction' })).toBeVisible();
@@ -571,7 +571,8 @@ test('hidden live timer masks active total and split times but reveals the final
   await expect(page.getByRole('timer')).toHaveText('Solve');
   await page.keyboard.press('Space');
   await expect(page.getByRole('timer')).toHaveText('Solve');
-  await expect(page.getByText('memo', { exact: true }).locator('..')).not.toContainText(/\d/);
+  await expect(page.getByText('Executing', { exact: true })).not.toContainText(/\d/);
+  await expect(page.getByText('memo', { exact: true })).toHaveCount(0);
   await page.waitForTimeout(40);
   await page.keyboard.press('Space');
   await expect(page.getByRole('timer')).not.toHaveText('Solve');

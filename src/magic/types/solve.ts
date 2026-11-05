@@ -17,6 +17,7 @@ export interface SolveMemo {
 }
 
 export interface Solve {
+  timerMode?: import("../utils/timerModes").TimerMode;
   id: string;
   index: number;
   time: number;
@@ -43,6 +44,7 @@ export interface MemoSample {
 }
 
 export interface SolveDraft {
+  timerMode?: import("../utils/timerModes").TimerMode;
   solveId?: string;
   time: number;
   memoTime?: number;
