@@ -50,10 +50,10 @@ export default function uiDesignUnits() {
     postcssPlugin: "blindsolve-design-units",
     OnceExit(root) {
       root.walkDecls((decl) => {
-        // These two rules preserve the Timer cube's physical viewport exactly.
+        // Preserve physical cube geometry and the historical Aa utility dimensions.
         if (
           decl.parent.type === "rule" &&
-          /\.timer-(?:layout|cube-viewport|reference-column)\b/.test(
+          /(?:\.timer-(?:layout|cube-viewport|reference-column)|\.cube-utility-(?:control|mode|letters))\b/.test(
             decl.parent.selector,
           )
         )

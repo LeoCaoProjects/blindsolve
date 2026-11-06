@@ -1,14 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useElementSize } from "./useElementSize";
 
 export function useElementWidth<T extends HTMLElement>(fallback = 400) {
-  const ref = useRef<T>(null);
-  const [width, setWidth] = useState(fallback);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, width] as const;
+  const [ref, size] = useElementSize<T>({ width: fallback, height: 0 });
+  return [ref, size.width] as const;
 }

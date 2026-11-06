@@ -241,7 +241,7 @@ body :is([role="textbox"], [contenteditable]:not([contenteditable="false"])) * {
 }
 /* These physical cube dimensions intentionally opt out of design-unit conversion. */
 @media (min-width: 768px) {
-  .timer-layout {
+  html:not([data-viewport-sizing]) .timer-layout {
     grid-template-columns: minmax(0, 1fr) clamp(280px, 28vw, 392px);
   }
   .timer-cube-viewport {
@@ -256,23 +256,82 @@ body :is([role="textbox"], [contenteditable]:not([contenteditable="false"])) * {
 /* Short phones need fewer scramble rows and a single-line stats strip.
    Keep the reserved scramble geometry and the memo footer unchanged. */
 @media (max-width: 767px) and (max-height: 640px) {
-  .timer-layout [aria-label="Scramble"] {
+  html:not([data-viewport-sizing]) .timer-layout [aria-label="Scramble"] {
     padding-top: 10px;
     padding-bottom: 12px;
   }
-  .timer-layout [aria-label="Scramble"] .font-mono {
+  html:not([data-viewport-sizing]) .timer-layout [aria-label="Scramble"] .font-mono {
     font-size: 12.5px;
   }
-  .timer-layout [role="timer"] {
+  html:not([data-viewport-sizing]) .timer-layout [role="timer"] {
     font-size: clamp(40px, 18cqw, 64px);
   }
-  .timer-reference-column dl > div {
+  html:not([data-viewport-sizing]) .timer-reference-column dl > div {
     display: flex;
     align-items: baseline;
     gap: 6px;
     padding: 6px 10px;
   }
-  .timer-reference-column dd {
+  html:not([data-viewport-sizing]) .timer-reference-column dd {
     margin-top: 0;
   }
+}
+
+/* Original IconButton sm geometry. Aa stays the original Lucide drawing;
+   compact utility labels share its control and 15px icon line box. */
+.cube-utility-control {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 15px;
+  letter-spacing: normal;
+}
+.timer-cube-viewport .cube-utility-control svg {
+  width: 15px;
+  height: 15px;
+}
+.cube-utility-mode {
+  width: 76px;
+  gap: 4px;
+}
+.cube-utility-letters {
+  width: 40px;
+  height: 40px;
+  right: 16px;
+  bottom: 8px;
+}
+
+/* High browser zoom can produce a short phone-sized CSS viewport on desktop.
+   Let the working regions scroll rather than squeezing the clock to zero. */
+@media (max-width: 767px) and (max-height: 480px) {
+  html:not([data-viewport-sizing]) .timer-layout {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  html:not([data-viewport-sizing]) .timer-layout > main {
+    flex: none;
+  }
+  html:not([data-viewport-sizing]) .timer-layout [data-timer-clock] {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  html:not([data-viewport-sizing]) .timer-layout > main > div {
+    flex: none;
+    min-height: 112px;
+    overflow: visible;
+  }
+  html:not([data-viewport-sizing]) .timer-reference-column {
+    flex: none;
+    height: clamp(180px, 50dvh, 240px);
+    min-height: 180px;
+  }
+}
+
+.timer-cube-viewport .cube-utility-letters svg {
+  width: 20px;
+  height: 20px;
 }

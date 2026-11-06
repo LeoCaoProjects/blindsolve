@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
-import { useDesignPixels } from "../../hooks/useDesignPixels";
+import { designRem, useDesignPixels } from "../../hooks/useDesignPixels";
+import { useViewportSizingActive } from "../../utils/viewportSizing";
 
 /** Fixed-height windowing. The full collection remains available; only viewport rows mount. */
 export function VirtualHistory<T>({
@@ -20,23 +21,33 @@ export function VirtualHistory<T>({
   className?: string;
 }) {
   const designPixels = useDesignPixels();
-  const rowHeight = designPixels(designRowHeight);
+  const rootUnits = useViewportSizingActive();
+  const rowHeight = rootUnits ? designRowHeight : designPixels(designRowHeight);
+  const unit = () =>
+    rootUnits
+      ? parseFloat(getComputedStyle(document.documentElement).fontSize) / 16
+      : 1;
+  const cssHeight = (rows: number) =>
+    rootUnits ? designRem(rows * designRowHeight) : rows * rowHeight;
   const root = useRef<HTMLOListElement>(null);
   const [viewport, setViewport] = useState({ top: 0, height: 400 });
   useLayoutEffect(() => {
     const element = root.current;
     if (!element) return;
-    const measure = () =>
+    const measure = () => {
+      const scale = rootUnits
+        ? parseFloat(getComputedStyle(document.documentElement).fontSize) / 16
+        : 1;
+      const height = element.clientHeight / scale;
       setViewport((old) =>
-        old.height === element.clientHeight
-          ? old
-          : { ...old, height: element.clientHeight },
+        Math.abs(old.height - height) < 0.5 ? old : { ...old, height },
       );
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [rootUnits]);
   const totalRows = Math.ceil(items.length / columns);
   const firstRow = Math.max(
     0,
@@ -51,12 +62,16 @@ export function VirtualHistory<T>({
   useLayoutEffect(() => {
     const element = root.current;
     if (!element) return;
-    const max = Math.max(0, totalRows * rowHeight - element.clientHeight);
-    if (element.scrollTop > max) {
-      element.scrollTop = max;
+    const scale = unit();
+    const max = Math.max(
+      0,
+      totalRows * rowHeight - element.clientHeight / scale,
+    );
+    if (element.scrollTop / scale > max) {
+      element.scrollTop = max * scale;
       setViewport((old) => ({ ...old, top: max }));
     }
-  }, [totalRows, rowHeight]);
+  }, [totalRows, rowHeight, rootUnits]);
   return (
     <ol
       ref={root}
@@ -72,7 +87,7 @@ export function VirtualHistory<T>({
         overflowAnchor: "none",
       }}
       onScroll={(event) => {
-        const top = event.currentTarget.scrollTop;
+        const top = event.currentTarget.scrollTop / unit();
         setViewport((old) => ({ ...old, top }));
       }}
       onKeyDown={(event) => {
@@ -115,10 +130,14 @@ export function VirtualHistory<T>({
         const element = root.current;
         if (!element || !items.length) return;
         const top = Math.floor(index / columns) * rowHeight;
-        if (top < element.scrollTop) element.scrollTop = top;
-        else if (top + rowHeight > element.scrollTop + element.clientHeight)
-          element.scrollTop = top + rowHeight - element.clientHeight;
-        setViewport((old) => ({ ...old, top: element.scrollTop }));
+        const scale = unit();
+        if (top < element.scrollTop / scale) element.scrollTop = top * scale;
+        else if (
+          top + rowHeight >
+          (element.scrollTop + element.clientHeight) / scale
+        )
+          element.scrollTop = (top + rowHeight) * scale - element.clientHeight;
+        setViewport((old) => ({ ...old, top: element.scrollTop / scale }));
         requestAnimationFrame(() =>
           element
             .querySelector<HTMLElement>(
@@ -141,7 +160,7 @@ export function VirtualHistory<T>({
             <li
               aria-hidden
               role="presentation"
-              style={{ height: firstRow * rowHeight, gridColumn: "1/-1" }}
+              style={{ height: cssHeight(firstRow), gridColumn: "1/-1" }}
             />
           )}
           {items.slice(start, end).map((item, offset) => (
@@ -152,7 +171,7 @@ export function VirtualHistory<T>({
               aria-posinset={start + offset + 1}
               aria-setsize={items.length}
               className="group relative"
-              style={{ height: rowHeight }}
+              style={{ height: cssHeight(1) }}
             >
               {renderItem(item, start + offset)}
             </li>
@@ -162,7 +181,7 @@ export function VirtualHistory<T>({
               aria-hidden
               role="presentation"
               style={{
-                height: (totalRows - lastRow) * rowHeight,
+                height: cssHeight(totalRows - lastRow),
                 gridColumn: "1/-1",
               }}
             />

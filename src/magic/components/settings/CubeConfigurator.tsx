@@ -45,7 +45,7 @@ export function CubeConfigurator({
   const colors = REFERENCE_COLORS;
   const [live, setLive] = useState<CubeView>({ up: 'U', front: 'F' });
   const [resetSignal, setResetSignal] = useState(0);
-  const [stageRef, stageWidth] = useElementWidth<HTMLDivElement>(Math.min(560, window.innerWidth - 40));
+  const [stageRef, stageWidth] = useElementWidth<HTMLDivElement>(560);
   const cubeSize = Math.max(120, Math.min(380, stageWidth - 48));
   const speffz = isSpeffz(setup.scheme);
 

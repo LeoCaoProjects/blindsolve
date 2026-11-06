@@ -131,24 +131,61 @@ for (const [width, height] of [
       });
       const letterBox = (await letters.boundingBox())!;
       expect(before[5]!.y).toBeLessThan(letterBox.y);
-      expect(before[5]!.height).toBe(letterBox.height);
+      expect(before[5]!.height).toBe(32);
       expect(before[5]!.x + before[5]!.width).toBeCloseTo(
-        letterBox.x + letterBox.width,
+        letterBox.x + letterBox.width + 1.6,
         1,
       );
       const typography = (el: Element) => {
         const css = getComputedStyle(el);
-        return [css.fontFamily, css.fontSize, css.fontWeight, css.lineHeight];
+        return [
+          css.fontFamily,
+          css.fontSize,
+          css.fontWeight,
+          css.lineHeight,
+          css.letterSpacing,
+          css.color,
+        ];
       };
-      expect(
-        await modes.locator(".cube-utility-label").evaluate(typography),
-      ).toEqual(
-        await letters.locator(".cube-utility-label").evaluate(typography),
+      expect(await modes.evaluate(typography)).toEqual(
+        await letters.evaluate(typography),
       );
+      await expect(modes).toHaveCSS("font-weight", "600");
+      await expect(modes.locator(":scope > span")).toHaveCSS(
+        "font-weight",
+        "600",
+      );
+      expect(letterBox.width).toBe(40);
+      expect(letterBox.height).toBe(40);
+      await expect(letters.locator("svg.lucide-case-sensitive")).toHaveCount(1);
+      await expect(letters.locator("svg")).toHaveCSS("width", "20px");
+      await expect(letters).not.toHaveText("Aa");
+      expect(
+        await letters.evaluate((button) => {
+          const r = button.getBoundingClientRect();
+          const cube = document.querySelector("[data-cube-view]")!;
+          return [
+            [r.left + 2, r.top + 2],
+            [r.right - 2, r.top + 2],
+            [r.left + 2, r.bottom - 2],
+            [r.right - 2, r.bottom - 2],
+            [r.left + r.width / 2, r.top + r.height / 2],
+          ].every(
+            ([x, y]) =>
+              !document
+                .elementsFromPoint(x, y)
+                .some(
+                  (el) =>
+                    cube.contains(el) &&
+                    el instanceof HTMLElement &&
+                    !!el.style.background,
+                ),
+          );
+        }),
+      ).toBe(true);
       const style = (el: Element) => {
         const css = getComputedStyle(el);
         return [
-          css.height,
           css.borderRadius,
           css.borderTopWidth,
           css.backgroundColor,
@@ -240,8 +277,8 @@ for (const [width, height] of [
     ).toBe(before[2]!.x);
     await expect(footer.getByText("Last memo", { exact: true })).toHaveCount(0);
     expect(before[1]!.y).toBeLessThan(before[0]!.y + 40);
-    expect(before[5]!.height).toBeCloseTo(28 * 1.2, 1);
-    expect(before[5]!.width).toBeCloseTo(76 * 1.2, 1);
+    expect(before[5]!.height).toBe(32);
+    expect(before[5]!.width).toBe(76);
     expect(before[4]!.height).toBeCloseTo(84 * 1.2, 1);
     await expect(footer).not.toContainText("DNF");
     await expect(footer).not.toContainText("8:28.66");
