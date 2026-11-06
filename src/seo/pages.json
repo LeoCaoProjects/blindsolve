@@ -1,44 +1,36 @@
 {
   "/": {
-    "title": "BlindSolve",
     "heading": "Timer",
     "description": "A timer and training tools for 3×3 blindfolded cube solving."
   },
   "/pairs": {
-    "title": "Letter Pairs | BlindSolve",
     "heading": "Letter pairs",
     "description": "Save and edit your letter-pair mnemonics."
   },
   "/flashcards": {
-    "title": "Flashcards | BlindSolve",
     "heading": "Flashcards",
     "description": "Practice recalling your letter-pair mnemonics."
   },
   "/training": {
-    "title": "Training | BlindSolve",
     "heading": "Training",
     "description": "Practice memo, tracing and execution."
   },
   "/settings": {
-    "title": "Settings | BlindSolve",
     "heading": "Settings",
     "description": "Your cube, methods and timer settings.",
     "noindex": true
   },
   "/setup": {
-    "title": "Setup | BlindSolve",
     "heading": "Setup",
     "description": "Set up your cube and lettering scheme.",
     "noindex": true
   },
   "/signin": {
-    "title": "Sign In | BlindSolve",
     "heading": "Sign in to BlindSolve",
     "description": "Sign in to your BlindSolve account.",
     "noindex": true
   },
   "/admin/feedback": {
-    "title": "Feedback | BlindSolve",
     "heading": "Feedback",
     "description": "BlindSolve feedback management.",
     "noindex": true

@@ -18,7 +18,7 @@ export function SolveMemoView({
   db,
   size = "md",
   className = "",
-  labelWidth = "72px",
+  labelWidth = "4.5rem",
 }: SolveMemoViewProps) {
   const { prefs } = useAppData();
   const rowsByPiece = {

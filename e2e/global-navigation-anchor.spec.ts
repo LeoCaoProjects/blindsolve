@@ -175,13 +175,14 @@ for (const [width, height] of sizes)
         ),
         `${previous} → ${label}: unchanged global navigation rectangle`,
       ).toBe(true);
-      const expected = width >= 1024 && label !== "Timer" ? 224 : 0;
-      expect(frames.at(-1)!.column).toBe(expected);
+      const expected = width >= 1024 && label !== "Timer" ? 224 * 1.2 : 0;
+      expect(frames.at(-1)!.column).toBeCloseTo(expected, 1);
       if (width >= 1024 && previous !== "Timer" && label !== "Timer") {
         expect(
           frames.every(
             (frame) =>
-              frame.column === 224 && Math.abs(frame.workspace - 296) < 0.1,
+              Math.abs(frame.column - 224 * 1.2) < 0.1 &&
+              Math.abs(frame.workspace - 296 * 1.2) < 0.1,
           ),
         ).toBe(true);
       }

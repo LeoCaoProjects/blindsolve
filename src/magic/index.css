@@ -201,12 +201,78 @@ body {
 
 /* One restrained cue on entering execution; never part of timing state. */
 @keyframes timer-execution-cue {
-  from { color: var(--accent); }
-  to { color: var(--ink); }
+  from {
+    color: var(--accent);
+  }
+  to {
+    color: var(--ink);
+  }
 }
 .timer-execution-cue {
   animation: timer-execution-cue 450ms ease-out both;
 }
 @media (prefers-reduced-motion: reduce) {
-  .timer-execution-cue { animation: none; }
+  .timer-execution-cue {
+    animation: none;
+  }
+}
+
+/* One design baseline: 100% browser zoom renders the prior 120%-sized UI.
+   Pixel design tokens are rem-based at build time; media queries stay viewport-based. */
+html {
+  font-size: 120%;
+}
+body,
+body * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+body
+  :is(
+    input,
+    textarea,
+    select,
+    [role="textbox"],
+    [contenteditable]:not([contenteditable="false"])
+  ),
+body :is([role="textbox"], [contenteditable]:not([contenteditable="false"])) * {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+/* These physical cube dimensions intentionally opt out of design-unit conversion. */
+@media (min-width: 768px) {
+  .timer-layout {
+    grid-template-columns: minmax(0, 1fr) clamp(280px, 28vw, 392px);
+  }
+  .timer-cube-viewport {
+    height: clamp(170px, 36vh, 330px);
+    border-bottom-width: 1px;
+  }
+  .timer-reference-column {
+    border-left-width: 1px;
+  }
+}
+
+/* Short phones need fewer scramble rows and a single-line stats strip.
+   Keep the reserved scramble geometry and the memo footer unchanged. */
+@media (max-width: 767px) and (max-height: 640px) {
+  .timer-layout [aria-label="Scramble"] {
+    padding-top: 10px;
+    padding-bottom: 12px;
+  }
+  .timer-layout [aria-label="Scramble"] .font-mono {
+    font-size: 12.5px;
+  }
+  .timer-layout [role="timer"] {
+    font-size: clamp(40px, 18cqw, 64px);
+  }
+  .timer-reference-column dl > div {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 6px 10px;
+  }
+  .timer-reference-column dd {
+    margin-top: 0;
+  }
 }

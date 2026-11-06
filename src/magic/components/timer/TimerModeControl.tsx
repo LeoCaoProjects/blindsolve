@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDownIcon } from "lucide-react";
 import { TIMER_MODES, type TimerMode } from "../../utils/timerModes";
 import { IconButton } from "../common/IconButton";
+import { CubeUtilityLabel } from "../cube/CubeUtilityLabel";
 import { Popover, onMenuKeyDown } from "../common/Popover";
 
 export function TimerModeControl({
@@ -52,7 +53,9 @@ export function TimerModeControl({
         }}
         className="w-[76px] gap-1 text-[11px]"
       >
-        <span>{TIMER_MODES.find((mode) => mode.value === value)!.label}</span>
+        <CubeUtilityLabel>
+          {TIMER_MODES.find((mode) => mode.value === value)!.label}
+        </CubeUtilityLabel>
         <ChevronDownIcon aria-hidden strokeWidth={1.75} />
       </IconButton>
       <Popover

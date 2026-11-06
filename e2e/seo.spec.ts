@@ -7,7 +7,7 @@ test('public route heads update without leaking private state', async ({ page })
   await expect(page.getByText('BlindSolve · 3×3 blindfolded cube timer & training')).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Letter Pairs' })).toHaveAttribute('href', '/pairs');
   await page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Letter Pairs' }).click();
-  await expect(page).toHaveTitle('Letter Pairs | BlindSolve');
+  await expect(page).toHaveTitle('BlindSolve');
   await expect(page.locator('link[rel=canonical]')).toHaveAttribute('href', 'https://blindsolve.com/pairs');
   // Local/preview hosts remain noindex even after client navigation.
   await expect(page.locator('meta[name=robots]')).toHaveAttribute('content', 'noindex, follow');

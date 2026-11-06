@@ -2,7 +2,7 @@ import { ScrambleRegion } from "../../solve/ScrambleRegion";
 import { useGlobalNavigation } from "../../layout/GlobalNavigation";
 import React, { useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { CaseSensitiveIcon, RefreshCwIcon } from "lucide-react";
+import { RefreshCwIcon } from "lucide-react";
 import { useAppData } from "../../../contexts/AppDataContext";
 import { clamp, useElementSize } from "../../../hooks/useElementSize";
 import { useHistoryCleanup } from "../../../hooks/useHistoryCleanup";
@@ -11,6 +11,7 @@ import { ConceptProps } from "../../../types/solve";
 import { formatTime } from "../../../utils/time";
 import { IconButton } from "../../common/IconButton";
 import { ShortcutSheet } from "../../common/ShortcutSheet";
+import { CubeUtilityLabel } from "../../cube/CubeUtilityLabel";
 import { Cube3D } from "../../cube/Cube3D";
 import { ScrambleText } from "../../solve/ScrambleText";
 import { TIMER_MODES } from "../../../utils/timerModes";
@@ -80,7 +81,7 @@ export function WorkspaceTimer({
 
   return (
     <div className="theme-workspace flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
-      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(128px,25dvh)] md:grid-cols-[minmax(0,1fr)_clamp(280px,28vw,392px)] md:grid-rows-1">
+      <div className="timer-layout grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(128px,25dvh)] md:grid-rows-1">
         <main className="flex min-h-0 min-w-0 flex-col">
           <section
             aria-label="Scramble"
@@ -165,36 +166,38 @@ export function WorkspaceTimer({
         </main>
 
         <aside
-          className={`flex min-h-0 flex-col border-t border-line bg-surface transition-opacity duration-300 ease-out md:border-l md:border-t-0 ${recede}`}
+          className={`timer-reference-column flex min-h-0 flex-col border-t border-line bg-surface transition-opacity duration-300 ease-out md:border-l md:border-t-0 ${recede}`}
         >
           <div
             ref={cubeRef}
             data-timer-cube-viewport
-            className="relative h-8 shrink-0 border-b border-line md:h-[clamp(170px,36vh,330px)]"
+            className="timer-cube-viewport relative h-8 shrink-0 border-b border-line"
           >
             <div
               role="group"
               aria-label="Timer utilities"
-              className="absolute inset-y-0 right-3 z-10 flex items-center gap-1 md:inset-y-auto md:bottom-1"
+              className="pointer-events-none absolute inset-0 z-10"
             >
-              <TimerModeControl
-                value={s.timerMode}
-                onChange={s.setTimerMode}
-                disabled={
-                  s.running ||
-                  s.overlayOpen ||
-                  phase === "armed" ||
-                  phase === "ready"
-                }
-              />
+              <div className="pointer-events-auto absolute right-3 top-0.5 md:top-1">
+                <TimerModeControl
+                  value={s.timerMode}
+                  onChange={s.setTimerMode}
+                  disabled={
+                    s.running ||
+                    s.overlayOpen ||
+                    phase === "armed" ||
+                    phase === "ready"
+                  }
+                />
+              </div>
               <IconButton
                 size="sm"
                 label="Sticker letters"
                 pressed={letters}
                 onClick={() => setLetters((v) => !v)}
-                className="hidden md:inline-flex"
+                className="pointer-events-auto absolute bottom-1 right-3 hidden md:inline-flex"
               >
-                <CaseSensitiveIcon />
+                <CubeUtilityLabel>Aa</CubeUtilityLabel>
               </IconButton>
             </div>
             <div className="absolute inset-0 hidden items-center justify-center md:flex">

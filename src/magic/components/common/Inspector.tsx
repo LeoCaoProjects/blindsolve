@@ -1,3 +1,4 @@
+import { designRem } from "../../hooks/useDesignPixels";
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { EASE_OUT } from '../../utils/keyboard';
@@ -50,7 +51,7 @@ export function Inspector({ label, onClose, children, width = 480, dismissable =
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 24, opacity: 0 }}
         transition={{ duration: 0.24, ease: EASE_OUT }}
-        style={{ ['--inspector-w' as string]: `${width}px` }}
+        style={{ ['--inspector-w' as string]: designRem(width) }}
         className="absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col rounded-t-[8px] border-t border-line bg-raised shadow-overlay md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[var(--inspector-w)] md:rounded-none md:border-l md:border-t-0">
         
         {children}

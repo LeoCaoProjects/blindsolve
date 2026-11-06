@@ -1,3 +1,4 @@
+import { designRem } from "../../hooks/useDesignPixels";
 import React, { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { EASE_OUT } from '../../utils/keyboard';
@@ -66,7 +67,7 @@ export function ConfirmDialog({ open, title, body, confirm, secondary, onCancel,
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 4, scale: 0.99 }}
           transition={{ duration: 0.2, ease: EASE_OUT }}
-          style={{ width }}
+          style={{ width: designRem(width) }}
           className="relative max-w-full rounded-[6px] border border-line bg-raised font-sans shadow-overlay">
           
             <div className="px-7 pb-6 pt-6">
