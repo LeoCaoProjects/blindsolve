@@ -1,3 +1,4 @@
+import { designRem } from "../../../hooks/useDesignPixels";
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { EASE_OUT, isTypingTarget } from '../../../utils/keyboard';
@@ -71,7 +72,7 @@ export function ReviewPanel({ label, header, children, onNext, footerStart, pend
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 24, opacity: 0 }}
         transition={{ duration: 0.24, ease: EASE_OUT }}
-        style={{ width: `min(${width}px, 100vw)` }}
+        style={{ width: `min(${designRem(width)}, 100vw)` }}
         className="absolute inset-y-0 right-0 flex flex-col border-l border-line bg-raised shadow-overlay">
         
         {header}

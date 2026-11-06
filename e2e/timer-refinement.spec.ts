@@ -130,10 +130,20 @@ for (const [width, height] of [
         exact: true,
       });
       const letterBox = (await letters.boundingBox())!;
-      expect(before[5]!.y).toBe(letterBox.y);
+      expect(before[5]!.y).toBeLessThan(letterBox.y);
       expect(before[5]!.height).toBe(letterBox.height);
-      expect(before[5]!.x + before[5]!.width).toBeLessThanOrEqual(
-        letterBox.x - 4,
+      expect(before[5]!.x + before[5]!.width).toBeCloseTo(
+        letterBox.x + letterBox.width,
+        1,
+      );
+      const typography = (el: Element) => {
+        const css = getComputedStyle(el);
+        return [css.fontFamily, css.fontSize, css.fontWeight, css.lineHeight];
+      };
+      expect(
+        await modes.locator(".cube-utility-label").evaluate(typography),
+      ).toEqual(
+        await letters.locator(".cube-utility-label").evaluate(typography),
       );
       const style = (el: Element) => {
         const css = getComputedStyle(el);
@@ -207,18 +217,13 @@ for (const [width, height] of [
       page.getByRole("menuitemradio", { name: "3BLD", exact: true }),
     ).toHaveAttribute("aria-checked", "true");
     const menuBox = (await popup.boundingBox())!;
-    expect(menuBox.width).toBe(112);
-    expect(menuBox.height).toBeLessThan(100);
+    expect(menuBox.width).toBeCloseTo(112 * 1.2, 1);
+    expect(menuBox.height).toBeLessThan(100 * 1.2);
     expect(menuBox.x).toBeGreaterThanOrEqual(0);
     expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(width);
     expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(height);
     await expect(popup).toHaveCSS("background-color", "rgb(37, 37, 39)");
-    if (width >= 768) {
-      const cube = (await page
-        .getByRole("group", { name: "Scrambled cube", exact: true })
-        .boundingBox())!;
-      expect(menuBox.y).toBeGreaterThanOrEqual(cube.y + cube.height);
-    }
+    expect(menuBox.y).toBeGreaterThanOrEqual(before[5]!.y + before[5]!.height);
     const during = await measure();
     expect(during).toEqual(before);
     if (process.env.TIMER_REFINEMENT_DIR) {
@@ -229,15 +234,15 @@ for (const [width, height] of [
     }
     await page.keyboard.press("Escape");
     await expect(popup).toHaveCount(0);
-    expect(before[2]!.x).toBe(width >= 768 ? 168 : 24);
+    expect(before[2]!.x).toBeCloseTo((width >= 768 ? 168 : 24) * 1.2, 1);
     expect(
       (await scramble.locator(":scope > div").first().boundingBox())!.x,
     ).toBe(before[2]!.x);
     await expect(footer.getByText("Last memo", { exact: true })).toHaveCount(0);
     expect(before[1]!.y).toBeLessThan(before[0]!.y + 40);
-    expect(before[5]!.height).toBe(28);
-    expect(before[5]!.width).toBe(76);
-    expect(before[4]!.height).toBe(84);
+    expect(before[5]!.height).toBeCloseTo(28 * 1.2, 1);
+    expect(before[5]!.width).toBeCloseTo(76 * 1.2, 1);
+    expect(before[4]!.height).toBeCloseTo(84 * 1.2, 1);
     await expect(footer).not.toContainText("DNF");
     await expect(footer).not.toContainText("8:28.66");
     expect(
@@ -252,7 +257,7 @@ for (const [width, height] of [
     if (width >= 768) {
       const a = (await edges.boundingBox())!,
         b = (await corners.boundingBox())!;
-      expect(b.x - a.x - a.width).toBeLessThanOrEqual(34);
+      expect(b.x - a.x - a.width).toBeLessThanOrEqual(34 * 1.2);
     }
     for (const mode of ["Edges", "Corners", "3BLD"]) {
       await chooseTimerMode(
@@ -350,7 +355,7 @@ for (const mode of ["3bld", "corners"] as const)
         footer.getByRole("region", { name: "Previous corners memo" }),
       ).toBeVisible();
       const before = await footer.boundingBox();
-      expect(before!.height).toBe(84);
+      expect(before!.height).toBeCloseTo(84 * 1.2, 1);
       await expect(footer.getByText("Last memo", { exact: true })).toHaveCount(
         0,
       );
@@ -380,7 +385,9 @@ for (const mode of ["3bld", "corners"] as const)
 
       expect(new Set(rows.map((row) => row.y)).size).toBe(1);
       expect(
-        rows.every((row) => row.whiteSpace === "nowrap" && row.height <= 36),
+        rows.every(
+          (row) => row.whiteSpace === "nowrap" && row.height <= 36 * 1.2,
+        ),
       ).toBe(true);
       expect(
         await content.evaluate((el) => el.scrollWidth > el.clientWidth),

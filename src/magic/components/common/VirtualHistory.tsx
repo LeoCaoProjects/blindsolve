@@ -1,11 +1,12 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
+import { useDesignPixels } from "../../hooks/useDesignPixels";
 
 /** Fixed-height windowing. The full collection remains available; only viewport rows mount. */
 export function VirtualHistory<T>({
   items,
   label,
   columns = 1,
-  rowHeight = 36,
+  rowHeight: designRowHeight = 36,
   renderItem,
   empty,
   className = "",
@@ -18,6 +19,8 @@ export function VirtualHistory<T>({
   empty: React.ReactNode;
   className?: string;
 }) {
+  const designPixels = useDesignPixels();
+  const rowHeight = designPixels(designRowHeight);
   const root = useRef<HTMLOListElement>(null);
   const [viewport, setViewport] = useState({ top: 0, height: 400 });
   useLayoutEffect(() => {

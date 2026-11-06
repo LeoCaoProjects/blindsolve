@@ -1,3 +1,4 @@
+import { designRem } from "../../hooks/useDesignPixels";
 import React, { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { XIcon } from 'lucide-react';
@@ -51,7 +52,7 @@ export function Sheet({ open, onClose, label, title, width = 420, footer, childr
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 4 }}
           transition={{ duration: 0.18, ease: EASE_OUT }}
-          style={{ width: `min(${width}px, 100%)` }}
+          style={{ width: `min(${designRem(width)}, 100%)` }}
           className="relative flex max-h-[min(86dvh,760px)] flex-col overflow-hidden rounded-[6px] border border-line bg-raised font-sans shadow-overlay">
           
             {title &&

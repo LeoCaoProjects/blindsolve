@@ -12,6 +12,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ChevronDownIcon } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { Sheet } from "../common/Sheet";
+import { useDesignPixels } from "../../hooks/useDesignPixels";
 
 export const SUB_NAV_WIDTH = 224;
 export const SUB_NAV_EASE = [0.22, 1, 0.36, 1] as const;
@@ -45,7 +46,8 @@ export function SubNavFrame({ children }: { children: React.ReactNode }) {
   const workspace = useRef<HTMLDivElement>(null);
   const previousInset = useRef<number | null>(null);
   const animation = useRef<Animation | null>(null);
-  const inset = desktop && page ? SUB_NAV_WIDTH : 0;
+  const designPixels = useDesignPixels();
+  const inset = desktop && page ? designPixels(SUB_NAV_WIDTH) : 0;
   useLayoutEffect(() => {
     const previous = previousInset.current;
     previousInset.current = inset;
@@ -87,7 +89,7 @@ export function SubNavFrame({ children }: { children: React.ReactNode }) {
               initial={{ opacity: reduced ? 1 : 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: reduced ? 0 : 0.16, ease: SUB_NAV_EASE }}
-              style={{ width: SUB_NAV_WIDTH }}
+              style={{ width: designPixels(SUB_NAV_WIDTH) }}
               className="flex h-full min-h-0 flex-col border-r border-line px-3 pb-4 pt-6"
             >
               <h1 className="mb-3 shrink-0 px-3 text-[12px] font-medium text-ink-3">

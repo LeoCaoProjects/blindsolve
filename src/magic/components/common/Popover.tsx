@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { EASE_OUT } from '../../utils/keyboard';
+import { designRem } from '../../hooks/useDesignPixels';
 
 interface PopoverProps {
   open: boolean;
@@ -35,7 +36,8 @@ export function Popover({ open, onClose, anchorRef, label, width = 216, children
       const vh = window.innerHeight;
       const fitsBelow = a.bottom + 6 + h <= vh - 12;
       const top = fitsBelow ? a.bottom + 6 : Math.max(12, a.top - 6 - h);
-      const left = Math.min(Math.max(12, a.right - width), vw - width - 12);
+      const measuredWidth = panelRef.current?.offsetWidth ?? width;
+      const left = Math.min(Math.max(12, a.right - measuredWidth), vw - measuredWidth - 12);
       setPos({ top, left, above: !fitsBelow });
     };
     place();
@@ -90,7 +92,7 @@ export function Popover({ open, onClose, anchorRef, label, width = 216, children
           position: 'fixed',
           top: pos?.top ?? -9999,
           left: pos?.left ?? -9999,
-          width,
+          width: designRem(width),
           transformOrigin: pos?.above ? 'bottom right' : 'top right'
         }}
         className={`z-[70] rounded-[6px] border border-line-strong bg-raised p-1 font-sans shadow-overlay ${className}`}>
