@@ -12,7 +12,13 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ChevronDownIcon } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { Sheet } from "../common/Sheet";
-import { useDesignPixels } from "../../hooks/useDesignPixels";
+import { designRem } from "../../hooks/useDesignPixels";
+import {
+  isViewportSizingActive,
+  viewportSizingEnabled,
+  subscribeViewportLayout,
+  hasViewportLayout,
+} from "../../utils/viewportSizing";
 
 export const SUB_NAV_WIDTH = 224;
 export const SUB_NAV_EASE = [0.22, 1, 0.36, 1] as const;
@@ -27,9 +33,18 @@ const query = "(min-width: 1024px)";
 const subscribe = (notify: () => void) => {
   const media = window.matchMedia(query);
   media.addEventListener("change", notify);
-  return () => media.removeEventListener("change", notify);
+  const unsubscribe = viewportSizingEnabled
+    ? subscribeViewportLayout(notify)
+    : () => {};
+  return () => {
+    media.removeEventListener("change", notify);
+    unsubscribe();
+  };
 };
-const snapshot = () => window.matchMedia(query).matches;
+const snapshot = () =>
+  isViewportSizingActive()
+    ? hasViewportLayout("context")
+    : window.matchMedia(query).matches;
 const Context = createContext<{
   desktop: boolean;
   target: HTMLDivElement | null;
@@ -46,8 +61,8 @@ export function SubNavFrame({ children }: { children: React.ReactNode }) {
   const workspace = useRef<HTMLDivElement>(null);
   const previousInset = useRef<number | null>(null);
   const animation = useRef<Animation | null>(null);
-  const designPixels = useDesignPixels();
-  const inset = desktop && page ? designPixels(SUB_NAV_WIDTH) : 0;
+  // A root-font change must not restart the workspace slide.
+  const inset = desktop && page ? SUB_NAV_WIDTH : 0;
   useLayoutEffect(() => {
     const previous = previousInset.current;
     previousInset.current = inset;
@@ -63,7 +78,9 @@ export function SubNavFrame({ children }: { children: React.ReactNode }) {
     // Commit the final column once; animate only the visual displacement.
     animation.current = workspace.current.animate(
       [
-        { transform: `translateX(${previous - inset + interruptedOffset}px)` },
+        {
+          transform: `translateX(${((previous - inset) * parseFloat(getComputedStyle(document.documentElement).fontSize)) / 16 + interruptedOffset}px)`,
+        },
         { transform: "translateX(0)" },
       ],
       { duration: 180, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
@@ -81,7 +98,7 @@ export function SubNavFrame({ children }: { children: React.ReactNode }) {
             aria-label={page?.label ?? "Contextual navigation"}
             aria-hidden={!page}
             data-subnav-column
-            style={{ width: inset }}
+            style={{ width: designRem(inset) }}
             className="min-h-0 shrink-0 overflow-hidden bg-bg"
           >
             <motion.div
@@ -89,7 +106,7 @@ export function SubNavFrame({ children }: { children: React.ReactNode }) {
               initial={{ opacity: reduced ? 1 : 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: reduced ? 0 : 0.16, ease: SUB_NAV_EASE }}
-              style={{ width: designPixels(SUB_NAV_WIDTH) }}
+              style={{ width: designRem(SUB_NAV_WIDTH) }}
               className="flex h-full min-h-0 flex-col border-r border-line px-3 pb-4 pt-6"
             >
               <h1 className="mb-3 shrink-0 px-3 text-[12px] font-medium text-ink-3">

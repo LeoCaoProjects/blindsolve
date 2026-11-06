@@ -1,7 +1,16 @@
+import plugin from 'tailwindcss/plugin.js';
+
 export default {content: [
   './index.html',
   './src/**/*.{html,js,ts,jsx,tsx}'
 ],
+  plugins: [plugin(({ addVariant }) => {
+    // Only the Timer/shared shell opt into this variant in the first pass.
+    addVariant('vp-md', [
+      '@media (min-width: 768px) { html:not([data-viewport-sizing]) & }',
+      'html[data-viewport-sizing] &',
+    ]);
+  })],
   theme: {
     extend: {
       colors: {

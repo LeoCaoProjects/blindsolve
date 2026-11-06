@@ -120,7 +120,7 @@ function GlobalNavigation({ className, onShortcuts }: Registration) {
     <>
       <nav
         aria-label="Sections"
-        className={`fixed inset-y-0 left-0 z-20 hidden w-[72px] flex-col items-center border-r border-line bg-bg py-3 font-sans transition-opacity duration-200 focus-within:opacity-100 hover:opacity-100 md:flex ${className}`}
+        className={`fixed inset-y-0 left-0 z-20 hidden w-[72px] flex-col items-center border-r border-line bg-bg py-3 font-sans transition-opacity duration-200 focus-within:opacity-100 hover:opacity-100 vp-md:flex ${className}`}
       >
         <ul className="flex min-h-0 flex-1 flex-col gap-0.5">{links(false)}</ul>
         <button
@@ -135,7 +135,7 @@ function GlobalNavigation({ className, onShortcuts }: Registration) {
       </nav>
       <nav
         aria-label="Sections"
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg pb-[env(safe-area-inset-bottom)] font-sans md:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg pb-[env(safe-area-inset-bottom)] font-sans vp-md:hidden"
       >
         <ul className="grid h-14 grid-cols-5">{links(true)}</ul>
       </nav>

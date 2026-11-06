@@ -14,6 +14,8 @@ import { CubeViewPref } from '../../types/app';
 import { homeSticker } from '../../utils/bld';
 import { FRONT_ROT, Rot, faceDepth } from '../../utils/camera';
 import { glyphRotation, viewTransform } from '../../utils/view';
+import { cubeGeometry } from '../../utils/cubeGeometry';
+import { useViewportSizingActive } from '../../utils/viewportSizing';
 
 export interface CubeHighlight {
   /** Resolved sticker targets (see utils/reconstruction breakTargets). Drives BOTH highlight and click. */
@@ -68,6 +70,7 @@ export function Cube3D({
   onDragChange,
   hiddenCues = false
 }: Cube3DProps) {
+  const rootUnits=useViewportSizingActive();
   const savedView = useDefaultView();
   const camera = view ?? savedView;
   const scheme = useLetterScheme();
@@ -163,7 +166,7 @@ export function Cube3D({
       onDoubleClick={() => setRot(initialRot)}
       onKeyDown={onKeyDown}
       className={`relative shrink-0 touch-none select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'} ${className}`}
-      style={{ width: size, height: size, perspective: size * 3.4 }}>
+      style={cubeGeometry({ width: size, height: size, perspective: size * 3.4 },rootUnits)}>
       
       <div
         className="absolute inset-0"
@@ -185,7 +188,7 @@ export function Cube3D({
             <div
               key={face}
               className="absolute grid"
-              style={{
+              style={cubeGeometry({
                 left: (size - S) / 2,
                 top: (size - S) / 2,
                 width: S,
@@ -198,7 +201,7 @@ export function Cube3D({
                 background: 'var(--cube-body)',
                 borderRadius: S * 0.045,
                 backfaceVisibility: 'hidden'
-              }}>
+              },rootUnits)}>
               
             {state[face].map((color, i) => {
                 const type = slotType(i);
@@ -210,12 +213,12 @@ export function Cube3D({
                 // Sticker token: the user's token for the physical sticker sitting here.
                 const home = type && showLetters && !highlight ? homeSticker(state, id) : null;
                 const token = isOption ? letter : home ? scheme[home] ?? '' : null;
-                const base: React.CSSProperties = {
+                const base: React.CSSProperties = cubeGeometry({
                   background: STICKER_COLORS[color],
                   borderRadius: radius,
                   color: STICKER_TEXT[color],
                   fontSize: tokenSize(token ?? '')
-                };
+                },rootUnits);
                 if (isOption && letter) {
                   const selected = highlight?.selected === letter;
                   const focused = highlight?.focused === letter;
@@ -235,7 +238,7 @@ export function Cube3D({
                     <span
                         aria-hidden
                         className="pointer-events-none absolute inset-0"
-                        style={{
+                        style={cubeGeometry({
                           borderRadius: radius,
                           boxShadow: selected ?
                           `inset 0 0 0 ${Math.max(2, S * 0.022)}px var(--accent)` :
@@ -243,7 +246,7 @@ export function Cube3D({
                           `inset 0 0 0 2px var(--cube-body), inset 0 0 0 3.5px var(--ink)` :
                           undefined,
                           transition: 'box-shadow 150ms ease-out'
-                        }} />
+                        },rootUnits)} />
                       
                   </button>);
 
@@ -262,7 +265,7 @@ export function Cube3D({
               state[face].flatMap((_, i) =>
               slotType(i) ?
               piecePartners(state, face, i).map((p) =>
-              <Cue key={`${i}-${p.dir}`} p={p} i={i} amount={hiddenness[p.face]} cell={cell} gap={gap} S={S} t={cueT} off={cueOff} />
+              <Cue key={`${i}-${p.dir}`} p={p} i={i} amount={hiddenness[p.face]} cell={cell} gap={gap} S={S} t={cueT} off={cueOff} rootUnits={rootUnits} />
               ) :
               []
               )}
@@ -275,7 +278,7 @@ export function Cube3D({
 }
 
 /** A short tick floating just outside the face edge, aligned with its sticker. Purely visual. */
-function Cue({ p, i, amount, cell, gap, S, t, off }: {p: HiddenPartner;i: number;amount: number;cell: number;gap: number;S: number;t: number;off: number;}) {
+function Cue({ p, i, amount, cell, gap, S, t, off, rootUnits }: {p: HiddenPartner;i: number;amount: number;cell: number;gap: number;S: number;t: number;off: number;rootUnits:boolean;}) {
   const r = Math.floor(i / 3);
   const c = i % 3;
   const len = cell * 0.62;
@@ -292,13 +295,13 @@ function Cue({ p, i, amount, cell, gap, S, t, off }: {p: HiddenPartner;i: number
     <span
       aria-hidden
       className="pointer-events-none absolute"
-      style={{
+      style={cubeGeometry({
         ...pos,
         borderRadius: t,
         background: STICKER_COLORS[p.color],
         opacity: amount * 0.85,
         transition: 'opacity 160ms ease-out'
-      }} />);
+      },rootUnits)} />);
 
 
 }

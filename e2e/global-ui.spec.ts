@@ -186,13 +186,13 @@ test("standard 3BLD favicon references resolve", async ({ page, request }) => {
   await page.goto("/");
   await expect(
     page.locator('link[rel="icon"][type="image/svg+xml"]'),
-  ).toHaveAttribute("href", "/favicon-3bld.svg");
+  ).toHaveAttribute("href", "/favicon-3bld-padded-v2.svg");
   for (const asset of [
-    "favicon-3bld.svg",
-    "favicon-16.png",
-    "favicon-32.png",
+    "favicon-3bld-padded-v2.svg",
+    "favicon-padded-v2-16.png",
+    "favicon-padded-v2-32.png",
     "favicon.ico",
-    "apple-touch-icon.png",
+    "apple-touch-icon-padded-v2.png",
   ]) {
     const response = await request.get(`/${asset}`);
     expect(response.ok()).toBe(true);

@@ -2,16 +2,15 @@ import { ScrambleRegion } from "../../solve/ScrambleRegion";
 import { useGlobalNavigation } from "../../layout/GlobalNavigation";
 import React, { useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { RefreshCwIcon } from "lucide-react";
+import { CaseSensitiveIcon, RefreshCwIcon } from "lucide-react";
 import { useAppData } from "../../../contexts/AppDataContext";
 import { clamp, useElementSize } from "../../../hooks/useElementSize";
 import { useHistoryCleanup } from "../../../hooks/useHistoryCleanup";
 import { useTimerSession } from "../../../hooks/useTimerSession";
 import { ConceptProps } from "../../../types/solve";
 import { formatTime } from "../../../utils/time";
-import { IconButton } from "../../common/IconButton";
 import { ShortcutSheet } from "../../common/ShortcutSheet";
-import { CubeUtilityLabel } from "../../cube/CubeUtilityLabel";
+import { CubeUtilityButton } from "../../cube/CubeUtilityButton";
 import { Cube3D } from "../../cube/Cube3D";
 import { ScrambleText } from "../../solve/ScrambleText";
 import { TIMER_MODES } from "../../../utils/timerModes";
@@ -81,11 +80,11 @@ export function WorkspaceTimer({
 
   return (
     <div className="theme-workspace flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
-      <div className="timer-layout grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(128px,25dvh)] md:grid-rows-1">
+      <div className="timer-layout grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(128px,25dvh)] vp-md:grid-rows-1">
         <main className="flex min-h-0 min-w-0 flex-col">
           <section
             aria-label="Scramble"
-            className={`timer-workspace-inset relative flex shrink-0 items-start gap-3 border-b border-line pb-8 pt-5 transition-opacity duration-300 ease-out md:pb-9 md:pt-6 ${
+            className={`timer-workspace-inset relative flex shrink-0 items-start gap-3 border-b border-line pb-8 pt-5 transition-opacity duration-300 ease-out vp-md:pb-9 vp-md:pt-6 ${
               s.running ? "opacity-25" : ""
             }`}
           >
@@ -133,7 +132,7 @@ export function WorkspaceTimer({
             {s.scrambleError && s.scramble && (
               <span
                 role="alert"
-                className="absolute bottom-2 left-6 text-[11px] text-danger md:left-24"
+                className="absolute bottom-2 left-6 text-[11px] text-danger vp-md:left-24"
               >
                 New scramble failed
               </span>
@@ -166,7 +165,7 @@ export function WorkspaceTimer({
         </main>
 
         <aside
-          className={`timer-reference-column flex min-h-0 flex-col border-t border-line bg-surface transition-opacity duration-300 ease-out md:border-l md:border-t-0 ${recede}`}
+          className={`timer-reference-column flex min-h-0 flex-col border-t border-line bg-surface transition-opacity duration-300 ease-out vp-md:border-l vp-md:border-t-0 ${recede}`}
         >
           <div
             ref={cubeRef}
@@ -178,7 +177,7 @@ export function WorkspaceTimer({
               aria-label="Timer utilities"
               className="pointer-events-none absolute inset-0 z-10"
             >
-              <div className="pointer-events-auto absolute right-3 top-0.5 md:top-1">
+              <div className="pointer-events-auto absolute right-3 top-0.5 vp-md:top-1">
                 <TimerModeControl
                   value={s.timerMode}
                   onChange={s.setTimerMode}
@@ -190,17 +189,16 @@ export function WorkspaceTimer({
                   }
                 />
               </div>
-              <IconButton
-                size="sm"
+              <CubeUtilityButton
                 label="Sticker letters"
                 pressed={letters}
                 onClick={() => setLetters((v) => !v)}
-                className="pointer-events-auto absolute bottom-1 right-3 hidden md:inline-flex"
+                className="cube-utility-letters pointer-events-auto absolute hidden vp-md:inline-flex"
               >
-                <CubeUtilityLabel>Aa</CubeUtilityLabel>
-              </IconButton>
+                <CaseSensitiveIcon />
+              </CubeUtilityButton>
             </div>
-            <div className="absolute inset-0 hidden items-center justify-center md:flex">
+            <div className="absolute inset-0 hidden items-center justify-center vp-md:flex">
               <Cube3D
                 state={s.cubeState}
                 size={cubeSize}

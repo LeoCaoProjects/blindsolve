@@ -4,6 +4,8 @@ import { CubeMode, CubeViewPref, FaceColor, LetterScheme } from '../../types/app
 import { FACES, Face, slotType } from '../../utils/cube';
 import { COLOR_HEX, COLOR_TEXT, REFERENCE_COLORS, siblingsOf } from '../../utils/scheme';
 import { applyView, glyphRotation, viewTransform } from '../../utils/view';
+import { cubeGeometry } from '../../utils/cubeGeometry';
+import { useViewportSizingActive } from '../../utils/viewportSizing';
 
 export interface CubeView {
   up: Face;
@@ -73,6 +75,7 @@ export function SchemeCube({
   label = 'Cube',
   className = ''
 }: SchemeCubeProps) {
+  const rootUnits=useViewportSizingActive();
   const savedView = useDefaultView();
   const camera = view ?? savedView;
   const [rot, setRot] = useState(DEFAULT_ROT);
@@ -154,7 +157,7 @@ export function SchemeCube({
       onDoubleClick={() => setRot(DEFAULT_ROT)}
       onKeyDown={onKeyDown}
       className={`relative shrink-0 touch-none select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'} ${className}`}
-      style={{ width: size, height: size, perspective: size * 3.4 }}>
+      style={cubeGeometry({ width: size, height: size, perspective: size * 3.4 },rootUnits)}>
       
       <div
         className="absolute inset-0"
@@ -168,7 +171,7 @@ export function SchemeCube({
         <div
           key={face}
           className="absolute grid"
-          style={{
+          style={cubeGeometry({
             left: (size - S) / 2,
             top: (size - S) / 2,
             width: S,
@@ -181,7 +184,7 @@ export function SchemeCube({
             background: 'var(--cube-body)',
             borderRadius: S * 0.045,
             backfaceVisibility: 'hidden'
-          }}>
+          },rootUnits)}>
           
             {Array.from({ length: 9 }).map((_, i) => {
             const color = colors[face];
@@ -192,7 +195,7 @@ export function SchemeCube({
               return (
                 <div
                   key={i}
-                  style={{ background: bg, borderRadius: radius, opacity: hasHighlight ? 0.2 : 1, transition: 'opacity 180ms ease-out' }} />);
+                  style={cubeGeometry({ background: bg, borderRadius: radius, opacity: hasHighlight ? 0.2 : 1, transition: 'opacity 180ms ease-out' },rootUnits)} />);
 
 
             }
@@ -226,7 +229,7 @@ export function SchemeCube({
             if (isSelected) shadows.push('0 0 0 2px var(--accent)');
 
             const fontSize = Math.max(8, S * (token.length > 2 ? 0.075 : token.length === 2 ? 0.1 : 0.13));
-            const style: React.CSSProperties = {
+            const style: React.CSSProperties = cubeGeometry({
               background: bg,
               borderRadius: radius,
               opacity: dim ? 0.2 : 1,
@@ -234,7 +237,7 @@ export function SchemeCube({
               color: COLOR_TEXT[color],
               fontSize,
               transition: 'opacity 180ms ease-out, box-shadow 150ms ease-out'
-            };
+            },rootUnits);
             const turn = glyphRotation(face, camera);
             const content =
             <>

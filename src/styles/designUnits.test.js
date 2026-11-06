@@ -20,11 +20,13 @@ describe("central design units", () => {
   });
   it("retains viewport media queries and protected physical cube geometry", async () => {
     const result = await postcss([uiDesignUnits()]).process(
-      "@media(min-width:768px){.button{width:32px}.timer-cube-viewport{height:clamp(170px,36vh,330px)}}",
+      "@media(min-width:768px){.button{width:32px}.timer-cube-viewport{height:clamp(170px,36vh,330px)}.cube-utility-control{height:28px}.cube-utility-control svg{width:15px}}",
       { from: undefined },
     );
     expect(result.css).toContain("min-width:768px");
     expect(result.css).toContain("width:2rem");
     expect(result.css).toContain("height:clamp(170px,36vh,330px)");
+    expect(result.css).toContain("height:28px");
+    expect(result.css).toContain("width:15px");
   });
 });

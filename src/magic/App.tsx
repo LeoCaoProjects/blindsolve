@@ -31,7 +31,7 @@ function RouteFrame({ children }: { children: React.ReactNode }) {
   const hasNavigation = hasGlobalNavigation(pathname);
   return (
     <div
-      className={`h-full min-w-0 ${hasNavigation ? "pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0 md:pl-[72px]" : ""}`}
+      className={`h-full min-w-0 ${hasNavigation ? "pb-[calc(56px+env(safe-area-inset-bottom))] vp-md:pb-0 vp-md:pl-[72px]" : ""}`}
     >
       <SubNavFrame>{children}</SubNavFrame>
     </div>

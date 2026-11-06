@@ -23,6 +23,7 @@ import { isSpeffz, speffzScheme } from '../utils/scheme';
 import { useScreenInit } from '../useScreenInit.js';
 import { useStore } from '../../app/Store';
 import { conventionalPhysicalEdgeBuffer } from '../utils/methodBuffers';
+import { viewportReferenceScale } from '../utils/viewportSizing';
 
 interface ScreenState {
   section?: string;
@@ -107,11 +108,12 @@ export function Settings() {
       if (clickLock.current) return;
       const sections = Array.from(root.querySelectorAll<HTMLElement>('[data-section]'));
       if (!sections.length) return;
-      if (root.scrollTop + root.clientHeight >= root.scrollHeight - 4) {
+      const geometryScale=viewportReferenceScale();
+      if (root.scrollTop + root.clientHeight >= root.scrollHeight - 4*geometryScale) {
         setActive(sections[sections.length - 1].dataset.section ?? 'cube');
         return;
       }
-      const line = root.getBoundingClientRect().top + Math.min(160, root.clientHeight * 0.3);
+      const line = root.getBoundingClientRect().top + Math.min(160*geometryScale, root.clientHeight * 0.3);
       let current = sections[0];
       sections.forEach((s) => {
         if (s.getBoundingClientRect().top <= line) current = s;
@@ -211,7 +213,7 @@ export function Settings() {
       </main> :
 
       <div ref={scrollRef} className="scroll-quiet relative min-h-0 flex-1 overflow-y-auto">
-        <div className="max-w-[980px] px-5 md:px-10">
+        <div className="max-w-[980px] [[data-viewport-sizing]_&]:max-w-[1200px] px-5 md:px-10">
           <div className="min-w-0 pb-28 pt-2 md:pt-10">
             <SettingsSection id="cube" title="Cube & lettering">
               <CubeConfigurator
@@ -321,7 +323,7 @@ export function Settings() {
             role="region"
             aria-label="Unsaved changes">
             
-              <div className="flex max-w-[980px] items-center justify-between gap-4 px-5 py-3 md:px-10">
+              <div className="flex max-w-[980px] [[data-viewport-sizing]_&]:max-w-[1200px] items-center justify-between gap-4 px-5 py-3 md:px-10">
                 <span className="flex items-center gap-2.5 text-[13px] text-ink-2" role="status">
                   <span aria-hidden className={`h-[6px] w-[6px] rounded-full ${saveState === 'failed' ? 'bg-accent' : 'bg-ink-2'}`} />
                   {saveState === 'failed' ? 'Couldn’t save — nothing was lost' : 'Unsaved changes'}

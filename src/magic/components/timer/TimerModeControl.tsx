@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDownIcon } from "lucide-react";
 import { TIMER_MODES, type TimerMode } from "../../utils/timerModes";
-import { IconButton } from "../common/IconButton";
-import { CubeUtilityLabel } from "../cube/CubeUtilityLabel";
+import { CubeUtilityButton } from "../cube/CubeUtilityButton";
 import { Popover, onMenuKeyDown } from "../common/Popover";
 
 export function TimerModeControl({
@@ -29,9 +28,8 @@ export function TimerModeControl({
   }, [disabled]);
   return (
     <>
-      <IconButton
+      <CubeUtilityButton
         buttonRef={trigger}
-        size="sm"
         autoWidth
         label="Timer mode"
         disabled={disabled}
@@ -51,13 +49,11 @@ export function TimerModeControl({
           if (event.key === " " || event.key === "Enter")
             event.stopPropagation();
         }}
-        className="w-[76px] gap-1 text-[11px]"
+        className="cube-utility-mode"
       >
-        <CubeUtilityLabel>
-          {TIMER_MODES.find((mode) => mode.value === value)!.label}
-        </CubeUtilityLabel>
+        <span>{TIMER_MODES.find((mode) => mode.value === value)!.label}</span>
         <ChevronDownIcon aria-hidden strokeWidth={1.75} />
-      </IconButton>
+      </CubeUtilityButton>
       <Popover
         className="theme-workspace"
         open={open && !disabled}

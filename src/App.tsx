@@ -10,6 +10,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { StorageWarning } from "./components/StorageWarning";
 import { App as MagicPatternsApp } from "./magic/App";
 import "./magic/index.css";
+import "./magic/viewport-sizing.css";
 
 export default function App() {
   return (
