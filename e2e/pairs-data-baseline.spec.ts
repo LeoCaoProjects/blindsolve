@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
+import { pairsFromStore } from "../src/magic/utils/pairPersistence";
+import { resolveWords } from "../src/magic/utils/pairs";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
 
 test.beforeEach(async ({ page }) => {
@@ -26,23 +28,25 @@ async function selectA(page: Page) {
   await page.getByRole("button", { name: /^A, \d+ of \d+ filled$/ }).click();
 }
 const cell = (page: Page) => page.getByRole("gridcell", { name: /^AB,/ });
-async function scope(page: Page, value: string) {
-  await page
-    .getByRole("radiogroup", { name: "Vocabulary", exact: true })
-    .getByRole("radio", { name: value, exact: true })
-    .click();
-}
 async function edit(page: Page, value: string, word: string) {
-  await scope(page, value);
   await cell(page).click();
   const editor = page.getByRole("dialog", { name: "Pair AB", exact: true });
-  const start = editor.getByRole("button", {
-    name: `Different word for ${value.toLowerCase()}`,
-    exact: true,
-  });
-  if (await start.isVisible()) await start.click();
-  await editor.getByRole("textbox", { name: "Word", exact: true }).fill(word);
-  await editor.getByRole("button", { name: /^Save/ }).click();
+  const field =
+    value === "Shared"
+      ? "Default word"
+      : value === "Edges"
+        ? "Edge override"
+        : "Corner override";
+  const input = editor.getByRole("textbox", { name: field, exact: true });
+  if (!(await input.isVisible()))
+    await editor
+      .getByRole("button", {
+        name: value === "Edges" ? "Add edge override" : "Add corner override",
+        exact: true,
+      })
+      .click();
+  await input.fill(word);
+  await editor.getByRole("button", { name: "Save", exact: true }).click();
   await expect(editor).toHaveCount(0);
 }
 async function persisted(page: Page) {
@@ -57,21 +61,30 @@ async function reloadAndCheck(
   const before = await persisted(page);
   await page.reload();
   await selectA(page);
-  for (const [value, word] of Object.entries(expected)) {
-    await scope(page, value);
-    await expect(cell(page).locator("span[title]").first()).toHaveText(word);
-  }
+  await expect(cell(page).locator("span[title]").first()).toHaveText(
+    expected.Shared,
+  );
+  const decoded = pairsFromStore((await persisted(page)).data)["A|B"];
+  for (const [scope, word] of [
+    ["shared", expected.Shared],
+    ["edges", expected.Edges],
+    ["corners", expected.Corners],
+  ] as const)
+    expect(resolveWords(decoded, scope).words[0]).toBe(word);
   const after = await persisted(page);
   expect(after.data.pairs).toEqual(before.data.pairs);
   expect(after.pending).toEqual(before.pending);
   expect(Object.keys(after.data.pairs)).toHaveLength(2);
 }
 async function removeOverride(page: Page, value: "Edges" | "Corners") {
-  await scope(page, value);
   await cell(page).click();
   const editor = page.getByRole("dialog", { name: "Pair AB", exact: true });
   await editor
-    .getByRole("button", { name: "Use shared instead", exact: true })
+    .getByRole("region", {
+      name: value === "Edges" ? "Edge override" : "Corner override",
+      exact: true,
+    })
+    .getByRole("button", { name: "Use default", exact: true })
     .click();
   await editor.getByRole("button", { name: /^Save/ }).click();
   await expect(editor).toHaveCount(0);
@@ -144,9 +157,10 @@ test("Shared plus Corner alone retains inherited Edge and does not create an Edg
     (p: any) => data.scheme.stickers[p.firstStickerId].pieceType === "edge",
   ) as any;
   expect(edge.vocabulary.override).toBeUndefined();
-  await scope(page, "Edges");
   await cell(page).click();
   await expect(
-    page.getByRole("dialog", { name: "Pair AB", exact: true }),
-  ).toContainText("Uses shared");
+    page
+      .getByRole("dialog", { name: "Pair AB", exact: true })
+      .getByRole("button", { name: "Add edge override", exact: true }),
+  ).toBeVisible();
 });

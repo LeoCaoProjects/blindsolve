@@ -1,117 +1,137 @@
-import React, { useEffect, useRef } from 'react';
-import { PairTokens } from './PairTokens';
-
+import React, { useEffect, useRef } from "react";
+import { PairTokens } from "./PairTokens";
+import type { PairView } from "./PairScopeNavigation";
 export interface PairRow {
   second: string;
   words: string[];
-  /** Word differs for edges or corners */
-  override: {label: string;word: string;} | null;
-  /** Shown in a type view when the word comes from shared vocabulary */
-  inherited: boolean;
+  overrides: { piece: "edges" | "corners"; word: string }[];
   impossible: boolean;
-  uses: number;
 }
-
+export const isVisiblePair = (row: PairRow, view: PairView) =>
+  !row.impossible && (view === "default" || row.overrides.length > 0);
 interface PairGroupsProps {
   first: string;
+  view: PairView;
   rows: PairRow[];
   focus: number;
-  onFocus: (i: number) => void;
-  onOpen: (i: number) => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
+  onFocus: (index: number) => void;
+  onOpen: (index: number) => void;
+  onKeyDown: (event: React.KeyboardEvent) => void;
   refocus: number;
 }
-
-export const GROUP = 4;
-
-/**
- * Pairs for one first letter, in sticker groups of four (one cube face in Speffz).
- * A roving tabindex keeps the whole list a single Tab stop.
- */
-export function PairGroups({ first, rows, focus, onFocus, onOpen, onKeyDown, refocus }: PairGroupsProps) {
+export const GROUP = 12;
+/** Default vocabulary, or just its explicit exceptions, in the same reading columns. */
+export function PairGroups({
+  first,
+  view,
+  rows,
+  focus,
+  onFocus,
+  onOpen,
+  onKeyDown,
+  refocus,
+}: PairGroupsProps) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
-  const groups: PairRow[][] = [];
-  for (let i = 0; i < rows.length; i += GROUP) groups.push(rows.slice(i, i + GROUP));
-
+  const entries = rows.flatMap((row, index) =>
+    isVisiblePair(row, view) ? [{ row, index }] : [],
+  );
+  const groups: (typeof entries)[] = [];
+  for (let index = 0; index < entries.length; index += GROUP)
+    groups.push(entries.slice(index, index + GROUP));
+  const activeIndex = entries.some((entry) => entry.index === focus)
+    ? focus
+    : entries[0]?.index;
   useEffect(() => {
     const active = document.activeElement;
-    if (active instanceof HTMLElement && active.closest('[role="dialog"]')) return;
-    if (refocus > 0 || active && active.closest('[data-pair-grid]')) refs.current[focus]?.focus({ preventScroll: false });
-  }, [focus, first, refocus]);
-
+    if (
+      active instanceof HTMLElement &&
+      active.closest(
+        '[role="dialog"], [data-pair-index], [aria-label="Vocabulary"], select',
+      )
+    )
+      return;
+    if (
+      activeIndex !== undefined &&
+      (refocus > 0 || active?.closest("[data-pair-grid]"))
+    )
+      refs.current[activeIndex]?.focus({ preventScroll: true });
+  }, [activeIndex, first, refocus]);
+  if (!entries.length)
+    return <p className="px-3 py-3 text-[13px] text-ink-3">No overrides</p>;
   return (
     <div
       data-pair-grid
       role="grid"
       aria-label={`Pairs starting ${first}`}
       onKeyDown={onKeyDown}
-      className="grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
-      
-      {groups.map((g, gi) =>
-      <div key={gi} role="rowgroup">
-          {g.map((row, ri) => {
-          const i = gi * GROUP + ri;
-          const focused = i === focus;
-          const filled = row.words.length > 0;
-          return (
+      className="grid grid-cols-1 gap-x-12 gap-y-0 md:grid-cols-2"
+    >
+      {groups.map((group, groupIndex) => (
+        <div role="rowgroup" key={groupIndex}>
+          {group.map(({ row, index }) => (
             <div role="row" key={row.second}>
-                <button
-                ref={(el) => { refs.current[i] = el; }}
+              <button
                 type="button"
                 role="gridcell"
-                tabIndex={focused ? 0 : -1}
-                aria-disabled={row.impossible || undefined}
-                aria-label={
-                row.impossible ?
-                `${first}${row.second}, not a pair` :
-                `${first}${row.second}${filled ? `, ${row.words[0]}` : ', empty'}${row.override ? `, ${row.override.label} ${row.override.word}` : ''}`
-                }
-                onFocus={() => onFocus(i)}
-                onClick={() => row.impossible ? onFocus(i) : onOpen(i)}
-                className={`group relative grid h-10 w-full grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 border-b border-line pl-3 pr-2 text-left outline-none transition-colors duration-100 ease-out ${
-                focused ? 'bg-selected' : row.impossible ? '' : 'hover:bg-hover'} ${
-                row.impossible ? 'cursor-default' : ''}`}>
-                
-                  {focused && <span aria-hidden className="absolute inset-y-0 left-0 w-px bg-accent" />}
-                  <PairTokens
+                ref={(el) => {
+                  refs.current[index] = el;
+                }}
+                tabIndex={index === activeIndex ? 0 : -1}
+                aria-label={`${first}${row.second}, ${view === "default" ? (row.words[0] ?? "empty") : row.overrides.map((item) => `${item.piece === "edges" ? "Edge" : "Corner"}: ${item.word}`).join(", ")}`}
+                onFocus={() => onFocus(index)}
+                onClick={() => onOpen(index)}
+                className="group grid min-h-11 w-full cursor-pointer grid-cols-[44px_minmax(0,1fr)] items-center gap-3 rounded-[4px] px-3 py-2 text-left transition-colors duration-150 hover:bg-hover focus-visible:bg-selected focus-visible:outline-offset-[-2px]"
+              >
+                <PairTokens
                   first={first}
                   second={row.second}
-                  className={`font-mono text-[13.5px] tracking-[0.1em] ${
-                  row.impossible ? 'text-ink-3 opacity-40' : filled ? 'text-ink-2' : 'text-ink-3'}`
-                  } />
-                
+                  className="font-mono text-[14px] font-medium tracking-[0.03em] text-ink-2 group-hover:text-ink group-focus-visible:text-ink"
+                />
+                {view === "default" ? (
                   <span className="flex min-w-0 items-baseline gap-2">
-                    {row.impossible ?
-                  <span aria-hidden className="text-ink-3 opacity-40">
-                        —
-                      </span> :
-
-                  <>
-                        <span className={`truncate text-[14px] ${row.inherited ? 'text-ink-2' : 'text-ink'}`} title={row.words[0]}>
-                          {row.words[0]}
-                        </span>
-                        {row.words.length > 1 && <span className="shrink-0 font-mono text-[10.5px] text-ink-3">+{row.words.length - 1}</span>}
-                      </>
-                  }
-                  </span>
-                  <span className="flex shrink-0 items-center gap-2">
-                    {focused && !row.impossible &&
-                  <span className="hidden max-w-[10rem] truncate text-[11.5px] text-ink-3 md:inline">
-                        {row.override ? `${row.override.label} · ${row.override.word}` : row.inherited ? 'shared' : ''}
-                        {row.uses > 0 && <span className="ml-2 font-mono tnum">{row.uses}×</span>}
+                    <span
+                      title={row.words[0]}
+                      className={`min-w-0 truncate text-[14px] ${row.words.length ? "text-ink" : "text-ink-3"}`}
+                    >
+                      {row.words[0] ?? "No word"}
+                    </span>
+                    {row.words.length > 1 && (
+                      <span className="shrink-0 text-[10.5px] text-ink-3">
+                        +{row.words.length - 1}
                       </span>
-                  }
-                    {focused && row.impossible && <span className="text-[11.5px] text-ink-3">same sticker</span>}
-                    {!focused && row.override &&
-                  <span aria-hidden className="h-[5px] w-[5px] border-r border-t border-ink-3" title={`${row.override.label}: ${row.override.word}`} />
-                  }
+                    )}
+                    {row.overrides.length > 0 && (
+                      <span className="ml-auto shrink-0 text-[10.5px] text-ink-3">
+                        {row.overrides.length}{" "}
+                        {row.overrides.length === 1 ? "override" : "overrides"}
+                      </span>
+                    )}
                   </span>
-                </button>
-              </div>);
-
-        })}
+                ) : (
+                  <span className="flex min-w-0 flex-col gap-1">
+                    {row.overrides.map((item) => (
+                      <span
+                        key={item.piece}
+                        className="flex min-w-0 items-baseline justify-between gap-3"
+                      >
+                        <span
+                          title={item.word}
+                          className="truncate text-[14px] text-ink"
+                        >
+                          {item.word}
+                        </span>
+                        <span className="shrink-0 text-[10.5px] text-ink-3">
+                          {item.piece === "edges" ? "Edge" : "Corner"}
+                        </span>
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </button>
+            </div>
+          ))}
         </div>
-      )}
-    </div>);
-
+      ))}
+    </div>
+  );
 }

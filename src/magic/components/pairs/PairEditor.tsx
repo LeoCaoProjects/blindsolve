@@ -1,254 +1,423 @@
-import React, { useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { XIcon } from 'lucide-react';
-import { PairEntry, PairScope } from '../../types/app';
-import { EASE_OUT } from '../../utils/keyboard';
-import { normalizeWords } from '../../utils/pairs';
-import { IconButton } from '../common/IconButton';
-import { Inspector } from '../common/Inspector';
-import { PrimaryButton, QuietButton } from '../common/PrimaryButton';
-import { Segmented } from '../common/Segmented';
-import { ConfirmDialog } from '../common/ConfirmDialog';
-import { SuggestToggle, SuggestionList } from '../common/SuggestWords';
-import { PairTokens } from './PairTokens';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { SparklesIcon, XIcon } from "lucide-react";
+import type { PairEntry, PairScope } from "../../types/app";
+import { normalizeWords } from "../../utils/pairs";
+import { IconButton } from "../common/IconButton";
+import { PairEditorDialog } from "./PairEditorDialog";
+import { PrimaryButton, QuietButton } from "../common/PrimaryButton";
+import { ConfirmDialog } from "../common/ConfirmDialog";
+import { SuggestionMenu } from "../common/SuggestWords";
+import { Popover } from "../common/Popover";
+import { PairTokens } from "./PairTokens";
 
 interface PairEditorProps {
   first: string;
   second: string;
   entry: PairEntry | undefined;
-  initialScope: PairScope;
   uses: number;
   suggestionsOpen?: boolean;
+  availableOverrides?: ("edges" | "corners")[];
   onSave: (entry: PairEntry | null) => void;
   onClose: () => void;
 }
+const overrideScopes = ["edges", "corners"] as const;
+const scopeLabel = (scope: PairScope) =>
+  scope === "shared"
+    ? "Default word"
+    : scope === "edges"
+      ? "Edge override"
+      : "Corner override";
+type Panel = {
+  kind: "suggestions" | "alternates";
+  scope: PairScope;
+  anchor: HTMLButtonElement;
+};
+const fieldStyle =
+  "h-11 w-full min-w-0 rounded-[4px] border border-line-strong bg-surface pl-3 pr-10 text-[16px] text-ink caret-accent outline-none placeholder:text-ink-3 focus:rounded-[4px] focus:border-ink-3";
 
-export function PairEditor({ first, second, entry, initialScope, uses, suggestionsOpen = false, onSave, onClose }: PairEditorProps) {
+/** A fixed editor with reserved rows and one floating tools surface. */
+export function PairEditor({
+  first,
+  second,
+  entry,
+  uses,
+  suggestionsOpen = false,
+  availableOverrides = [...overrideScopes],
+  onSave,
+  onClose,
+}: PairEditorProps) {
   const [draft, setDraft] = useState<PairEntry>(() => entry ?? { shared: [] });
-  const [tab, setTab] = useState<PairScope>(initialScope);
-  const [showSuggestions, setShowSuggestions] = useState(suggestionsOpen);
-  const [alt, setAlt] = useState('');
-  const [note, setNote] = useState<string | null>(null);
-  const [confirmClear, setConfirmClear] = useState(false);
-  const primaryRef = useRef<HTMLInputElement>(null);
-  const savedCount = entry ? entry.shared.length + (entry.edges?.length ?? 0) + (entry.corners?.length ?? 0) : 0;
-
-  const inheriting = tab !== 'shared' && draft[tab] === undefined;
-  const words = tab === 'shared' ? draft.shared : draft[tab] ?? [];
-  const primary = words[0] ?? '';
-  const alternates = words.slice(1);
-
-  const setWords = (next: string[]) =>
-  setDraft((d) => tab === 'shared' ? { ...d, shared: next } : { ...d, [tab]: next });
-
-  // Removing the primary promotes the first alternate, and says so. Any alternate can still be
-  // made primary by clicking it. Nothing is written until Save.
-  const removePrimary = () => {
-    setWords(alternates);
-    setNote(alternates[0] ? `${alternates[0]} is now the primary. Click another alternate to swap.` : null);
-    primaryRef.current?.focus();
-  };
-
-  const startOverride = () => {
-    setDraft((d) => ({ ...d, [tab]: [] }));
-    requestAnimationFrame(() => primaryRef.current?.focus());
-  };
-
-  const removeOverride = () =>
-  setDraft((d) => {
-    const next = { ...d };
-    delete next[tab as 'edges' | 'corners'];
-    return next;
+  const [alt, setAlt] = useState<Record<PairScope, string>>({
+    shared: "",
+    edges: "",
+    corners: "",
   });
-
-  const addAlternate = () => {
-    const w = alt.trim();
-    if (!w) return;
-    setWords(primary ? [primary, ...alternates, w] : [w, ...alternates]);
-    setAlt('');
-  };
-
-  const save = () => {
-    const out: PairEntry = { shared: normalizeWords(draft.shared) };
-    (['edges', 'corners'] as const).forEach((k) => {
-      if (draft[k] === undefined) return;
-      const w = normalizeWords(draft[k] ?? []);
-      if (w.length) out[k] = w;
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [panel, setPanel] = useState<Panel | null>(null);
+  const refs = useRef<Partial<Record<PairScope, HTMLInputElement | null>>>({});
+  const defaultSuggest = useRef<HTMLButtonElement>(null);
+  const anchorRef = useMemo(
+    () => ({ current: panel?.anchor ?? null }),
+    [panel?.anchor],
+  );
+  useEffect(() => {
+    if (suggestionsOpen && defaultSuggest.current)
+      setPanel({
+        kind: "suggestions",
+        scope: "shared",
+        anchor: defaultSuggest.current,
+      });
+  }, [suggestionsOpen]);
+  const savedCount = entry
+    ? entry.shared.length +
+      (entry.edges?.length ?? 0) +
+      (entry.corners?.length ?? 0)
+    : 0;
+  const setWords = (scope: PairScope, words: string[]) =>
+    setDraft((current) => ({ ...current, [scope]: words }));
+  const removeOverride = (scope: "edges" | "corners") => {
+    setPanel(null);
+    setDraft((current) => {
+      const next = { ...current };
+      delete next[scope];
+      return next;
     });
-    const empty = !out.shared.length && !out.edges?.length && !out.corners?.length;
-    onSave(empty ? null : out);
+    setAlt((current) => ({ ...current, [scope]: "" }));
   };
-
-  const scopeOptions = [
-  { value: 'shared' as PairScope, label: 'Shared' },
-  { value: 'edges' as PairScope, label: 'Edges', marked: !!draft.edges?.length },
-  { value: 'corners' as PairScope, label: 'Corners', marked: !!draft.corners?.length }];
-
-
-  return (
-    <Inspector label={`Pair ${first}${second}`} onClose={onClose} width={480}>
-      <header className="relative shrink-0 border-b border-line bg-surface px-6 pb-[clamp(14px,3vh,24px)] pt-[clamp(16px,3.5vh,28px)] md:px-8">
-        <IconButton label="Close" onClick={onClose} className="absolute right-3 top-3">
-          <XIcon />
-        </IconButton>
-        <PairTokens first={first} second={second} className="block font-timer text-[clamp(40px,8vh,64px)] font-extralight leading-none tracking-[0.04em] text-ink" />
-        <p className="mt-4 text-[12.5px] text-ink-3">{uses > 0 ? `Used in ${uses} solves` : 'Not used in a solve yet'}</p>
-      </header>
-
-      <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-6 pb-8 pt-6 md:px-8">
-        <Segmented label="Applies to" options={scopeOptions} value={tab} onChange={setTab} />
-
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={tab + (inheriting ? '-i' : '')}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.14, ease: EASE_OUT }}
-            className="mt-7">
-            
-            {inheriting ?
-            <div>
-                <p className="text-[12.5px] text-ink-3">Uses shared</p>
-                <p className={`mt-1.5 text-[22px] ${draft.shared[0] ? 'text-ink-2' : 'text-ink-3'}`}>{draft.shared[0] ?? 'Nothing yet'}</p>
-                <button
-                type="button"
-                onClick={startOverride}
-                className="mt-5 inline-flex h-8 items-center rounded-[4px] border border-line-strong px-3 text-[12.5px] text-ink transition-colors duration-150 ease-out hover:bg-hover">
-                
-                  Different word for {tab}
-                </button>
-              </div> :
-
-            <div>
-                <input
-                ref={primaryRef}
-                autoFocus
-                aria-label="Word"
-                value={primary}
-                placeholder="Add word"
-                onChange={(e) => {
-                  setNote(null);
-                  setWords([e.target.value, ...alternates]);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    save();
-                  }
-                }}
-                className="w-full border-b border-line-strong bg-transparent pb-2 text-[26px] text-ink outline-none transition-colors duration-150 ease-out placeholder:text-ink-3 focus:border-accent" />
-              
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-4">
-                    {primary.trim() &&
-                  <button type="button" onClick={removePrimary} className="text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2">
-                        Remove
-                      </button>
-                  }
-                    {tab !== 'shared' &&
-                  <button type="button" onClick={removeOverride} className="text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2">
-                        Use shared instead
-                      </button>
-                  }
-                  </div>
-                  <SuggestToggle open={showSuggestions} onToggle={() => setShowSuggestions((v) => !v)} className="-mr-1.5" />
-                </div>
-                {note &&
-              <p role="status" className="mt-2 text-[12.5px] text-ink-2">
-                    {note}
-                  </p>
+  const save = () => {
+    const current = { ...draft };
+    for (const scope of ["shared", ...overrideScopes] as const)
+      if (alt[scope].trim())
+        current[scope] = normalizeWords([
+          ...(current[scope] ?? []),
+          alt[scope],
+        ]);
+    const out: PairEntry = { shared: normalizeWords(current.shared) };
+    for (const scope of overrideScopes) {
+      if (current[scope] === undefined) continue;
+      const values = normalizeWords(current[scope] ?? []);
+      if (values.length) out[scope] = values;
+    }
+    onSave(
+      !out.shared.length && !out.edges?.length && !out.corners?.length
+        ? null
+        : out,
+    );
+  };
+  const togglePanel = (
+    kind: Panel["kind"],
+    scope: PairScope,
+    anchor: HTMLButtonElement,
+  ) =>
+    setPanel((current) =>
+      current?.scope === scope && current.kind === kind
+        ? null
+        : { kind, scope, anchor },
+    );
+  const field = (scope: PairScope) => {
+    const words = draft[scope] ?? [],
+      primary = words[0] ?? "";
+    return (
+      <>
+        <div className="relative h-11">
+          <input
+            ref={(el) => {
+              refs.current[scope] = el;
+            }}
+            data-dialog-autofocus={scope === "shared" ? "" : undefined}
+            autoFocus={scope === "shared"}
+            aria-label={scopeLabel(scope)}
+            value={primary}
+            placeholder="Enter word"
+            onChange={(event) =>
+              setWords(scope, [event.target.value, ...words.slice(1)])
+            }
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                save();
               }
-
-                <AnimatePresence initial={false}>
-                  {showSuggestions &&
-                <SuggestionList
-                  className="mt-2"
-                  first={first}
-                  second={second}
-                  exclude={alternates}
-                  current={primary}
-                  onPick={(w) => {
-                    setNote(null);
-                    setWords([w, ...alternates]);
-                    primaryRef.current?.focus();
-                  }} />
-
-                }
-                </AnimatePresence>
-
-                <section className="mt-9">
-                  <h3 className="text-[12px] text-ink-3">Alternates</h3>
-                  <ul className="mt-2">
-                    <AnimatePresence initial={false}>
-                      {alternates.map((w, i) =>
-                    <motion.li
-                      key={w + i}
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.16, ease: EASE_OUT }}
-                      className="group flex items-center justify-between border-b border-line">
-                      
-                          <button
+            }}
+            className={fieldStyle}
+          />
+          <button
+            ref={scope === "shared" ? defaultSuggest : undefined}
+            type="button"
+            aria-label={`Suggest words for ${scopeLabel(scope).toLowerCase()}`}
+            aria-haspopup="dialog"
+            aria-expanded={
+              panel?.kind === "suggestions" && panel.scope === scope
+            }
+            onClick={(event) =>
+              togglePanel("suggestions", scope, event.currentTarget)
+            }
+            className="absolute right-1 top-1 flex h-9 w-8 items-center justify-center rounded-[4px] text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+          >
+            <SparklesIcon size={14} strokeWidth={1.75} aria-hidden />
+          </button>
+        </div>
+        <div className="flex h-7 items-center">
+          <button
+            type="button"
+            aria-label={`Alternative words for ${scopeLabel(scope).toLowerCase()}`}
+            aria-haspopup="dialog"
+            aria-expanded={
+              panel?.kind === "alternates" && panel.scope === scope
+            }
+            onClick={(event) =>
+              togglePanel("alternates", scope, event.currentTarget)
+            }
+            className="text-[11px] text-ink-3 transition-colors hover:text-ink"
+          >
+            Alternative words{words.length > 1 ? ` (${words.length - 1})` : ""}
+          </button>
+        </div>
+      </>
+    );
+  };
+  const activeScope = panel?.scope ?? "shared";
+  const activeWords = draft[activeScope] ?? [];
+  const primary = activeWords[0] ?? "",
+    alternates = activeWords.slice(1);
+  const addAlternate = () => {
+    if (!alt[activeScope].trim()) return;
+    setWords(
+      activeScope,
+      normalizeWords(
+        primary
+          ? [...activeWords, alt[activeScope]]
+          : [alt[activeScope], ...alternates],
+      ),
+    );
+    setAlt((current) => ({ ...current, [activeScope]: "" }));
+  };
+  return (
+    <PairEditorDialog label={`Pair ${first}${second}`} onClose={onClose}>
+      <header className="shrink-0 px-6 pb-4 pt-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <PairTokens
+              first={first}
+              second={second}
+              className="block font-mono text-[26px] font-medium leading-none tracking-[0.04em] text-ink"
+            />
+            {uses > 0 && (
+              <p className="mt-2 text-[12px] text-ink-3">
+                Used in {uses} solves
+              </p>
+            )}
+          </div>
+          <div className="-mr-2 -mt-1">
+            <IconButton label="Close" onClick={onClose}>
+              <XIcon />
+            </IconButton>
+          </div>
+        </div>
+      </header>
+      <div
+        data-pair-editor-body
+        className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-6 pb-5"
+      >
+        <section aria-label="Default word" className="h-[100px]">
+          <p className="mb-2 text-[12px] text-ink-2">Default word</p>
+          {field("shared")}
+        </section>
+        <section
+          aria-label="Optional overrides"
+          className="mt-4 border-t border-line pt-4"
+        >
+          <h3 className="mb-4 text-[12px] text-ink-2">
+            Overrides{" "}
+            <span className="ml-1 text-[11px] text-ink-3">Optional</span>
+          </h3>
+          {overrideScopes.map((scope) => {
+            const exists = draft[scope] !== undefined;
+            if (!exists && !availableOverrides.includes(scope)) return null;
+            return (
+              <section
+                key={scope}
+                aria-label={scopeLabel(scope)}
+                data-override-row={scope}
+                className="h-[100px]"
+              >
+                <div className="mb-2 flex h-[18px] items-center justify-between gap-3">
+                  <span className="text-[12px] text-ink-2">
+                    {scope === "edges" ? "Edge" : "Corner"}
+                  </span>
+                  {exists && (
+                    <button
+                      type="button"
+                      onClick={() => removeOverride(scope)}
+                      className="text-[11px] text-ink-3 transition-colors hover:text-ink"
+                    >
+                      Use default
+                    </button>
+                  )}
+                </div>
+                {exists ? (
+                  field(scope)
+                ) : (
+                  <div className="flex h-11 items-center">
+                    <button
+                      type="button"
+                      aria-label={`Add ${scope === "edges" ? "edge" : "corner"} override`}
+                      onClick={() => {
+                        setWords(scope, [...draft.shared]);
+                        requestAnimationFrame(() =>
+                          refs.current[scope]?.focus(),
+                        );
+                      }}
+                      className="text-[12px] text-ink-3 transition-colors hover:text-ink"
+                    >
+                      Add override
+                    </button>
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </section>
+      </div>
+      <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-6 py-3 text-[12.5px]">
+        {savedCount > 0 ? (
+          <QuietButton
+            onClick={() => {
+              setPanel(null);
+              setConfirmClear(true);
+            }}
+            className="text-danger hover:bg-danger-soft"
+          >
+            Clear pair
+          </QuietButton>
+        ) : (
+          <span />
+        )}
+        <PrimaryButton
+          onClick={save}
+          hint=""
+          className="min-w-[84px] justify-center"
+        >
+          Save
+        </PrimaryButton>
+      </footer>
+      <Popover
+        open={panel !== null}
+        onClose={() => setPanel(null)}
+        anchorRef={anchorRef}
+        width={260}
+        label={
+          panel?.kind === "suggestions"
+            ? `Suggestions for ${first}${second}`
+            : `Alternative words for ${scopeLabel(activeScope).toLowerCase()}`
+        }
+        className="theme-workspace"
+      >
+        <div
+          className="scroll-quiet max-h-[min(320px,65dvh)] overflow-y-auto"
+          key={`${panel?.kind}-${activeScope}`}
+        >
+          {panel?.kind === "suggestions" ? (
+            <SuggestionMenu
+              first={first}
+              second={second}
+              exclude={alternates}
+              current={primary}
+              onPick={(word) => {
+                setWords(activeScope, [word, ...alternates]);
+                setPanel(null);
+                refs.current[activeScope]?.focus();
+              }}
+            />
+          ) : (
+            panel && (
+              <div className="p-2">
+                <p className="mb-2 text-[12px] text-ink-2">Alternative words</p>
+                <ul>
+                  {alternates.map((word, index) => (
+                    <li
+                      key={`${word}-${index}`}
+                      className="flex min-h-9 items-center gap-2"
+                    >
+                      <button
                         type="button"
                         title="Make primary"
-                        onClick={() => {
-                          setNote(null);
-                          setWords([w, primary, ...alternates.filter((_, j) => j !== i)].filter(Boolean));
-                        }}
-                        className="min-w-0 flex-1 truncate py-2.5 text-left text-[14px] text-ink-2 transition-colors duration-150 hover:text-ink">
-                        
-                            {w}
-                          </button>
-                          <IconButton size="sm" label={`Remove ${w}`} onClick={() => setWords([primary, ...alternates.filter((_, j) => j !== i)])}>
-                            <XIcon />
-                          </IconButton>
-                        </motion.li>
-                    )}
-                    </AnimatePresence>
-                  </ul>
-                  <input
+                        onClick={() =>
+                          setWords(
+                            activeScope,
+                            [
+                              word,
+                              primary,
+                              ...alternates.filter((_, i) => i !== index),
+                            ].filter(Boolean),
+                          )
+                        }
+                        className="min-w-0 flex-1 truncate py-2 text-left text-[13px] text-ink-2 hover:text-ink"
+                      >
+                        {word}
+                      </button>
+                      <IconButton
+                        size="sm"
+                        label={`Remove ${word}`}
+                        onClick={() =>
+                          setWords(activeScope, [
+                            primary,
+                            ...alternates.filter((_, i) => i !== index),
+                          ])
+                        }
+                      >
+                        <XIcon />
+                      </IconButton>
+                    </li>
+                  ))}
+                </ul>
+                <input
+                  autoFocus
                   aria-label="Add alternate"
-                  value={alt}
-                  placeholder="Add alternate"
-                  onChange={(e) => setAlt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
+                  value={alt[activeScope]}
+                  placeholder="Enter alternate"
+                  onChange={(event) =>
+                    setAlt((current) => ({
+                      ...current,
+                      [activeScope]: event.target.value,
+                    }))
+                  }
+                  onBlur={addAlternate}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" &&
+                      !event.nativeEvent.isComposing
+                    ) {
+                      event.preventDefault();
                       addAlternate();
                     }
                   }}
-                  onBlur={addAlternate}
-                  className="mt-1 w-full border-b border-transparent bg-transparent py-2.5 text-[14px] text-ink outline-none transition-colors duration-150 placeholder:text-ink-3 focus:border-line-strong" />
-                
-                </section>
+                  className="mt-2 h-9 w-full min-w-0 rounded-[4px] border border-line-strong bg-surface px-3 text-[14px] text-ink outline-none placeholder:text-ink-3 focus:rounded-[4px]"
+                />
+                {primary.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setWords(activeScope, alternates)}
+                    className="mt-3 text-[12px] text-ink-3 hover:text-ink"
+                  >
+                    Remove word
+                  </button>
+                )}
               </div>
-            }
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      <footer className="dock-inset flex shrink-0 items-center justify-between border-t border-line px-6 pt-3.5">
-        {savedCount > 0 ?
-        <QuietButton onClick={() => setConfirmClear(true)}>Clear pair</QuietButton> :
-        !inheriting && words.length > 0 ?
-        <QuietButton onClick={() => setWords([])}>Clear</QuietButton> :
-
-        <span />
-        }
-        <div className="flex items-center gap-2">
-          <QuietButton onClick={onClose}>Cancel</QuietButton>
-          <PrimaryButton onClick={save}>Save</PrimaryButton>
+            )
+          )}
         </div>
-      </footer>
+      </Popover>
       <ConfirmDialog
         open={confirmClear}
         title={`Clear ${first}${second}?`}
-        body={`This removes ${savedCount === 1 ? 'its saved word' : `all ${savedCount} saved words`}, including alternates and edge or corner overrides.`}
+        body={`This removes ${savedCount === 1 ? "its saved word" : `all ${savedCount} saved words`}, including alternates and edge or corner overrides.`}
         onCancel={() => setConfirmClear(false)}
-        confirm={{ label: 'Clear pair', onClick: () => onSave(null), tone: 'danger' }} />
-
-    </Inspector>);
-
+        confirm={{
+          label: "Clear pair",
+          onClick: () => onSave(null),
+          tone: "danger",
+        }}
+      />
+    </PairEditorDialog>
+  );
 }
