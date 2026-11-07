@@ -229,8 +229,8 @@ export default function SettingsPage() {
             <p>
               Method selections describe your setup; they do not change raw
               targets. M2 even-target substitutions and Old Pochmann setup
-              algorithms are handled separately from raw tracing.
-              Odd edge/corner target counts indicate permutation parity, not an
+              algorithms are handled separately from raw tracing. Odd
+              edge/corner target counts indicate permutation parity, not an
               execution algorithm.
             </p>
           </details>
@@ -433,7 +433,7 @@ export default function SettingsPage() {
           </div>
           <p className="subtle">
             Imports are validated and previewed before merging. Existing solves
-            are retained; differing words are kept as alternates.
+            are retained; word conflicts use the most recently updated values.
           </p>
         </div>
       </section>
@@ -473,7 +473,7 @@ export default function SettingsPage() {
           </p>
           <p>
             Words and history will be merged; newer words become primary and
-            differing words are retained as alternates.
+            word conflicts use the most recently updated values.
           </p>
           <label className="checkbox-label">
             <input

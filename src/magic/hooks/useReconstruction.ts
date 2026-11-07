@@ -23,7 +23,7 @@ export type ReconStep =
   | { kind: "break"; piece: Piece; options: string[]; answer: string }
   | { kind: "word"; piece: Piece; pair: string; first: string; second: string }
   | { kind: "review" };
-export type Decision = "keep" | "replace" | "alternate";
+export type Decision = "keep" | "replace";
 export interface ReconResult {
   penalty: Penalty;
   memo: SolveMemo;
@@ -319,8 +319,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
         )
       ) {
         const decision = decisions[key] ?? "keep";
-        if (decision === "replace") updates[key] = [used, ...existing.slice(1)];
-        if (decision === "alternate") updates[key] = [...existing, used];
+        if (decision === "replace") updates[key] = [used];
       }
     });
     onSave({

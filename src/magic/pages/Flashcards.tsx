@@ -106,29 +106,14 @@ export function Flashcards() {
                           <p className="break-words text-[clamp(30px,5.5vh,52px)] leading-tight text-ink">
                             {f.words[0]}
                           </p>
-                          {f.words.length > 1 && (
-                            <p className="mt-2 text-[15px] text-ink-3">
-                              {f.words.slice(1).join(" · ")}
-                            </p>
-                          )}
                         </motion.div>
                       )}
-                      {(f.phase === "editing" || f.phase === "adding") && (
+                      {f.phase === "editing" && (
                         <InlineWordInput
                           key={f.phase}
-                          initial={
-                            f.phase === "editing" ? (f.words[0] ?? "") : ""
-                          }
-                          placeholder={
-                            f.phase === "editing" ? "Word" : "Add alternate"
-                          }
-                          large={f.phase === "editing"}
-                          above={f.phase === "adding" ? f.words[0] : undefined}
-                          onSubmit={
-                            f.phase === "editing"
-                              ? f.editPrimary
-                              : f.addAlternate
-                          }
+                          initial={f.words[0] ?? ""}
+                          placeholder="Word"
+                          onSubmit={f.editPrimary}
                           onCancel={() => f.setPhase("revealed")}
                         />
                       )}
@@ -250,7 +235,7 @@ function CardDock({
   onNext: (r: "remembered" | "forgot") => void;
   onPhase: (p: CardPhase) => void;
 }) {
-  const busy = phase === "editing" || phase === "adding";
+  const busy = phase === "editing";
   return (
     <section
       aria-label="Card actions"
@@ -289,14 +274,6 @@ function CardDock({
               disabled={busy}
             >
               Edit
-            </DockButton>
-            <DockButton
-              quiet
-              onClick={() => onPhase("adding")}
-              hint="A"
-              disabled={busy}
-            >
-              Add alternate
             </DockButton>
           </>
         )}
@@ -345,26 +322,17 @@ function DockButton({
 function InlineWordInput({
   initial,
   placeholder,
-  large,
-  above,
   onSubmit,
   onCancel,
 }: {
   initial: string;
   placeholder: string;
-  large: boolean;
-  above?: string;
   onSubmit: (w: string) => void;
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(initial);
   return (
     <div>
-      {above && (
-        <p className="mb-3 text-[clamp(30px,5.5vh,52px)] leading-tight text-ink-2">
-          {above}
-        </p>
-      )}
       <input
         autoFocus
         aria-label={placeholder}
@@ -382,9 +350,7 @@ function InlineWordInput({
             onCancel();
           }
         }}
-        className={`w-full max-w-[640px] border-b border-accent bg-transparent pb-1 text-ink outline-none placeholder:text-ink-3 ${
-          large ? "text-[clamp(30px,5.5vh,52px)]" : "text-[20px]"
-        }`}
+        className="w-full max-w-[640px] border-b border-accent bg-transparent pb-1 text-[clamp(30px,5.5vh,52px)] text-ink outline-none placeholder:text-ink-3"
       />
 
       <p className="mt-3 flex gap-1 text-[12.5px] text-ink-3">

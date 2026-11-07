@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialog } from "./Dialog";
 import { useStore } from "../app/Store";
-import { pairKey, normalizeMnemonic } from "../domain/letterPairs";
+import { pairKey } from "../domain/letterPairs";
 import suggestions from "../data/letterPairSuggestions.json";
 export type PairSelection = readonly [string, string];
 export function PairEditor({
@@ -16,8 +16,6 @@ export function PairEditor({
   const first = data.scheme.stickers[ids[0]],
     second = data.scheme.stickers[ids[1]];
   const [primary, setPrimary] = useState(pair?.primaryMnemonic ?? ""),
-    [alternates, setAlternates] = useState(pair?.alternates ?? []),
-    [alternate, setAlternate] = useState(""),
     [show, setShow] = useState(false);
   const proposed =
     first.label.length === 1 && second.label.length === 1
@@ -27,14 +25,6 @@ export function PairEditor({
       : [];
   const save = () => {
     const old = pair;
-    const all = [
-      ...alternates,
-      ...(alternate.trim() ? [alternate.trim()] : []),
-    ].filter(
-      (x, i, a) =>
-        normalizeMnemonic(x) !== normalizeMnemonic(primary) &&
-        a.findIndex((v) => normalizeMnemonic(v) === normalizeMnemonic(x)) === i,
-    );
     upsertPair({
       id: pair?.id ?? crypto.randomUUID(),
       firstStickerId: ids[0],
@@ -42,20 +32,19 @@ export function PairEditor({
       firstToken: first.label,
       secondToken: second.label,
       primaryMnemonic: primary.trim(),
-      alternates: primary.trim() ? all : [],
       encounters: pair?.encounters ?? 0,
       forgotten: pair?.forgotten ?? 0,
       updatedAt: new Date().toISOString(),
     });
     notify(
       primary.trim()
-        ? `Saved ${first.label} · ${second.label}.`
-        : `Cleared ${first.label} · ${second.label}${old?.primaryMnemonic ? `. Previous word: ${old.primaryMnemonic}` : ""}.`,
+        ? `Saved ${first.label} Â· ${second.label}.`
+        : `Cleared ${first.label} Â· ${second.label}${old?.primaryMnemonic ? `. Previous word: ${old.primaryMnemonic}` : ""}.`,
     );
     onClose();
   };
   return (
-    <Dialog title={`${first.label} · ${second.label}`} onClose={onClose}>
+    <Dialog title={`${first.label} Â· ${second.label}`} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -63,7 +52,7 @@ export function PairEditor({
         }}
       >
         <p className="subtle">
-          {first.pieceType === "edge" ? "Edges" : "Corners"} · {ids[0]} →{" "}
+          {first.pieceType === "edge" ? "Edges" : "Corners"} Â· {ids[0]} â†’{" "}
           {ids[1]}
         </p>
         <label>
@@ -76,33 +65,6 @@ export function PairEditor({
             autoComplete="off"
           />
         </label>
-        <label>
-          Alternate word
-          <input
-            value={alternate}
-            onChange={(e) => setAlternate(e.target.value)}
-            maxLength={1000}
-          />
-        </label>
-        {!!alternates.length && (
-          <ul className="alias-list">
-            {alternates.map((a, i) => (
-              <li key={a}>
-                {a}
-                <button
-                  type="button"
-                  className="quiet"
-                  onClick={() =>
-                    setAlternates(alternates.filter((_, n) => n !== i))
-                  }
-                  aria-label={`Remove ${a}`}
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
         <button
           type="button"
           className="text-button suggestions-trigger"
@@ -130,8 +92,6 @@ export function PairEditor({
             className="quiet"
             onClick={() => {
               setPrimary("");
-              setAlternates([]);
-              setAlternate("");
             }}
           >
             Clear fields

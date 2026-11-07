@@ -19,7 +19,7 @@ import { PairEditor } from "../components/pairs/PairEditor";
 import { useAppData } from "../contexts/AppDataContext";
 import { useShortcutSheet } from "../hooks/useShortcutSheet";
 import { PairScope } from "../types/app";
-import { pairKey, resolveWords, splitKey, tokenize } from "../utils/pairs";
+import { pairKey, resolveWords, tokenize } from "../utils/pairs";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { tokensOf } from "../utils/scheme";
 import { useScreenInit } from "../useScreenInit.js";
@@ -99,16 +99,8 @@ export function LetterPairs() {
     return out;
   }, [axes, pairs]);
 
-  // Every saved entry starting with this token, in any scope (shared, edge or corner override).
-  const sectionKeys = useMemo(
-    () => Object.keys(pairs).filter((k) => splitKey(k)[0] === activeFirst),
-    [pairs, activeFirst],
-  );
-  const clearSection = () => {
-    const drop = new Set(sectionKeys);
-    replacePairs((prev) =>
-      Object.fromEntries(Object.entries(prev).filter(([k]) => !drop.has(k))),
-    );
+  const clearAllPairs = () => {
+    replacePairs({});
     setConfirmSection(false);
     setRefocus((n) => n + 1);
   };
@@ -223,6 +215,19 @@ export function LetterPairs() {
                 close();
               }}
             />
+            <div className="mt-auto border-t border-line pt-4 pb-1">
+              <button
+                type="button"
+                onClick={() => {
+                  close();
+                  setConfirmSection(true);
+                }}
+                className="mt-3 flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[12px] font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-soft)]"
+              >
+                <Trash2Icon size={14} strokeWidth={1.75} aria-hidden />
+                Clear all pairs
+              </button>
+            </div>
           </div>
         )}
       </SubNavigation>
@@ -267,16 +272,6 @@ export function LetterPairs() {
                     )}
                   </select>
                 )}
-                {view === "default" && sectionKeys.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmSection(true)}
-                    className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[4px] px-2 text-[12px] text-ink-3 transition-colors hover:bg-danger-soft hover:text-danger"
-                  >
-                    <Trash2Icon size={13} strokeWidth={1.75} aria-hidden />
-                    Clear {activeFirst} pairs
-                  </button>
-                )}
               </div>
             </div>
           </header>
@@ -317,12 +312,12 @@ export function LetterPairs() {
       </AnimatePresence>
       <ConfirmDialog
         open={confirmSection}
-        title={`Clear ${activeFirst} pairs?`}
-        body={`This will remove saved words from ${sectionKeys.length} ${sectionKeys.length === 1 ? "pair" : "pairs"} starting with ${activeFirst}, including alternates and overrides. This can’t be undone.`}
+        title="Clear all letter pairs?"
+        body="This will remove all Default, Edge and Corner words. Timer solves, Training attempts and settings are kept. This can’t be undone."
         onCancel={() => setConfirmSection(false)}
         confirm={{
-          label: "Clear pairs",
-          onClick: clearSection,
+          label: "Clear all pairs",
+          onClick: clearAllPairs,
           tone: "danger",
         }}
       />

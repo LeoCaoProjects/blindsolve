@@ -7,7 +7,7 @@ import { isTypingTarget } from '../utils/keyboard';
 import { useStore } from '../../app/Store';
 
 export type CardPiece = 'edges' | 'corners';
-export type CardPhase = 'question' | 'revealed' | 'editing' | 'adding';
+export type CardPhase = 'question' | 'revealed' | 'editing';
 
 /** One card = one pair in one piece context. */
 export interface Card {
@@ -107,7 +107,7 @@ export function useFlashcards(opts: Options) {
 
   useEffect(() => {
     if (!card || !eligible.some((c) => idOf(c) === idOf(card))) {
-      if (phase === 'editing' || phase === 'adding') return;
+      if (phase === 'editing') return;
       setCard(pick(null));
       setPhase('question');
     }
@@ -167,13 +167,7 @@ export function useFlashcards(opts: Options) {
 
   const editPrimary = (word: string) => {
     if (!card || !word.trim()) return;
-    updateWords(card, [word.trim(), ...words.slice(1).filter((w) => w !== word.trim())]);
-    setPhase('revealed');
-  };
-
-  const addAlternate = (word: string) => {
-    if (!card || !word.trim()) return setPhase('revealed');
-    if (!words.some((w) => w.toLowerCase() === word.trim().toLowerCase())) updateWords(card, [...words, word.trim()]);
+    updateWords(card, [word.trim()]);
     setPhase('revealed');
   };
 
@@ -205,9 +199,6 @@ export function useFlashcards(opts: Options) {
         if (key === 'e') {
           e.preventDefault();
           setPhase('editing');
-        } else if (key === 'a') {
-          e.preventDefault();
-          setPhase('adding');
         }
       }
     };
@@ -228,7 +219,6 @@ export function useFlashcards(opts: Options) {
     reveal: () => setPhase('revealed'),
     next,
     editPrimary,
-    addAlternate,
     review,
     eligibleCount: visibleCount,
     log,

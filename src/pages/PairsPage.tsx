@@ -37,7 +37,7 @@ export default function PairsPage() {
         (filter === "filled"
           ? !!i.pair?.primaryMnemonic
           : !i.pair?.primaryMnemonic)) &&
-      `${i.first.label}${i.second.label} ${i.first.label} ${i.second.label} ${i.pair?.primaryMnemonic ?? ""} ${i.pair?.alternates.join(" ") ?? ""}`
+      `${i.first.label}${i.second.label} ${i.first.label} ${i.second.label} ${i.pair?.primaryMnemonic ?? ""}`
         .toLowerCase()
         .includes(query.trim().toLowerCase()),
   );
@@ -121,7 +121,6 @@ export default function PairsPage() {
                 <tr>
                   <th>Pair</th>
                   <th>Word</th>
-                  <th>Alternates</th>
                   <th>
                     <span className="sr-only">Action</span>
                   </th>
@@ -138,7 +137,6 @@ export default function PairsPage() {
                         <span className="subtle">No word saved</span>
                       )}
                     </td>
-                    <td className="subtle">{i.pair?.alternates.join(", ")}</td>
                     <td>
                       <button
                         className="quiet"

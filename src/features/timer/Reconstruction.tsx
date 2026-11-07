@@ -12,14 +12,13 @@ import type {
 import { traceMemo } from "../../domain/bld/trace";
 import {
   mnemonicMatches,
-  normalizeMnemonic,
   pairKey,
   type LetterPair,
 } from "../../domain/letterPairs";
 import { formatTime, typingTarget } from "../../lib/interaction";
 import type { MemoPairSnapshot, SolveRecord } from "../../lib/repository";
 
-type Decision = "keep" | "replace" | "alternate";
+type Decision = "keep" | "replace";
 type Result = SolveRecord["result"];
 
 export function Reconstruction({
@@ -168,7 +167,7 @@ export function Reconstruction({
             firstToken: item.first.token,
             secondToken: second.token,
             primaryMnemonic: used,
-            alternates: [],
+
             encounters: count,
             forgotten: 0,
             updatedAt: now,
@@ -187,15 +186,6 @@ export function Reconstruction({
         };
         if (changed && decision === "replace") {
           next.primaryMnemonic = used;
-          next.alternates = uniqueMnemonics(
-            [existing.primaryMnemonic, ...existing.alternates],
-            used,
-          );
-        } else if (changed && decision === "alternate") {
-          next.alternates = uniqueMnemonics(
-            [...existing.alternates, used],
-            existing.primaryMnemonic,
-          );
         }
         nextPairs[key] = next;
       }
@@ -529,7 +519,6 @@ function MemoReview({
                           [
                             ["keep", `Keep ${stored.primaryMnemonic}`],
                             ["replace", `Use ${used}`],
-                            ["alternate", "Add alternate"],
                           ] as Array<[Decision, string]>
                         ).map(([choice, label]) => (
                           <button
@@ -594,16 +583,4 @@ function snapshotPairs(
         : "",
     };
   });
-}
-
-function uniqueMnemonics(values: string[], primary: string) {
-  return values.filter(
-    (value, index, all) =>
-      !!value.trim() &&
-      normalizeMnemonic(value) !== normalizeMnemonic(primary) &&
-      all.findIndex(
-        (candidate) =>
-          normalizeMnemonic(candidate) === normalizeMnemonic(value),
-      ) === index,
-  );
 }

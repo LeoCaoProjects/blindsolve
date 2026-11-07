@@ -113,7 +113,6 @@ function ChangedRow({
   const options: { value: Decision; label: string }[] = [
     { value: "keep", label: `Keep ${stored}` },
     { value: "replace", label: `Use ${used}` },
-    { value: "alternate", label: "Add as alternate" },
   ];
 
   return (

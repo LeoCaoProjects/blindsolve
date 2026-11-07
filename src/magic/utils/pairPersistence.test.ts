@@ -146,8 +146,8 @@ describe("logical pair vocabulary survives the full persistence paths", () => {
       Object.values(before.pairs).map((p) => p.id),
     );
   });
-  it("retains alternates and an explicit override equal to Shared", () => {
-    const entry = { shared: ["Apple", "Apricot"], edges: ["Apple", "Arrow"] };
+  it("retains an explicit override equal to Shared", () => {
+    const entry = { shared: ["Apple"], edges: ["Apple"] };
     expect(vocabulary(reload(edit(emptyData(), entry)))).toEqual(entry);
   });
   it("supports clearing Shared while retaining overrides, then removing the last override", () => {
@@ -174,6 +174,26 @@ describe("logical pair vocabulary survives the full persistence paths", () => {
       pending: {},
     };
     expect(reconcileSync(local, remote).data.pairs).toEqual({});
+  });
+  it("clears every pair including previous-scheme words and only enqueues pair deletions", () => {
+    const before = edit(emptyData(), {
+      shared: ["Apple"],
+      edges: ["Arrow"],
+      corners: ["Castle"],
+    });
+    Object.values(before.pairs).forEach((pair) => {
+      pair.firstToken = "previous-scheme-token";
+    });
+    const after = replacePairEntries(before, {});
+    expect(after.pairs).toEqual({});
+    expect(after.solves).toBe(before.solves);
+    expect(after.attempts).toBe(before.attempts);
+    expect(after.scheme).toBe(before.scheme);
+    const changes = diffSyncChanges(before, after);
+    expect(changes).toHaveLength(Object.keys(before.pairs).length);
+    expect(
+      changes.every((change) => change.kind === "pair" && change.deleted),
+    ).toBe(true);
   });
   it("does not enqueue hydration writeback or no-op saves", () => {
     const data = edit(emptyData(), { shared: ["Apple"], edges: ["Arrow"] });

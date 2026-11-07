@@ -2,7 +2,7 @@ import type { AppData } from "../../lib/repository";
 import type { LetterPair } from "../../domain/letterPairs";
 import { pairKey as physicalPairKey } from "../../domain/letterPairs";
 import type { PairDb, PairEntry } from "../types/app";
-import { normalizeWords, pairKey, splitKey } from "./pairs";
+import { primaryWords, pairKey, splitKey } from "./pairs";
 
 function recordsByPair(data: AppData) {
   const grouped: Record<string, { edges?: LetterPair; corners?: LetterPair }> =
@@ -18,9 +18,7 @@ function recordsByPair(data: AppData) {
   return grouped;
 }
 const effective = (record?: LetterPair) =>
-  record
-    ? [record.primaryMnemonic, ...record.alternates].filter(Boolean)
-    : undefined;
+  record ? primaryWords([record.primaryMnemonic]) : undefined;
 const latestShared = (records: Array<LetterPair | undefined>) =>
   records
     .flatMap((record) => (record?.vocabulary ? [record.vocabulary] : []))
@@ -36,11 +34,11 @@ export function pairsFromStore(data: AppData): PairDb {
     Object.entries(recordsByPair(data)).map(([key, records]) => {
       const shared = latestShared([records.edges, records.corners]);
       if (shared) {
-        const entry: PairEntry = { shared: [...shared.shared] };
+        const entry: PairEntry = { shared: primaryWords(shared.shared) };
         for (const scope of ["edges", "corners"] as const) {
           const record = records[scope];
           if (record?.vocabulary?.override?.length)
-            entry[scope] = [...record.vocabulary.override];
+            entry[scope] = primaryWords(record.vocabulary.override);
           // Mixed-version records still carry a usable effective value.
           else if (record && !record.vocabulary)
             entry[scope] = effective(record);
@@ -67,9 +65,9 @@ export function pairsFromStore(data: AppData): PairDb {
 }
 function clean(entry: PairEntry | null | undefined): PairEntry | null {
   if (!entry) return null;
-  const next: PairEntry = { shared: normalizeWords(entry.shared) };
+  const next: PairEntry = { shared: primaryWords(entry.shared) };
   for (const scope of ["edges", "corners"] as const) {
-    const words = normalizeWords(entry[scope] ?? []);
+    const words = primaryWords(entry[scope] ?? []);
     if (words.length) next[scope] = words;
   }
   return next.shared.length || next.edges?.length || next.corners?.length
@@ -140,8 +138,7 @@ export function writePairEntries(
       if (
         old &&
         JSON.stringify(old.vocabulary) === JSON.stringify(vocabulary) &&
-        old.primaryMnemonic === words[0] &&
-        JSON.stringify(old.alternates) === JSON.stringify(words.slice(1))
+        old.primaryMnemonic === words[0]
       )
         continue;
       next[id] = {
@@ -151,7 +148,6 @@ export function writePairEntries(
         firstToken: first,
         secondToken: second,
         primaryMnemonic: words[0],
-        alternates: words.slice(1),
         encounters: old?.encounters ?? 0,
         forgotten: old?.forgotten ?? 0,
         updatedAt: timestamp,
@@ -178,6 +174,10 @@ export function replacePairEntries(
   db: PairDb,
   timestamp?: string,
 ) {
+  // Clearing the database includes records from previous lettering schemes.
+  // Store diffing will enqueue pair deletions without touching other records.
+  if (!Object.keys(db).length)
+    return Object.keys(data.pairs).length ? { ...data, pairs: {} } : data;
   const edits = Object.fromEntries(
     [
       ...new Set([...Object.keys(pairsFromStore(data)), ...Object.keys(db)]),

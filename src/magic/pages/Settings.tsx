@@ -391,7 +391,7 @@ function ClearAllPairs({ openInitially }: {openInitially: boolean;}) {
       <ConfirmDialog
         open={open}
         title={`Clear all ${count} saved word ${count === 1 ? 'entry' : 'entries'}?`}
-        body="Every letter pair, alternate and edge or corner override will be removed. This can’t be undone."
+        body="Every Default word and Edge or Corner override will be removed. This can’t be undone."
         onCancel={() => setOpen(false)}
         confirm={{
           label: 'Clear all',

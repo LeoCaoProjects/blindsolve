@@ -21,7 +21,7 @@ const pair = (word: string, time = "2026-09-25T00:00:00Z"): LetterPair => ({
   firstToken: "T",
   secondToken: "W",
   primaryMnemonic: word,
-  alternates: [],
+
   encounters: 1,
   forgotten: 0,
   updatedAt: time,
@@ -36,7 +36,7 @@ describe("workspace integrity", () => {
     expect(loadLocal("bob").revision).toBe(0);
     expect(loadLocal("alice").revision).toBe(4);
   });
-  it("retains both conflicting words and combines independent records", () => {
+  it("keeps the newest conflicting word and combines independent records", () => {
     const a = emptyData(),
       b = emptyData(),
       key = pairKey("B:BR", "D:DB");
@@ -45,15 +45,31 @@ describe("workspace integrity", () => {
     const merged = mergeData(a, b);
     expect(merged.conflicts).toBe(1);
     expect(merged.data.pairs[key].primaryMnemonic).toBe("tower");
-    expect(merged.data.pairs[key].alternates).toEqual(["tow"]);
+    expect(merged.data.pairs[key]).not.toHaveProperty("alternates");
   });
-  it("does not duplicate equivalent alternates", () => {
-    const a = emptyData(),
-      b = emptyData(),
-      key = pairKey("B:BR", "D:DB");
-    a.pairs[key] = pair(" Tow ");
-    b.pairs[key] = pair("tow");
-    expect(mergeData(a, b).data.pairs[key].alternates).toEqual([]);
+  it("ignores obsolete secondary words without changing Default or overrides", () => {
+    const original = emptyData();
+    const key = pairKey("B:BR", "D:DB");
+    original.pairs[key] = {
+      ...pair("Arrow"),
+      vocabulary: {
+        shared: ["Apple", "obsolete"],
+        override: ["Arrow", "obsolete"],
+        sharedUpdatedAt: "2026-09-25T00:00:00Z",
+        overrideUpdatedAt: "2026-09-25T00:00:00Z",
+      },
+    };
+    const legacy = JSON.parse(JSON.stringify(original));
+    legacy.pairs[key].alternates = ["obsolete"];
+    const restored = parseData(legacy);
+    expect(restored.pairs[key]).not.toHaveProperty("alternates");
+    expect(restored.pairs[key].vocabulary?.shared).toEqual(["Apple"]);
+    expect(restored.pairs[key].vocabulary?.override).toEqual(["Arrow"]);
+    expect(legacy.pairs[key].alternates).toEqual(["obsolete"]);
+    const payload = seedSyncChanges(restored).find(
+      (change) => change.kind === "pair",
+    )!.payload;
+    expect(payload).not.toHaveProperty("alternates");
   });
   it("rejects malformed backup and invalid timing", () => {
     expect(() => parseBackup('{"pairs":[]}')).toThrow();
@@ -118,7 +134,9 @@ describe("workspace integrity", () => {
     ];
     const canonical = parseData(structuredClone(legacy));
     expect(canonical.attempts[0].accuracy).toBe(0);
-    expect(diffSyncChanges(canonical, parseData(structuredClone(canonical)))).toEqual([]);
+    expect(
+      diffSyncChanges(canonical, parseData(structuredClone(canonical))),
+    ).toEqual([]);
   });
   it("round-trips a reproducible Guided Solve attempt", () => {
     const data = emptyData();

@@ -102,8 +102,6 @@ export function BackupSection({ preview }: {preview?: 'valid' | 'invalid';}) {
                 {summary.pairs.added} new · {summary.pairs.conflicts} differ
               </span>
             </dd>
-            <dt className="text-ink-3">Alternates</dt>
-            <dd className="text-right text-ink tnum">{summary.alternates}</dd>
             <dt className="text-ink-3">Solves</dt>
             <dd className="text-right text-ink tnum">{summary.solves.toLocaleString()}</dd>
             <dt className="text-ink-3">Practice history</dt>

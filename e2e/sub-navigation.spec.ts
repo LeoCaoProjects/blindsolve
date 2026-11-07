@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }) => {
                   firstToken: "T",
                   secondToken: "W",
                   primaryMnemonic: "tow",
-                  alternates: [],
+
                   encounters: 0,
                   forgotten: 0,
                   updatedAt: "2026-11-05T00:00:00.000Z",

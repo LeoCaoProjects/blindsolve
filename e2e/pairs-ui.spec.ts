@@ -18,10 +18,11 @@ const fixture = writePairEntries(
   } as AppData,
   {
     "A|B": {
-      shared: ["Apple", "Apricot"],
+      shared: ["Apple"],
       edges: ["Arrow"],
       corners: ["Castle"],
     },
+    "B|C": { shared: ["Boat"] },
     "A|D": { shared: ["Airport"] },
     "A|E": { shared: ["Atlas"] },
     "A|F": {
@@ -132,14 +133,9 @@ test("Default is primary; Overrides lists only exceptions and keeps letter navig
     .selectOption("0");
   modal = page.getByRole("dialog", { name: "Pair BA", exact: true });
   await expect(modal.getByRole("textbox", { name: /override/i })).toHaveCount(
-    0,
+    2,
   );
-  await expect(
-    modal.getByRole("button", { name: "Add edge override", exact: true }),
-  ).toBeVisible();
-  await modal
-    .getByRole("button", { name: "Add edge override", exact: true })
-    .click();
+
   await modal
     .getByRole("textbox", { name: "Edge override", exact: true })
     .fill("Boat");
@@ -173,7 +169,7 @@ test("Default is primary; Overrides lists only exceptions and keeps letter navig
   await page.screenshot({ path: "test-results/pairs-default-desktop.png" });
 });
 
-test("One Save edits Default and both optional overrides; Use default removes only its exception", async ({
+test("One Save edits Default and both optional overrides; clearing Edge removes only its exception", async ({
   page,
 }) => {
   await seed(page);
@@ -202,14 +198,8 @@ test("One Save edits Default and both optional overrides; Use default removes on
   expect(await input.boundingBox()).toEqual(before);
   expect(await modal.locator("footer").boundingBox()).toEqual(footer);
   await modal
-    .getByRole("button", { name: "Add edge override", exact: true })
-    .click();
-  await modal
     .getByRole("textbox", { name: "Edge override", exact: true })
     .fill("Arrow");
-  await modal
-    .getByRole("button", { name: "Add corner override", exact: true })
-    .click();
   await modal
     .getByRole("textbox", { name: "Corner override", exact: true })
     .fill("Castle");
@@ -224,12 +214,8 @@ test("One Save edits Default and both optional overrides; Use default removes on
     modal.getByRole("textbox", { name: "Corner override", exact: true }),
   ).toHaveValue("Castle");
   await modal
-    .getByRole("region", { name: "Edge override", exact: true })
-    .getByRole("button", { name: "Use default", exact: true })
-    .click();
-  await expect(
-    modal.getByRole("textbox", { name: "Edge override", exact: true }),
-  ).toHaveCount(0);
+    .getByRole("textbox", { name: "Edge override", exact: true })
+    .fill("");
   await expect(input).toHaveValue("Air port");
   await modal.getByRole("button", { name: "Save", exact: true }).click();
   await page.reload();
@@ -242,43 +228,19 @@ test("One Save edits Default and both optional overrides; Use default removes on
   expect(resolveWords(entry, "edges").words).toEqual(["Air port"]);
 });
 
-test("Default retains alternates, suggestions, Enter and safe Escape", async ({
+test("Default suggestions and safe Escape remain available without secondary word controls", async ({
   page,
 }) => {
   await seed(page);
-  let modal = await editor(page);
-  await modal
-    .getByRole("button", {
-      name: "Alternative words for default word",
-      exact: true,
-    })
-    .click();
-  const tools = page.getByRole("dialog", {
-    name: "Alternative words for default word",
-    exact: true,
-  });
-  const alternate = tools.getByRole("textbox", {
-    name: "Add alternate",
-    exact: true,
-  });
-  await alternate.fill("Anchor");
-  await alternate.press("Enter");
+  const modal = await editor(page, "AC");
   await expect(
-    tools.getByRole("button", { name: "Anchor", exact: true }),
-  ).toBeVisible();
-  await tools.getByRole("button", { name: "Apricot", exact: true }).click();
+    modal.getByRole("button", {
+      name: /Alternative|Add.*override|Use default/i,
+    }),
+  ).toHaveCount(0);
   await expect(
-    modal.getByRole("textbox", { name: "Default word", exact: true }),
-  ).toHaveValue("Apricot");
-  await tools
-    .getByRole("button", { name: "Remove Apple", exact: true })
-    .click();
-  await page.keyboard.press("Escape");
-  await expect(tools).toHaveCount(0);
-  await expect(modal).toBeVisible();
-  await modal.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(row(page, "AB")).toContainText("Apricot");
-  modal = await editor(page, "AC");
+    modal.getByRole("textbox", { name: "Edge override", exact: true }),
+  ).toHaveAttribute("placeholder", "Optional");
   await modal
     .getByRole("button", {
       name: "Suggest words for default word",
@@ -411,3 +373,98 @@ test("Desktop native zoom preserves pair columns and contextual navigation", asy
     await native.close();
   }
 });
+
+for (const width of [1440, 320])
+  test(`Clear all pairs is isolated, deliberate and available in subnav at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await seed(page);
+    // Seed independent saved records and another letter group in this disposable browser context.
+    await page.evaluate(() => {
+      const envelope = JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!);
+      envelope.data.solves = [
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          scramble: "R",
+          memoMs: 1000,
+          executionMs: 2000,
+          totalMs: 3000,
+          result: "success",
+          edgeMemo: [],
+          cornerMemo: [],
+          cycleBreaks: { edges: [], corners: [] },
+          createdAt: "2026-11-08T00:00:00Z",
+        },
+      ];
+      envelope.data.attempts = [
+        {
+          id: "00000000-0000-4000-8000-000000000002",
+          kind: "flashcard",
+          correct: true,
+          createdAt: "2026-11-08T00:00:00Z",
+        },
+      ];
+      localStorage.setItem("cubeiq-bld-v2:guest", JSON.stringify(envelope));
+    });
+    await page.reload();
+    await row(page, "AC").click();
+    const editor = page.getByRole("dialog", { name: "Pair AC", exact: true });
+    await editor
+      .getByRole("textbox", { name: "Default word", exact: true })
+      .fill("Ace");
+    await editor.getByRole("button", { name: "Save", exact: true }).click();
+    const snapshot = await page.evaluate(
+      () => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data,
+    );
+    const open = async () => {
+      const trigger = page.getByRole("button", {
+        name: "Letter Pairs navigation",
+        exact: true,
+      });
+      if (await trigger.isVisible()) await trigger.click();
+      await expect(
+        page.getByRole("button", { name: "Clear all pairs", exact: true }),
+      ).toHaveCSS("color", "rgb(240, 100, 98)");
+      await page
+        .getByRole("button", { name: "Clear all pairs", exact: true })
+        .click();
+    };
+    await expect(
+      page.locator("main").getByRole("button", { name: /Clear.*pairs/ }),
+    ).toHaveCount(0);
+    await open();
+    const confirmation = page.getByRole("alertdialog", {
+      name: "Clear all letter pairs?",
+      exact: true,
+    });
+    await expect(confirmation).toContainText(
+      "all Default, Edge and Corner words",
+    );
+    await expect(
+      confirmation.getByRole("button", { name: "Cancel", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(confirmation).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data.pairs,
+      ),
+    ).toEqual(snapshot.pairs);
+    await open();
+    await confirmation
+      .getByRole("button", { name: "Clear all pairs", exact: true })
+      .click();
+    await expect(confirmation).toHaveCount(0);
+    const saved = await page.evaluate(
+      () => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data,
+    );
+    expect(saved.pairs).toEqual({});
+    expect(saved.solves).toEqual(snapshot.solves);
+    expect(saved.attempts).toEqual(snapshot.attempts);
+    expect(saved.scheme).toEqual(snapshot.scheme);
+    expect(saved.showLiveTimer).toBe(snapshot.showLiveTimer);
+    await page.reload();
+    await expect(row(page, "AB")).toContainText("No word");
+  });

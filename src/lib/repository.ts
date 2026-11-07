@@ -151,16 +151,22 @@ const pairSchema = z
     firstToken: text,
     secondToken: text,
     primaryMnemonic: text,
-    alternates: z.array(text).max(100),
     encounters: z.number().int().nonnegative(),
     forgotten: z.number().int().nonnegative(),
     updatedAt: iso,
     vocabulary: z
       .object({
-        shared: z.array(text).max(100),
+        shared: z
+          .array(text)
+          .max(100)
+          .transform((words) => words.slice(0, 1)),
         sharedUpdatedAt: iso,
         overrideUpdatedAt: iso,
-        override: z.array(text).max(100).optional(),
+        override: z
+          .array(text)
+          .max(100)
+          .transform((words) => words.slice(0, 1))
+          .optional(),
       })
       .optional(),
   })
@@ -588,7 +594,7 @@ export function diffSyncChanges(
         changes.push({
           kind,
           recordId: id,
-          payload: value,
+          payload: kind === "pair" ? pairSchema.parse(value) : value,
           deleted: false,
           updatedAt,
         });
@@ -648,7 +654,7 @@ export function seedSyncChanges(
     changes.push({
       kind: "pair",
       recordId,
-      payload,
+      payload: pairSchema.parse(payload),
       deleted: false,
       updatedAt,
     });
@@ -900,26 +906,14 @@ export function mergeData(
         id: p.id,
         vocabulary,
         primaryMnemonic: words[0] ?? "",
-        alternates: words.slice(1),
         encounters: Math.max(old.encounters, p.encounters),
         forgotten: Math.max(old.forgotten, p.forgotten),
       };
       continue;
     }
-    const alternatives = [
-      ...newer.alternates,
-      ...other.alternates,
-      ...(differs && other.primaryMnemonic ? [other.primaryMnemonic] : []),
-    ];
     pairs[key] = {
       ...newer,
       id: p.id,
-      alternates: alternatives.filter(
-        (s, i, a) =>
-          normalizeMnemonic(s) !== normalizeMnemonic(newer.primaryMnemonic) &&
-          a.findIndex((v) => normalizeMnemonic(v) === normalizeMnemonic(s)) ===
-            i,
-      ),
       encounters: Math.max(old.encounters, p.encounters),
       forgotten: Math.max(old.forgotten, p.forgotten),
     };
@@ -1052,7 +1046,7 @@ async function loadLegacyCloud(): Promise<AppData> {
     supabase
       .from("letter_pairs")
       .select(
-        "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,encounters,forgotten,updated_at,letter_pair_aliases(mnemonic)",
+        "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,encounters,forgotten,updated_at",
       )
       .order("id"),
     supabase
@@ -1078,7 +1072,7 @@ async function loadLegacyCloud(): Promise<AppData> {
       const next = await supabase
         .from("letter_pairs")
         .select(
-          "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,encounters,forgotten,updated_at,letter_pair_aliases(mnemonic)",
+          "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,encounters,forgotten,updated_at",
         )
         .order("id")
         .range(offset, offset + 999);
@@ -1109,9 +1103,6 @@ async function loadLegacyCloud(): Promise<AppData> {
       firstToken: p.first_token,
       secondToken: p.second_token,
       primaryMnemonic: p.primary_mnemonic,
-      alternates: (p.letter_pair_aliases as Array<{ mnemonic: string }>).map(
-        (a) => a.mnemonic,
-      ),
       encounters: p.encounters,
       forgotten: p.forgotten,
       updatedAt: p.updated_at,
@@ -1202,7 +1193,10 @@ export async function saveCloudChanges(
       changes: batch.map((change) => ({
         kind: change.kind,
         record_id: change.recordId,
-        payload: change.payload,
+        payload:
+          change.kind === "pair" && !change.deleted
+            ? pairSchema.parse(change.payload)
+            : change.payload,
         deleted: change.deleted,
         updated_at: change.updatedAt,
       })),

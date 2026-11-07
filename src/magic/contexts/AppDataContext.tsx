@@ -481,12 +481,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     pairs,
     savePair: writeEntry,
     addWord: (key, scope, word) => {
-      const entry = pairs[key] ?? { shared: [] },
-        list = scope === "shared" ? entry.shared : (entry[scope] ?? []);
-      writeEntry(key, {
-        ...entry,
-        [scope]: [word, ...list.filter((v) => v !== word)],
-      });
+      const entry = pairs[key] ?? { shared: [] };
+      writeEntry(key, { ...entry, [scope]: word.trim() ? [word.trim()] : [] });
     },
     usage,
     timerDb: toTimerDb(pairs),
