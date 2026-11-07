@@ -155,6 +155,14 @@ const pairSchema = z
     encounters: z.number().int().nonnegative(),
     forgotten: z.number().int().nonnegative(),
     updatedAt: iso,
+    vocabulary: z
+      .object({
+        shared: z.array(text).max(100),
+        sharedUpdatedAt: iso,
+        overrideUpdatedAt: iso,
+        override: z.array(text).max(100).optional(),
+      })
+      .optional(),
   })
   .refine((p) => p.forgotten <= p.encounters);
 const schemeSchema = z.object({
@@ -867,6 +875,37 @@ export function mergeData(
       normalizeMnemonic(newer.primaryMnemonic) !==
       normalizeMnemonic(other.primaryMnemonic);
     if (differs) conflicts++;
+    if (newer.vocabulary) {
+      const shared =
+        other.vocabulary &&
+        Date.parse(other.vocabulary.sharedUpdatedAt) >
+          Date.parse(newer.vocabulary.sharedUpdatedAt)
+          ? other.vocabulary
+          : newer.vocabulary;
+      const scoped =
+        other.vocabulary &&
+        Date.parse(other.vocabulary.overrideUpdatedAt) >
+          Date.parse(newer.vocabulary.overrideUpdatedAt)
+          ? other.vocabulary
+          : newer.vocabulary;
+      const vocabulary = {
+        shared: shared.shared,
+        sharedUpdatedAt: shared.sharedUpdatedAt,
+        overrideUpdatedAt: scoped.overrideUpdatedAt,
+        ...(scoped.override ? { override: scoped.override } : {}),
+      };
+      const words = vocabulary.override ?? vocabulary.shared;
+      pairs[key] = {
+        ...newer,
+        id: p.id,
+        vocabulary,
+        primaryMnemonic: words[0] ?? "",
+        alternates: words.slice(1),
+        encounters: Math.max(old.encounters, p.encounters),
+        forgotten: Math.max(old.forgotten, p.forgotten),
+      };
+      continue;
+    }
     const alternatives = [
       ...newer.alternates,
       ...other.alternates,

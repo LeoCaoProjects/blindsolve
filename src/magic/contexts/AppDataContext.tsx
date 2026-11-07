@@ -1,3 +1,9 @@
+import {
+  pairsFromStore,
+  writePairEntries,
+  replacePairEntries,
+} from "../utils/pairPersistence";
+export { pairsFromStore } from "../utils/pairPersistence";
 import React, {
   createContext,
   useCallback,
@@ -8,7 +14,6 @@ import React, {
 } from "react";
 import { useStore } from "../../app/Store";
 import { createSpeffzScheme } from "../../domain/bld/speffz";
-import { pairKey as physicalPairKey } from "../../domain/letterPairs";
 import type { SolveRecord } from "../../lib/repository";
 import type {
   Account,
@@ -22,7 +27,7 @@ import type {
 } from "../types/app";
 import type { LetterPairDb, Solve } from "../types/solve";
 import { modeOf, solvesForMode, type TimerMode } from "../utils/timerModes";
-import { pairKey, splitKey, toTimerDb } from "../utils/pairs";
+import { pairKey, toTimerDb } from "../utils/pairs";
 import { ALL_STICKERS, speffzScheme } from "../utils/scheme";
 import { supabase } from "../../lib/supabase";
 import type { Feedback, NewFeedback } from "../types/feedback";
@@ -117,41 +122,6 @@ export function setupFromStore(
     edgeMethod: s.edgeMethod === "m2" ? "m2" : "op",
     cornerMethod: "op",
   };
-}
-export function pairsFromStore(
-  data: ReturnType<typeof useStore>["data"],
-): PairDb {
-  const gathered: Record<string, { edges?: string[]; corners?: string[] }> = {};
-  Object.values(data.pairs).forEach((p) => {
-    const type = data.scheme.stickers[p.firstStickerId]?.pieceType;
-    const key = pairKey(p.firstToken, p.secondToken),
-      words = [p.primaryMnemonic, ...p.alternates].filter(Boolean);
-    gathered[key] = {
-      ...gathered[key],
-      [type === "edge" ? "edges" : "corners"]: words,
-    };
-  });
-  return Object.fromEntries(
-    Object.entries(gathered).map(([key, value]) => {
-      const edge = value.edges,
-        corner = value.corners;
-      if (edge && corner && JSON.stringify(edge) === JSON.stringify(corner))
-        return [key, { shared: edge }];
-      if (edge && corner) return [key, { shared: edge, corners: corner }];
-      // Retired one-vocabulary data used lone physical records as shared. New edits
-      // switch the hidden storage discriminator to separate, avoiding ambiguity.
-      if ((data.pairSharing ?? "shared") === "shared" && (edge || corner))
-        return [key, { shared: edge ?? corner! }];
-      return [
-        key,
-        {
-          shared: [],
-          ...(edge ? { edges: edge } : {}),
-          ...(corner ? { corners: corner } : {}),
-        },
-      ];
-    }),
-  );
 }
 export function solveFromStore(s: SolveRecord, index: number): Solve {
   let hasExecutionTargets = false;
@@ -359,48 +329,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, [store.user?.id]);
   const writeEntry = useCallback(
     (key: string, entry: PairEntry | null) => {
-      const [first, second] = splitKey(key);
-      store.update((current) => {
-        const next = { ...current.pairs };
-        (["edge", "corner"] as const).forEach((type) => {
-          const a = Object.values(current.scheme.stickers).find(
-            (s) => s.pieceType === type && s.label === first,
-          );
-          const b = Object.values(current.scheme.stickers).find(
-            (s) => s.pieceType === type && s.label === second,
-          );
-          if (!a || !b) return;
-          const id = physicalPairKey(a.id, b.id),
-            scoped = type === "edge" ? entry?.edges : entry?.corners;
-          const words = scoped?.length ? scoped : (entry?.shared ?? []);
-          if (!entry || !words.length) {
-            delete next[id];
-            return;
-          }
-          const old = next[id];
-          next[id] = {
-            id: old?.id ?? crypto.randomUUID(),
-            firstStickerId: a.id,
-            secondStickerId: b.id,
-            firstToken: first,
-            secondToken: second,
-            primaryMnemonic: words[0],
-            alternates: words.slice(1),
-            encounters: old?.encounters ?? 0,
-            forgotten: old?.forgotten ?? 0,
-            updatedAt: new Date().toISOString(),
-          };
-        });
-        return {
-          ...current,
-          pairs: next,
-          pairSharing: "separate",
-          preferencesUpdatedAt:
-            current.pairSharing === "separate"
-              ? current.preferencesUpdatedAt
-              : new Date().toISOString(),
-        };
-      });
+      store.update((current) => writePairEntries(current, { [key]: entry }));
     },
     [store],
   );
@@ -626,47 +555,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     syncMessage: store.message,
     replacePairs: (action) => {
       const db = typeof action === "function" ? action(pairs) : action;
-      store.update((current) => {
-        const next: typeof current.pairs = {};
-        Object.entries(db).forEach(([key, entry]) => {
-          const [first, second] = splitKey(key);
-          (["edge", "corner"] as const).forEach((type) => {
-            const a = Object.values(current.scheme.stickers).find(
-              (s) => s.pieceType === type && s.label === first,
-            );
-            const b = Object.values(current.scheme.stickers).find(
-              (s) => s.pieceType === type && s.label === second,
-            );
-            if (!a || !b) return;
-            const id = physicalPairKey(a.id, b.id);
-            const scoped = type === "edge" ? entry.edges : entry.corners;
-            const words = scoped?.length ? scoped : entry.shared;
-            if (!words.length) return;
-            const old = current.pairs[id];
-            next[id] = {
-              id: old?.id ?? crypto.randomUUID(),
-              firstStickerId: a.id,
-              secondStickerId: b.id,
-              firstToken: first,
-              secondToken: second,
-              primaryMnemonic: words[0],
-              alternates: words.slice(1),
-              encounters: old?.encounters ?? 0,
-              forgotten: old?.forgotten ?? 0,
-              updatedAt: new Date().toISOString(),
-            };
-          });
-        });
-        return {
-          ...current,
-          pairs: next,
-          pairSharing: "separate",
-          preferencesUpdatedAt:
-            current.pairSharing === "separate"
-              ? current.preferencesUpdatedAt
-              : new Date().toISOString(),
-        };
-      });
+      store.update((current) => replacePairEntries(current, db));
     },
     navGuard,
     setNavGuard: (g) => setNavGuardState(() => g),

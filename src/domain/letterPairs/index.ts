@@ -9,6 +9,13 @@ export interface LetterPair {
   encounters: number;
   forgotten: number;
   updatedAt: string;
+  /** Explicit logical vocabulary; absent on legacy effective-only records. */
+  vocabulary?: {
+    shared: string[];
+    sharedUpdatedAt: string;
+    overrideUpdatedAt: string;
+    override?: string[];
+  };
 }
 
 export interface MemoPair {
