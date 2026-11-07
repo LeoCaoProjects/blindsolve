@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { EASE_OUT } from '../../utils/keyboard';
 import { designRem } from '../../hooks/useDesignPixels';
+import { useDialogSpaceClose } from '../../hooks/useDialogSpaceClose';
 
 interface PopoverProps {
   open: boolean;
@@ -21,6 +22,7 @@ interface PopoverProps {
  */
 export function Popover({ open, onClose, anchorRef, label, width = 216, children, className = '' }: PopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  useDialogSpaceClose(panelRef, () => { onClose(); anchorRef.current?.focus(); }, open);
   const [pos, setPos] = useState<{top: number;left: number;above: boolean;} | null>(null);
 
   useLayoutEffect(() => {

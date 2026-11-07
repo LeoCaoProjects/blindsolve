@@ -1,8 +1,8 @@
+import type { TrainMode } from "./trainingModes";
 export interface ShortcutItem {
   keys: string[];
   label: string;
 }
-
 export interface ShortcutSection {
   id: string;
   title: string;
@@ -10,58 +10,75 @@ export interface ShortcutSection {
 }
 
 export const shortcuts: ShortcutItem[] = [
-{ keys: ['Space'], label: 'Hold, release to start' },
-{ keys: ['Space'], label: 'End memo, then stop' },
-{ keys: ['N'], label: 'New scramble' },
-{ keys: ['1', '2', '3'], label: 'OK · +2 · DNF' },
-{ keys: ['A–X'], label: 'Pick cycle-break sticker' },
-{ keys: ['↵'], label: 'Continue / save' },
-{ keys: ['Esc'], label: 'Close · save without questions' },
-{ keys: ['⌫'], label: 'Delete latest solve' },
-{ keys: ['⇧', '⌫'], label: 'Clear this mode’s history' },
-{ keys: ['?'], label: 'This sheet' }];
+  { keys: ["Space"], label: "Hold, then release to start" },
+  { keys: ["Space"], label: "End memo or stop timing" },
+  { keys: ["N"], label: "New scramble while idle" },
+  { keys: ["1 / 2 / 3"], label: "OK, +2 or DNF in results" },
+  { keys: ["Arrows"], label: "Choose a cycle-break target" },
+  { keys: ["Enter"], label: "Confirm a target or finish review" },
+  { keys: ["Backspace"], label: "Delete latest solve" },
+  { keys: ["Shift + Backspace"], label: "Clear this mode’s history" },
+];
 
+export function trainingShortcuts(mode: TrainMode): ShortcutItem[] {
+  const items: ShortcutItem[] = [
+    { keys: ["Space"], label: "Hold, then release to start" },
+  ];
+  if (mode === "exec") items.push({ keys: ["Space"], label: "Stop timing" });
+  if (mode === "guided")
+    items.push({ keys: ["Space"], label: "End memo or stop execution" });
+  if (mode === "recall")
+    items.push(
+      { keys: ["Space"], label: "Hide memo and start recall" },
+      { keys: ["Esc"], label: "Reveal the answer during recall" },
+    );
+  if (mode === "recall" || mode === "trace")
+    items.push({ keys: ["Enter"], label: "Next field or submit" });
+  if (mode === "exec" || mode === "guided")
+    items.push(
+      { keys: ["N"], label: "New scramble while idle" },
+      {
+        keys: ["S / D"],
+        label:
+          mode === "exec" ? "Solved or DNF in results" : "OK or DNF in results",
+      },
+    );
+  items.push(
+    { keys: ["Backspace"], label: "Delete latest attempt" },
+    { keys: ["Shift + Backspace"], label: "Clear this drill’s history" },
+  );
+  return items;
+}
 
 export const shortcutSections: ShortcutSection[] = [
-{ id: 'timer', title: 'Timer', items: shortcuts },
-{
-  id: 'pairs',
-  title: 'Letter Pairs',
-  items: [
-  { keys: ['↑', '↓'], label: 'Move through pairs' },
-  { keys: ['←', '→'], label: 'Jump between groups' },
-  { keys: ['[', ']'], label: 'Previous · next first letter' },
-  { keys: ['T', 'W'], label: 'Type a pair to jump' },
-  { keys: ['↵'], label: 'Edit pair' },
-  { keys: ['Esc'], label: 'Close editor' }]
-
-},
-{
-  id: 'flashcards',
-  title: 'Flashcards',
-  items: [
-  { keys: ['Space'], label: 'Reveal' },
-  { keys: ['↵'], label: 'Remembered' },
-  { keys: ['F'], label: 'Forgot' },
-  { keys: ['E'], label: 'Edit mnemonic' },
-  { keys: ['A'], label: 'Add alternate' },
-  { keys: ['⌫'], label: 'Remove latest card from history' },
-  { keys: ['⇧', '⌫'], label: 'Clear history' }]
-
-},
-{
-  id: 'training',
-  title: 'Training',
-  items: [
-  { keys: ['Space'], label: 'Hold, release to start' },
-  { keys: ['Space'], label: 'Memo Recall: done studying' },
-  { keys: ['Space'], label: 'Execution Sprint: stop' },
-  { keys: ['Space'], label: 'Guided Solve: start execution · stop' },
-  { keys: ['S', 'D'], label: 'Execution Sprint: Solved · DNF' },
-  { keys: ['↵'], label: 'Next field · submit · next' },
-  { keys: ['Esc'], label: 'Show the answer · cancel edits' },
-  { keys: ['N'], label: 'Execution drills: new scramble' },
-  { keys: ['⌫'], label: 'Delete latest attempt' },
-  { keys: ['⇧', '⌫'], label: 'Clear this drill’s attempts' }]
-
-}];
+  { id: "timer", title: "Timer", items: shortcuts },
+  { id: "training", title: "Training", items: trainingShortcuts("exec") },
+  {
+    id: "pairs",
+    title: "Letter Pairs",
+    items: [
+      { keys: ["↑ / ↓"], label: "Previous or next pair" },
+      { keys: ["← / →"], label: "Previous or next group" },
+      { keys: ["[ / ]"], label: "Previous or next first letter" },
+      { keys: ["Two letters"], label: "Jump to a pair" },
+      { keys: ["Enter"], label: "Edit the focused pair" },
+    ],
+  },
+  {
+    id: "flashcards",
+    title: "Flashcards",
+    items: [
+      { keys: ["Space / Enter"], label: "Reveal, then mark remembered" },
+      { keys: ["F"], label: "Mark forgotten after reveal" },
+      { keys: ["E"], label: "Edit word after reveal" },
+      { keys: ["A"], label: "Add alternate after reveal" },
+      { keys: ["Backspace"], label: "Delete latest history entry" },
+      { keys: ["Shift + Backspace"], label: "Clear history" },
+    ],
+  },
+];
+export const popupShortcuts: ShortcutItem[] = [
+  { keys: ["Esc"], label: "Close popup" },
+  { keys: ["Space"], label: "Close non-editing popup" },
+  { keys: ["?"], label: "Open keybinds" },
+];

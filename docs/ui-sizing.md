@@ -1,8 +1,8 @@
 # UI sizing
 
-The opt-in prototype now has a centralized responsive-layout policy and coherent cube/scroll geometry. See [viewport-layout-stability.md](viewport-layout-stability.md) for the continuation results and limits; the earlier root-sizing report remains historical context.
+Viewport sizing is now the default on this local branch: ordinary routes need no query parameter. The centralized responsive-layout policy, cube/scroll geometry, and Settings 1200-design-pixel width are unchanged. `?sizing=legacy` provides a simple full-load development comparison fallback; `?sizing=viewport` remains compatible.
 
-The default remains the 120% root below. A local opt-in viewport-sizing experiment is available with `?sizing=viewport`; see [viewport-sizing-prototype.md](viewport-sizing-prototype.md) for the measured results, reference-height calibration, mobile fallback, and current limitations. It is not enabled by default.
+See [viewport-layout-stability.md](viewport-layout-stability.md) for measured results and limits, and [viewport-sizing-prototype.md](viewport-sizing-prototype.md) for the historical root-sizing experiment. Fine-pointer, hover-capable landscape windows use the viewport root; portrait/touch keeps the existing 120% root. No zoom or responsive formulas changed when making this the default.
 
 BlindSolve uses a 120% root font size. One rem is normally 19.2 CSS pixels, giving the existing UI its preferred larger baseline at normal browser zoom.
 

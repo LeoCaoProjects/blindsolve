@@ -1,4 +1,4 @@
-/* Opt-in experiment (?sizing=viewport), calibrated to the existing 900px-high
+/* Default viewport sizing, calibrated to the existing 900px-high
    desktop content viewport: 19.2 / 900 * 100 = 2.133333svh.
    A viewport-width floor softens very wide/short windows without defeating
    cancellation. It meets the height term continuously at aspect ratio 12/5.

@@ -207,7 +207,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             persist();
             if (merged.conflicts)
               notify(
-                `${merged.conflicts} differing mnemonics were preserved as alternates.`,
+                `${merged.conflicts} differing words were preserved as alternates.`,
               );
             if (current.current.dirty) {
               setSync("error");
@@ -334,7 +334,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setSync(Object.keys(pending).length ? "saving" : "saved");
           if (merged.conflicts)
             notify(
-              `${merged.conflicts} differing mnemonics were preserved as alternates. Review them before continuing.`,
+              `${merged.conflicts} differing words were preserved as alternates. Review them before continuing.`,
             );
           persist();
         } catch {
@@ -501,7 +501,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       persist();
       if (merged.conflicts)
         notify(
-          `${merged.conflicts} differences preserved as alternate mnemonics.`,
+          `${merged.conflicts} differences preserved as alternate words.`,
         );
       retryAttempts.current = 0;
       if (current.current.dirty) await flush();
@@ -579,7 +579,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const persisted = update(() => result.data);
     if (persisted)
       notify(
-        `Backup merged. ${result.conflicts} differing mnemonics preserved as alternates.`,
+        `Backup merged. ${result.conflicts} differing words preserved as alternates.`,
       );
   };
   const resolveGuestMigration = useCallback(
@@ -592,7 +592,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       update(() => merged.data);
       if (merged.conflicts)
         notify(
-          `${merged.conflicts} differing mnemonics were preserved as alternates.`,
+          `${merged.conflicts} differing words were preserved as alternates.`,
         );
     },
     [update],

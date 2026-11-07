@@ -7,7 +7,6 @@ import {
 } from "../layout/SubNavigation";
 import { trainingModes } from "../../data/trainingModes";
 import { TrainingSession } from "../../hooks/useTrainingSession";
-import { formatTime } from "../../utils/time";
 
 function SidebarChoice<T extends string>({
   label,
@@ -179,66 +178,5 @@ function TrainingControls({ t }: { t: TrainingSession }) {
         />
       )}
     </>
-  );
-}
-
-export function TrainingClock({ t }: { t: TrainingSession }) {
-  if (t.mode === "exec") return null;
-  if (t.mode === "guided") {
-    const cells: [string, number, boolean][] = [
-      ["memo", t.elapsed.memo, t.phase === "memo"],
-      ...(t.phase === "execution" ||
-      t.phase === "report" ||
-      t.phase === "review"
-        ? ([["execution", t.elapsed.execution, t.phase === "execution"]] as [
-            string,
-            number,
-            boolean,
-          ][])
-        : []),
-    ];
-    return (
-      <p
-        className="flex gap-5 font-mono text-[12px] text-ink-3 tnum"
-        role="timer"
-      >
-        {cells.map(([label, ms, live]) => (
-          <span key={label} className={live ? "text-ink-2" : ""}>
-            {label} <span className="ml-1">{formatTime(ms)}</span>
-          </span>
-        ))}
-      </p>
-    );
-  }
-  const cells: [string, number, boolean][] =
-    t.mode === "recall"
-      ? [
-          ["memo", t.elapsed.memo, t.phase === "active"],
-          ...(t.phase !== "active"
-            ? ([["recall", t.elapsed.recall, t.phase === "recall"]] as [
-                string,
-                number,
-                boolean,
-              ][])
-            : []),
-        ]
-      : [
-          [
-            t.mode === "trace" ? "trace" : "memo",
-            t.elapsed.total,
-            t.phase === "active",
-          ],
-        ];
-  return (
-    <p
-      className="flex gap-5 font-mono text-[12px] text-ink-3 tnum"
-      role="timer"
-    >
-      {cells.map(([label, ms, live]) => (
-        <span key={label} className={live ? "text-ink-2" : ""}>
-          {label} <span className="ml-1">{formatTime(ms)}</span>
-        </span>
-      ))}
-    </p>
   );
 }

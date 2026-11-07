@@ -44,7 +44,7 @@ export function WordEntry({
           aria-label={`Word you used for ${pair}`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Enter mnemonic"
+          placeholder="Enter word"
           className={`min-w-0 flex-1 border-b border-line-strong bg-transparent pb-2 text-ink outline-none transition-colors duration-150 ease-out placeholder:text-ink-3 focus:border-accent ${
             lg ? "text-[28px]" : "text-[22px]"
           }`}

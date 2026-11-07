@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { EASE_OUT } from '../../utils/keyboard';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
+import { useDialogSpaceClose } from '../../hooks/useDialogSpaceClose';
 
 interface Action {
   label: string;
@@ -25,6 +26,7 @@ interface ConfirmDialogProps {
 
 export function ConfirmDialog({ open, title, body, confirm, secondary, onCancel, cancelLabel = 'Cancel', width = 420, children }: ConfirmDialogProps) {
   const dialogRef = useDialogFocus<HTMLDivElement>(open);
+  useDialogSpaceClose(dialogRef, onCancel, open);
   const actionLocked = useRef(false);
   const runAction = (action: Action) => {
     if (actionLocked.current) return;

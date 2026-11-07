@@ -30,7 +30,7 @@ export function ScrambleText({
           <span
             key={i}
             aria-hidden
-            className="inline-block w-[3.7ch] whitespace-pre"
+            className="inline-block w-[2.22em] whitespace-pre"
           >
             {m}
           </span>

@@ -5,7 +5,7 @@ test("intentional subnav navigation animates while root-size changes do not rest
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/?sizing=viewport");
+  await page.goto("/");
   await expect(
     page.getByRole("button", { name: "New scramble", exact: true }),
   ).toBeEnabled({ timeout: 45000 });
@@ -43,7 +43,7 @@ test("real narrowing collapses navigation and restoring the window brings it bac
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/settings?sizing=viewport");
+  await page.goto("/settings");
   await expect(page.locator("[data-subnav-column]")).toHaveCount(1);
   await page.setViewportSize({ width: 900, height: 900 });
   await expect(page.locator("[data-subnav-column]")).toHaveCount(0);

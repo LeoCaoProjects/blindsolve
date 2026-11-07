@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { EASE_OUT } from '../../utils/keyboard';
 import { useDialogFocus } from '../../hooks/useDialogFocus';
+import { useDialogSpaceClose } from '../../hooks/useDialogSpaceClose';
 
 interface InspectorProps {
   label: string;
@@ -19,6 +20,7 @@ interface InspectorProps {
  */
 export function Inspector({ label, onClose, children, width = 480, dismissable = true }: InspectorProps) {
   const dialogRef = useDialogFocus<HTMLElement>();
+  useDialogSpaceClose(dialogRef, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // A confirmation open on top handles its own Escape.

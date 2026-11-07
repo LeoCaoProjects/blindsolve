@@ -72,7 +72,7 @@ test("rail and mobile dock navigate all real routes and follow browser history",
   }
 });
 
-test("new Training selectors keep real modes, scopes and original tutorials", async ({
+test("new Training selectors keep real modes, scopes and shared help copy", async ({
   page,
 }) => {
   for (const viewport of [
@@ -110,7 +110,8 @@ test("new Training selectors keep real modes, scopes and original tutorials", as
         name: `How ${mode.label} works`,
       });
       await expect(help).toBeVisible();
-      await expect(help.getByRole("listitem")).toHaveText(mode.steps);
+      await expect(help.getByRole("term")).toHaveText(mode.steps.map(step => step.label));
+      await expect(help.getByRole("definition")).toHaveText(mode.steps.map(step => step.text));
       await expect(help).toContainText(mode.tests);
       await page.keyboard.press("Escape");
       await expect(help).toHaveCount(0);

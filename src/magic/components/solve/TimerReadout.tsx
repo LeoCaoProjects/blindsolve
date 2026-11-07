@@ -10,6 +10,7 @@ interface TimerReadoutProps {
   className?: string;
   tones?: Partial<Record<TimerPhase, string>>;
   showLiveTimer?: boolean;
+  ariaLabel?: string;
 }
 
 const DEFAULT_TONES: Record<TimerPhase, string> = {
@@ -22,7 +23,7 @@ const DEFAULT_TONES: Record<TimerPhase, string> = {
   stopped: 'text-ink'
 };
 
-export function TimerReadout({ phase, value, penalty, className = '', tones, showLiveTimer = true }: TimerReadoutProps) {
+export function TimerReadout({ phase, value, penalty, className = '', tones, showLiveTimer = true, ariaLabel }: TimerReadoutProps) {
   const tone = { ...DEFAULT_TONES, ...tones }[phase];
   let content: React.ReactNode = formatTime(value);
   if (!showLiveTimer && (phase === 'memo' || phase === 'exec' || phase === 'running')) content = 'Solve';
@@ -35,7 +36,7 @@ export function TimerReadout({ phase, value, penalty, className = '', tones, sho
       </>;
 
   return (
-    <div role="timer" aria-live="off" className={`tnum whitespace-nowrap transition-colors duration-150 ease-out ${tone} ${className}`}>
+    <div role="timer" aria-label={ariaLabel} aria-live="off" className={`tnum whitespace-nowrap transition-colors duration-150 ease-out ${tone} ${className}`}>
       {content}
     </div>);
 

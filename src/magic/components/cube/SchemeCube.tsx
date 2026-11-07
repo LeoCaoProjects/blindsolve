@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDefaultView } from '../../contexts/AppDataContext';
 import { CubeMode, CubeViewPref, FaceColor, LetterScheme } from '../../types/app';
 import { FACES, Face, slotType } from '../../utils/cube';
@@ -36,6 +36,8 @@ interface SchemeCubeProps {
   resetSignal?: number;
   /** Camera angle to animate to (e.g. to show the stickers of a flashcard) */
   rotation?: {x: number;y: number;};
+  /** Opt-in for in-place card changes; workspace/settings cameras stay instant. */
+  animateOrientation?: boolean;
   label?: string;
   className?: string;
 }
@@ -72,13 +74,14 @@ export function SchemeCube({
   onViewChange,
   resetSignal = 0,
   rotation,
+  animateOrientation = false,
   label = 'Cube',
   className = ''
 }: SchemeCubeProps) {
   const rootUnits=useViewportSizingActive();
   const savedView = useDefaultView();
   const camera = view ?? savedView;
-  const [rot, setRot] = useState(DEFAULT_ROT);
+  const [rot, setRot] = useState(rotation ?? DEFAULT_ROT);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{x: number;y: number;rx: number;ry: number;moved: boolean;} | null>(null);
   const movedRef = useRef(false);
@@ -88,7 +91,7 @@ export function SchemeCube({
   const gap = Math.max(2, Math.round(S * 0.032));
   const radius = Math.max(1.5, S * 0.022);
 
-  useEffect(() => setRot(rotation ?? DEFAULT_ROT), [resetSignal, camera.top, camera.front]);
+  useLayoutEffect(() => setRot(rotation ?? DEFAULT_ROT), [resetSignal, camera.top, camera.front]);
   useEffect(() => {
     if (rotation) setRot(rotation);
   }, [rotation?.x, rotation?.y]);
@@ -164,7 +167,7 @@ export function SchemeCube({
         style={{
           transformStyle: 'preserve-3d',
           transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) ${viewTransform(camera)}`,
-          transition: dragging ? 'none' : 'transform 260ms cubic-bezier(0.23, 1, 0.32, 1)'
+          transition: !dragging && animateOrientation ? 'transform 260ms cubic-bezier(0.23, 1, 0.32, 1)' : 'none'
         }}>
         
         {FACES.map((face) =>

@@ -2,7 +2,7 @@ import {
   GlobalNavigationShell,
   hasGlobalNavigation,
 } from "./components/layout/GlobalNavigation";
-import { SubNavFrame } from "./components/layout/SubNavigation";
+import { SessionWorkspaceFrame } from "./components/workspace/SessionWorkspaceFrame";
 import { RouteMetadata } from "../seo/RouteMetadata";
 import React, { useEffect } from "react";
 import { MotionConfig } from "framer-motion";
@@ -33,7 +33,7 @@ function RouteFrame({ children }: { children: React.ReactNode }) {
     <div
       className={`h-full min-w-0 ${hasNavigation ? "pb-[calc(56px+env(safe-area-inset-bottom))] vp-md:pb-0 vp-md:pl-[72px]" : ""}`}
     >
-      <SubNavFrame>{children}</SubNavFrame>
+      <SessionWorkspaceFrame>{children}</SessionWorkspaceFrame>
     </div>
   );
 }

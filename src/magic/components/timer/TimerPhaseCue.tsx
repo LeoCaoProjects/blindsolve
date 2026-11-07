@@ -2,7 +2,13 @@ import { motion, useReducedMotion } from "framer-motion";
 import type { TimerPhase } from "../../hooks/useTimer";
 
 /** Presentation only: the timer's Space handler remains synchronous and unchanged. */
-export function TimerPhaseCue({ phase }: { phase: TimerPhase }) {
+export function TimerPhaseCue({
+  phase,
+  className = "relative mt-4 h-5",
+}: {
+  phase: TimerPhase;
+  className?: string;
+}) {
   const reduced = useReducedMotion();
   const label =
     phase === "memo"
@@ -13,7 +19,7 @@ export function TimerPhaseCue({ phase }: { phase: TimerPhase }) {
           ? "Solving"
           : "";
   return (
-    <div className="relative mt-4 h-5" aria-live="polite" aria-atomic="true">
+    <div className={className} aria-live="polite" aria-atomic="true">
       <motion.p
         key={phase}
         initial={reduced ? false : { opacity: 0.35, y: 4 }}

@@ -263,7 +263,7 @@ body :is([role="textbox"], [contenteditable]:not([contenteditable="false"])) * {
   html:not([data-viewport-sizing]) .timer-layout [aria-label="Scramble"] .font-mono {
     font-size: 12.5px;
   }
-  html:not([data-viewport-sizing]) .timer-layout [role="timer"] {
+  html:not([data-viewport-sizing]) .timer-layout [data-timer-clock] [role="timer"] {
     font-size: clamp(40px, 18cqw, 64px);
   }
   html:not([data-viewport-sizing]) .timer-reference-column dl > div {
@@ -312,14 +312,14 @@ body :is([role="textbox"], [contenteditable]:not([contenteditable="false"])) * {
     flex-direction: column;
     overflow-y: auto;
   }
-  html:not([data-viewport-sizing]) .timer-layout > main {
+  html:not([data-viewport-sizing]) .timer-layout > [data-workspace-main] {
     flex: none;
   }
   html:not([data-viewport-sizing]) .timer-layout [data-timer-clock] {
     padding-top: 12px;
     padding-bottom: 12px;
   }
-  html:not([data-viewport-sizing]) .timer-layout > main > div {
+  html:not([data-viewport-sizing]) .timer-layout > [data-workspace-main] > div {
     flex: none;
     min-height: 112px;
     overflow: visible;
@@ -334,4 +334,9 @@ body :is([role="textbox"], [contenteditable]:not([contenteditable="false"])) * {
 .timer-cube-viewport .cube-utility-letters svg {
   width: 20px;
   height: 20px;
+}
+
+/* Touch progression stays available without redundant desktop timing actions. */
+@media (hover: hover) and (pointer: fine) {
+  .training-touch-dock { display: none; }
 }

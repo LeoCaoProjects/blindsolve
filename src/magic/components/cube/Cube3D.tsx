@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   CubeState,
   FACES,
@@ -39,7 +39,7 @@ interface Cube3DProps {
   /** Controlled angle (e.g. two linked views of one cube) */
   rotation?: Rot;
   onRotationChange?: (r: Rot) => void;
-  /** Follow rotation changes without easing — for a view linked to another cube being dragged */
+  /** @deprecated Orientation updates are always instant; retained for callers. */
   instant?: boolean;
   onDragChange?: (dragging: boolean) => void;
   /**
@@ -66,7 +66,6 @@ export function Cube3D({
   initialRot = FRONT_ROT,
   rotation,
   onRotationChange,
-  instant = false,
   onDragChange,
   hiddenCues = false
 }: Cube3DProps) {
@@ -87,7 +86,7 @@ export function Cube3D({
   const signature = FACES.map((f) => state[f].join('')).join('');
 
   // A new state or view returns to the saved default angle; manual rotation is temporary.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!rotation) setInner(initialRot);
   }, [signature, camera.top, camera.front]);
 
@@ -173,7 +172,7 @@ export function Cube3D({
         style={{
           transformStyle: 'preserve-3d',
           transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) ${viewTransform(camera, state)}`,
-          transition: dragging || instant ? 'none' : 'transform 260ms cubic-bezier(0.23, 1, 0.32, 1)'
+          transition: 'none'
         }}>
         
         {FACES.map((face) => {

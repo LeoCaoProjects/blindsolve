@@ -124,9 +124,9 @@ export function PairEditor({ first, second, entry, initialScope, uses, suggestio
                 <input
                 ref={primaryRef}
                 autoFocus
-                aria-label="Mnemonic"
+                aria-label="Word"
                 value={primary}
-                placeholder="Add mnemonic"
+                placeholder="Add word"
                 onChange={(e) => {
                   setNote(null);
                   setWords([e.target.value, ...alternates]);

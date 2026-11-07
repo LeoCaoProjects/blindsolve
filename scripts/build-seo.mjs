@@ -19,10 +19,10 @@ for (const [path, page] of Object.entries(pages)) {
     <meta name="description" content="${escape(page.description)}" />
     <meta name="robots" content="${preview || page.noindex ? 'noindex, follow' : 'index, follow'}" />
     <link rel="canonical" href="${url}" />
-    <link rel="icon" type="image/svg+xml" href="/favicon-3bld.svg" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon-3bld-padded-v2.svg" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-padded-v2-16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-padded-v2-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-padded-v2.png" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="BlindSolve" />
     <meta property="og:title" content="${escape(appTitle)}" />
@@ -42,7 +42,7 @@ for (const [path, page] of Object.entries(pages)) {
 const urls = Object.entries(pages).filter(([, page]) => !page.noindex).map(([path]) => `<url><loc>${origin}${path}</loc></url>`).join('\n');
 await writeFile('dist/sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`);
 await writeFile('dist/robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`);
-await writeFile('dist/404.html', '<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, follow"><title>BlindSolve</title><link rel="icon" type="image/svg+xml" href="/favicon-3bld.svg"></head><body><main><h1>Page not found</h1><p>This address does not exist.</p><a href="/">Return to the BlindSolve timer</a></main></body></html>');
+await writeFile('dist/404.html', '<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, follow"><title>BlindSolve</title><link rel="icon" type="image/svg+xml" href="/favicon-3bld-padded-v2.svg"></head><body><main><h1>Page not found</h1><p>This address does not exist.</p><a href="/">Return to the BlindSolve timer</a></main></body></html>');
 // Allow only the exact inert JSON-LD block; do not weaken the script policy for executable inline scripts.
 const hash = createHash('sha256').update(schema).digest('base64');
 let headers = (await readFile('dist/_headers', 'utf8')).replaceAll('\r\n', '\n');

@@ -8,6 +8,7 @@ interface ChallengeCubesProps {
   state: CubeState;
   size: number;
   className?: string;
+  heading?: React.ReactNode;
 }
 
 /**
@@ -16,7 +17,7 @@ interface ChallengeCubesProps {
  * with no easing, so neither lags behind the other.
  * Floating ticks beside visible edge and corner stickers show the colours hidden on the far side.
  */
-export function ChallengeCubes({ state, size, className = '' }: ChallengeCubesProps) {
+export function ChallengeCubes({ state, size, className = '', heading }: ChallengeCubesProps) {
   const camera = useDefaultView();
   const [rot, setRot] = useState<Rot>(FRONT_ROT);
   const [dragging, setDragging] = useState(false);
@@ -25,8 +26,9 @@ export function ChallengeCubes({ state, size, className = '' }: ChallengeCubesPr
   const back = oppositeRot(rot);
 
   return (
-    <div className={`flex items-start justify-center gap-[clamp(12px,3vw,40px)] ${className}`}>
-      <figure className="flex flex-col items-center">
+    <div className={`flex items-start justify-center gap-[clamp(12px,3vw,40px)] ${heading ? "pt-[calc(clamp(34px,6.5vh,60px)+2rem)]" : ""} ${className}`}>
+      <figure className="relative flex flex-col items-center">
+        {heading && <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-8 whitespace-nowrap">{heading}</div>}
         <Cube3D
           state={state}
           size={size}

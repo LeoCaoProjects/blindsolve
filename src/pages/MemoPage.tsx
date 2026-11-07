@@ -274,7 +274,7 @@ export default function MemoPage() {
                       <span>
                         {second ? (
                           pair?.primaryMnemonic || (
-                            <span className="subtle">No mnemonic saved</span>
+                            <span className="subtle">No word saved</span>
                           )
                         ) : (
                           <span className="subtle">Single trailing target</span>
@@ -287,7 +287,7 @@ export default function MemoPage() {
                             setEditing([first.stickerId, second.stickerId])
                           }
                         >
-                          {pair?.primaryMnemonic ? "Edit" : "Add mnemonic"}
+                          {pair?.primaryMnemonic ? "Edit" : "Add word"}
                         </button>
                       )}
                     </div>

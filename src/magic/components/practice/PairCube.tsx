@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAppData, useDefaultView } from '../../contexts/AppDataContext';
 import { LetterScheme } from '../../types/app';
@@ -14,6 +14,7 @@ interface PairCubeProps {
   /** null = Both: the pair is resolved through the edge lettering AND the corner lettering */
   type: Kind | null;
   size: number;
+  animateOrientation?: boolean;
 }
 
 /**
@@ -22,7 +23,11 @@ interface PairCubeProps {
  * When one view can't show every target, it shows as many as possible and a small far-side
  * view appears for the rest, only for that card.
  */
-export function PairCube({ tokens, type, size }: PairCubeProps) {
+export function PairCube({ tokens, type, size, animateOrientation = false }: PairCubeProps) {
+  // A visit/card cube establishes its initial controlled angle before enabling
+  // subsequent card transitions. Remounting on re-entry resets this lifecycle.
+  const [established, setEstablished] = useState(false);
+  useLayoutEffect(() => setEstablished(true), []);
   const { setup } = useAppData();
   const camera = useDefaultView();
   const last = useRef<Rot>(FRONT_ROT);
@@ -53,6 +58,7 @@ export function PairCube({ tokens, type, size }: PairCubeProps) {
         size={size}
         mode="static"
         rotation={rot}
+        animateOrientation={animateOrientation && established}
         highlightIds={ids}
         highlightPrimaryCount={primaryCount}
         label={`Where ${tokens.join('')} sits on the cube${type ? '' : ', edges and corners'}`} />

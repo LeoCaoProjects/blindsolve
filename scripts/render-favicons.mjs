@@ -3,16 +3,16 @@ import { chromium } from "@playwright/test";
 
 // Rasterize the licensed, recoloured SVG with the existing browser test tooling.
 // This script is asset maintenance only; the production app has no renderer dependency.
-const svg = await readFile("public/favicon-3bld.svg", "utf8");
+const svg = await readFile("public/favicon-3bld-padded-v2.svg", "utf8");
 const browser = await chromium.launch(
   process.platform === "win32" ? { channel: "msedge" } : {},
 );
 const page = await browser.newPage({ deviceScaleFactor: 1 });
 try {
   for (const [size, file] of [
-    [16, "favicon-16.png"],
-    [32, "favicon-32.png"],
-    [180, "apple-touch-icon.png"],
+    [16, "favicon-padded-v2-16.png"],
+    [32, "favicon-padded-v2-32.png"],
+    [180, "apple-touch-icon-padded-v2.png"],
   ]) {
     await page.setViewportSize({ width: size, height: size });
     await page.setContent(
@@ -24,7 +24,7 @@ try {
   await browser.close();
 }
 const images = await Promise.all(
-  [16, 32].map((size) => readFile(`public/favicon-${size}.png`)),
+  [16, 32].map((size) => readFile(`public/favicon-padded-v2-${size}.png`)),
 );
 const header = Buffer.alloc(6 + images.length * 16);
 header.writeUInt16LE(1, 2);

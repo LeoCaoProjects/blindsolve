@@ -95,7 +95,7 @@ export default function FlashcardsPage() {
       </div>
       {!card && filled.length ? <p role="status">Choosing a pair…</p> : !card ? (
         <div className="empty-state">
-          <h2>Add your first mnemonic</h2>
+          <h2>Add your first word</h2>
           <p>Save a word in Letter pairs to start practising.</p>
           <Link className="button primary" to="/pairs">
             Open letter pairs
@@ -105,7 +105,7 @@ export default function FlashcardsPage() {
         <>
           <div className="flash-stage">
             <p className="subtle">
-              {revealed ? "Your mnemonic" : "Recall the image"}
+              {revealed ? "Your word" : "Recall the image"}
             </p>
             <div
               className="flash-pair mono"
@@ -136,7 +136,7 @@ export default function FlashcardsPage() {
                     className="text-button"
                     onClick={() => setEditing(true)}
                   >
-                    Edit mnemonic
+                    Edit word
                   </button>
                 </>
               ) : (

@@ -56,16 +56,45 @@ export function compareGroups(
   });
 }
 
-/** Objective target recall score. Extras remain mistakes but can never make a percentage negative. */
-export function accuracyForResults(results: GroupResult[]): number {
-  const expected = results.reduce((sum, result) => sum + result.actual.length, 0);
-  if (!expected) return 1;
+/** Count positions in the expected token sequence, not characters or mnemonic pairs. */
+export function targetAccuracyForResults(results: GroupResult[]) {
+  const total = results.reduce((sum, result) => sum + result.actual.length, 0);
   const correct = results.reduce(
     (sum, result) =>
-      sum + result.actualMarks.filter((mark) => mark === "ok").length,
+      sum +
+      result.actual.filter((token, index) => result.typed[index] === token)
+        .length,
     0,
   );
-  return correct / expected;
+  return { correct, total };
+}
+
+/** Existing persisted ratio; extra tokens still make an attempt incorrect. */
+export function accuracyForResults(results: GroupResult[]): number {
+  const { correct, total } = targetAccuracyForResults(results);
+  return total ? correct / total : 1;
+}
+
+/** Old failures without a recorded ratio cannot reveal their correct-position count. */
+export function attemptTargetAccuracy(attempt: {
+  targets: number;
+  accuracy?: number;
+  correct: boolean;
+}): string {
+  const total = Number.isFinite(attempt.targets)
+    ? Math.max(0, Math.trunc(attempt.targets))
+    : 0;
+  const ratio = attempt.accuracy;
+  const correct =
+    typeof ratio === "number" &&
+    Number.isFinite(ratio) &&
+    ratio >= 0 &&
+    ratio <= 1
+      ? Math.round(ratio * total)
+      : attempt.correct
+        ? total
+        : null;
+  return `${correct ?? "\u2014"}/${total} targets`;
 }
 
 /** Full letter pairs only — a trailing single target has no word slot. */

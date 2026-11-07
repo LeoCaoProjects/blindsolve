@@ -50,7 +50,7 @@ export function PairEditor({
     notify(
       primary.trim()
         ? `Saved ${first.label} · ${second.label}.`
-        : `Cleared ${first.label} · ${second.label}${old?.primaryMnemonic ? `. Previous mnemonic: ${old.primaryMnemonic}` : ""}.`,
+        : `Cleared ${first.label} · ${second.label}${old?.primaryMnemonic ? `. Previous word: ${old.primaryMnemonic}` : ""}.`,
     );
     onClose();
   };
@@ -67,7 +67,7 @@ export function PairEditor({
           {ids[1]}
         </p>
         <label>
-          Primary mnemonic
+          Primary word
           <input
             autoFocus
             value={primary}
@@ -77,7 +77,7 @@ export function PairEditor({
           />
         </label>
         <label>
-          Alternate mnemonic
+          Alternate word
           <input
             value={alternate}
             onChange={(e) => setAlternate(e.target.value)}

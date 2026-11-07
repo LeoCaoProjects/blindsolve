@@ -180,6 +180,7 @@ export function SuggestPopover({
   exclude,
   current,
   label = 'Suggest',
+  iconOnly = false,
   className = ''
 
 
@@ -189,7 +190,7 @@ export function SuggestPopover({
 
 
 
-}: {first: string;second: string;onPick: (word: string) => void;exclude?: string[];current?: string;label?: string;className?: string;}) {
+}: {first: string;second: string;onPick: (word: string) => void;exclude?: string[];current?: string;label?: string;iconOnly?: boolean;className?: string;}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
   return (
@@ -197,6 +198,8 @@ export function SuggestPopover({
       <button
         ref={ref}
         type="button"
+        aria-label={iconOnly ? `Suggest word for ${first}${second}` : undefined}
+        title={iconOnly ? `Suggest word for ${first}${second}` : undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
@@ -205,7 +208,7 @@ export function SuggestPopover({
         className}`}>
         
         <SparklesIcon size={11} strokeWidth={1.75} aria-hidden />
-        {label}
+        {!iconOnly && label}
       </button>
       <Popover open={open} onClose={() => setOpen(false)} anchorRef={ref} label={`Suggestions for ${first}${second}`}>
         <SuggestionMenu
