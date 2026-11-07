@@ -202,7 +202,7 @@ export function LetterPairs() {
               <span className="font-mono text-[12px] text-ink-3 tnum">
                 {filled[activeFirst] ?? 0} / {total}
               </span>
-              {allEmpty && <span className="text-[12.5px] text-ink-3">No mnemonics yet</span>}
+              {allEmpty && <span className="text-[12.5px] text-ink-3">No words yet</span>}
             </div>
             <div className="flex items-center gap-4">
               <Segmented label="Vocabulary" size="sm" options={scopeOptions} value={scope} onChange={setScope} />
@@ -257,7 +257,7 @@ export function LetterPairs() {
       <ConfirmDialog
         open={confirmSection}
         title={`Clear ${activeFirst} pairs?`}
-        body={`This will remove saved mnemonics from ${sectionKeys.length} ${sectionKeys.length === 1 ? 'pair' : 'pairs'} starting with ${activeFirst}, including alternates and overrides. This can’t be undone.`}
+        body={`This will remove saved words from ${sectionKeys.length} ${sectionKeys.length === 1 ? 'pair' : 'pairs'} starting with ${activeFirst}, including alternates and overrides. This can’t be undone.`}
         onCancel={() => setConfirmSection(false)}
         confirm={{ label: 'Clear pairs', onClick: clearSection, tone: 'danger' }} />
 

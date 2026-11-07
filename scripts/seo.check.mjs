@@ -16,7 +16,7 @@ for (const [path, page] of Object.entries(pages)) {
   const file = path === '/' ? 'dist/index.html' : `dist${path}.html`;
   const doc = new JSDOM(await readFile(file, 'utf8')).window.document;
   assert.equal(doc.title, appTitle);
-  assert.equal(doc.querySelector('link[rel=icon][type="image/svg+xml"]').getAttribute("href"), "/favicon-3bld.svg");
+  assert.equal(doc.querySelector('link[rel=icon][type="image/svg+xml"]').getAttribute("href"), "/favicon-3bld-padded-v2.svg");
   assert.equal(doc.querySelector('link[rel=canonical]').href, `https://blindsolve.com${path}`);
   assert.equal(doc.querySelector('meta[name=description]').content, page.description);
   assert.equal(doc.querySelector('meta[name=robots]').content, preview || page.noindex ? 'noindex, follow' : 'index, follow');

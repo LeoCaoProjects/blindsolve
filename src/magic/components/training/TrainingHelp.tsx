@@ -1,20 +1,32 @@
-import React from 'react';
-import { TrainMode, modeInfo } from '../../data/trainingModes';
-import { Sheet } from '../common/Sheet';
+import { TrainMode, modeInfo } from "../../data/trainingModes";
+import { ReferenceModal } from "../common/ReferenceModal";
 
-/** Help for the current drill only. */
-export function TrainingHelp({ open, onClose, mode }: {open: boolean;onClose: () => void;mode: TrainMode;}) {
+export function TrainingHelp({
+  open,
+  onClose,
+  mode,
+}: {
+  open: boolean;
+  onClose: () => void;
+  mode: TrainMode;
+}) {
   const info = modeInfo(mode);
   return (
-    <Sheet open={open} onClose={onClose} label={`How ${info.label} works`} title={info.label} width={440}>
-      <p className="text-[13px] text-ink-3">{info.tests}</p>
-      <ol className="mt-4 border-t border-line">
-        {info.steps.map((s) =>
-        <li key={s} className="border-b border-line py-2.5 text-[13.5px] leading-relaxed text-ink-2">
-            {s}
-          </li>
-        )}
-      </ol>
-    </Sheet>);
-
+    <ReferenceModal
+      open={open}
+      onClose={onClose}
+      label={`How ${info.label} works`}
+      title="How it works"
+    >
+      <p className="text-ink-3">{info.tests}</p>
+      <dl className="mt-5 space-y-4">
+        {info.steps.map((step) => (
+          <div key={step.label}>
+            <dt className="font-medium text-ink">{step.label}</dt>
+            <dd className="mt-1 text-ink-2">{step.text}</dd>
+          </div>
+        ))}
+      </dl>
+    </ReferenceModal>
+  );
 }

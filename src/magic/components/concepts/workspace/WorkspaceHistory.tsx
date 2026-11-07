@@ -5,6 +5,9 @@ import { formatTime } from "../../../utils/time";
 import { RowDelete } from "../../common/HistoryHeader";
 import { SolveTime } from "../../solve/SolveTime";
 
+import { SessionReadout } from "../../practice/SessionReadout";
+import { WORKSPACE_HISTORY_ROW } from "../../workspace/historyStyles";
+
 interface WorkspaceHistoryProps {
   solves: Solve[];
   stats: SessionStats;
@@ -21,25 +24,13 @@ export function WorkspaceHistory({
 }: WorkspaceHistoryProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <dl className="grid shrink-0 grid-cols-3 border-b border-line">
-        {[
+      <SessionReadout
+        cells={[
           ["best", stats.best],
           ["mo3", stats.mo3],
           ["success", stats.success],
-        ].map(([label, value], i) => (
-          <div
-            key={label}
-            className={`px-5 py-3.5 ${i > 0 ? "border-l border-line" : ""}`}
-          >
-            <dt className="text-[11px] text-ink-3">{label}</dt>
-            <dd
-              className={`mt-1 font-mono text-[14px] tnum ${i === 0 ? "text-ink" : "text-ink-2"}`}
-            >
-              {value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+        ]}
+      />
       <VirtualHistory
         label="Solves"
         items={solves}
@@ -51,7 +42,7 @@ export function WorkspaceHistory({
             <button
               type="button"
               onClick={() => onSelect(s.id)}
-              className="grid w-full grid-cols-[30px_1fr] items-baseline px-5 py-[7px] text-left transition-colors duration-150 ease-out hover:bg-hover"
+              className={`${WORKSPACE_HISTORY_ROW} grid-cols-[30px_1fr]`}
             >
               <span
                 className={`font-mono text-[10.5px] tnum ${i === 0 ? "text-accent" : "text-ink-3"}`}

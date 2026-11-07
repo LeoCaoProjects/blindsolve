@@ -228,18 +228,16 @@ test('Guided Solve follows memo, execution, self-report, review, then returns id
   await expect(scramble.getByText('Preparing scramble…')).toHaveCount(0, { timeout: 45_000 });
   await page.locator('main').click({ position: { x: 10, y: 10 } });
   await holdSpace(page);
-  await expect(page.getByRole('button', { name: /Start execution/ })).toBeVisible();
+  await expect(page.getByRole('timer', { name: 'Memorisation' })).toBeVisible();
   await page.keyboard.press('Space');
-  await expect(page.getByText('Solving', { exact: true })).toBeVisible();
+  await expect(page.getByText('Executing', { exact: true })).toBeVisible();
   await page.keyboard.press('Space');
-  await expect(page.getByRole('button', { name: 'Solved', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Solved', exact: true }).click();
   const review = page.getByRole('dialog', { name: 'Guided Solve result' });
   await expect(review).toBeVisible();
   await expect(review.getByText('memo', { exact: true })).toBeVisible();
-  await expect(review.getByText('execution', { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
-  await review.getByRole('button', { name: 'Next' }).click();
+  await expect(review.getByText('exec', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(0);
+  await review.getByRole('button', { name: /^Close/ }).click();
   await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toBeVisible();
   await page.reload();
   await page.getByRole('radio', { name: 'Guided Solve' }).click();
@@ -253,7 +251,7 @@ test('Memo Recall history survives a full reload', async ({ page }) => {
   await holdSpace(page);
   await page.keyboard.press('Space');
   await page.getByRole('button', { name: /^Submit/ }).click();
-  await expect(page.getByRole('dialog', { name: 'Memo Recall review' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Memo Recall result' })).toBeVisible();
   await page.reload();
   await page.getByRole('radio', { name: 'Memo Recall' }).click();
   await expect(page.getByRole('list', { name: 'Attempts', exact: true }).locator('li')).toHaveCount(1);
@@ -272,7 +270,7 @@ test('Execution Sprint preserves time and DNF after a full reload', async ({ pag
   expect(saved.trainingMode).toBe('exec');
   expect(saved.correct).toBe(false);
   expect(saved.durationMs).toBeGreaterThanOrEqual(0);
-  await review.getByRole('button', { name: /^Next/ }).click();
+  await review.getByRole('button', { name: /^Close/ }).click();
   await page.reload();
   const history = page.getByRole('list', { name: 'Attempts', exact: true });
   await expect(history.locator('li')).toHaveCount(1);
@@ -328,14 +326,14 @@ test('Training tabs are ordered and an active Guided Solve keeps its phase and t
   await expect(scramble.getByText('Preparing scramble…')).toHaveCount(0, { timeout: 45_000 });
   const challengeId = await page.locator('[data-training-challenge-id]').getAttribute('data-training-challenge-id');
   await holdSpace(page);
-  await expect(page.getByRole('button', { name: /Start execution/ })).toBeVisible();
-  const memoClock = page.getByRole('timer').filter({ hasText: 'memo' });
+  await expect(page.getByRole('timer', { name: 'Memorisation' })).toBeVisible();
+  const memoClock = page.getByRole('timer').first();
   const memoBefore = await memoClock.innerText();
   await page.getByRole('link', { name: 'Timer', exact: true }).click();
   await page.waitForTimeout(80);
   await page.getByRole('link', { name: 'Training', exact: true }).click();
   await expect(page.locator('[data-training-challenge-id]')).toHaveAttribute('data-training-challenge-id', challengeId!);
-  await expect(page.getByRole('button', { name: /Start execution/ })).toBeVisible();
+  await expect(page.getByRole('timer', { name: 'Memorisation' })).toBeVisible();
   expect(await memoClock.innerText()).not.toBe(memoBefore);
 });
 
@@ -432,7 +430,7 @@ test('Space in a Training input never starts or submits another attempt', async 
   await expect(input).toBeFocused();
 });
 
-test('Memo Recall suggestions appear only after the recall is submitted', async ({ page }) => {
+test('Memo Recall results use read-only reconstruction without word-editing clutter', async ({ page }) => {
   await load(page);
   await page.goto('/training');
   await page.getByRole('radio', { name: 'Memo Recall' }).click();
@@ -442,7 +440,8 @@ test('Memo Recall suggestions appear only after the recall is submitted', async 
   await page.keyboard.press('Space');
   await expect(page.getByRole('button', { name: 'Suggest' })).toHaveCount(0);
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: 'Suggest' }).first()).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Memo Recall result' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Suggest' })).toHaveCount(0);
 });
 
 test('Settings Support scrollspy, feedback validation and signed-out optional contact match the final UI', async ({ page }) => {

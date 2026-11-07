@@ -48,7 +48,7 @@ export function WordSlot({ word, pair, onAdd }: {word?: string;pair: string;onAd
     return (
       <input
         autoFocus
-        aria-label={`Mnemonic for ${pair}`}
+        aria-label={`Word for ${pair}`}
         value={value}
         size={Math.max(value.length + 1, 9)}
         onChange={(e) => setValue(e.target.value)}
@@ -73,7 +73,7 @@ export function WordSlot({ word, pair, onAdd }: {word?: string;pair: string;onAd
       onClick={() => setEditing(true)}
       className="border-b border-dashed border-line-strong pb-px text-ink-3 transition-colors duration-150 ease-out hover:border-ink-3 hover:text-ink-2">
       
-      No mnemonic
+      No word
     </button>);
 
 }

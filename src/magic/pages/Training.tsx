@@ -1,28 +1,25 @@
-import { ScrambleRegion } from "../components/solve/ScrambleRegion";
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { RefreshCwIcon } from "lucide-react";
-import { Kbd } from "../components/common/Kbd";
 import { ShortcutSheet } from "../components/common/ShortcutSheet";
 import { AppBar } from "../components/layout/AppBar";
-import { ScrambleText } from "../components/solve/ScrambleText";
 import { ExecutionWorkspace } from "../components/training/ExecutionWorkspace";
 import { Fade } from "../components/training/Fade";
-import { GuidedSolveWorkspace } from "../components/training/GuidedSolveWorkspace";
+import {
+  GuidedSolveWorkspace,
+  GuidedSolveExecution,
+} from "../components/training/GuidedSolveWorkspace";
 import { MemoRecallWorkspace } from "../components/training/MemoRecallWorkspace";
-import { ExecReview } from "../components/training/review/ExecReview";
 import { GuidedSolveReview } from "../components/training/review/GuidedSolveReview";
+import { ExecutionSprintAttemptDetails } from "../components/training/review/ExecReview";
 import { RecallReview } from "../components/training/review/RecallReview";
 import { TraceReview } from "../components/training/review/TraceReview";
 import { TraceSprintWorkspace } from "../components/training/TraceSprintWorkspace";
-import { TrainingAside } from "../components/training/TrainingAside";
 import { TrainingDock } from "../components/training/TrainingDock";
-import {
-  TrainingHeader,
-  TrainingClock,
-} from "../components/training/TrainingHeader";
 import { TrainingHelp } from "../components/training/TrainingHelp";
-import { TrainingIdle } from "../components/training/TrainingIdle";
+import {
+  TrainingIdle,
+  TRAINING_STAGE,
+} from "../components/training/TrainingIdle";
 import { modeInfo } from "../data/trainingModes";
 import { recordTraining } from "../utils/feedbackContext";
 import { useElementSize } from "../hooks/useElementSize";
@@ -54,25 +51,27 @@ export function Training() {
     width: 900,
     height: 560,
   });
+  const stableStage = useRef(stage);
+  if (t.phase !== "review") stableStage.current = stage;
   const [helpOpen, setHelpOpen] = useState(!!init.help);
 
   const busy = t.running;
   const holding = t.hold.phase !== "idle";
   const executionSetup =
-    (t.mode === "exec" || t.mode === "guided") && t.phase === "idle";
-  // The side column stays away through review too, so submitting never reflows the stage.
-  const showAside = t.mode === "recall" || t.phase === "idle";
+    (t.mode === "exec" || t.mode === "guided" || t.mode === "trace") &&
+    t.phase === "idle";
   const latest = t.history[0];
-  // Freeze the measured stage once an attempt ends: the cube keeps its size under the review sheet.
-  const stableStage = useRef(stage);
-  if (t.phase !== "review") stableStage.current = stage;
+  const completedExecution =
+    t.mode === "exec" && t.phase === "review"
+      ? t.history.find((attempt) => attempt.id === t.reviewAttemptId)
+      : undefined;
 
   const cleanup = useHistoryCleanup({
     count: t.history.length,
     noun: "attempt",
     scope: modeInfo(t.mode).label,
     latestLabel: latest
-      ? t.mode === "exec" && !latest.correct
+      ? (t.mode === "exec" || t.mode === "trace") && !latest.correct
         ? "DNF"
         : formatTime(latest.ms)
       : undefined,
@@ -115,136 +114,74 @@ export function Training() {
   return (
     <div
       data-training-challenge-id={t.challengeId}
-      className="flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink"
+      className="relative flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink"
     >
       <AppBar
-        className={busy ? "opacity-[0.25]" : holding ? "opacity-40" : ""}
+        className={
+          busy ? "opacity-[0.25]" : t.hold.phase === "ready" ? "opacity-40" : ""
+        }
         onShortcuts={sheet.openSheet}
       />
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <TrainingHeader t={t} />
-        <div
-          className={`grid min-h-0 min-w-0 flex-1 grid-cols-1 ${showAside ? "xl:grid-cols-[minmax(0,1fr)_clamp(280px,24vw,360px)]" : ""}`}
-        >
-          <main className="flex min-h-0 min-w-0 flex-col">
-            {(t.running || t.phase === "report" || t.phase === "review") &&
-              t.mode !== "exec" && (
-                <div className="shrink-0 border-b border-line px-5 py-3 md:px-10">
-                  <TrainingClock t={t} />
-                </div>
-              )}
-
-            {executionSetup && (
-              <section
-                aria-label="Scramble"
-                data-challenge-id={t.challengeId}
-                className={`flex shrink-0 items-start gap-4 border-b border-line px-5 py-[clamp(14px,3vh,28px)] transition-opacity duration-300 ease-out md:gap-6 md:px-10 ${
-                  holding ? "opacity-40" : ""
-                }`}
-              >
-                <span className="hidden w-8 shrink-0 pt-[5px] font-mono text-[11px] text-ink-3 tnum md:block">
-                  #{t.history.length + 1}
-                </span>
-                <ScrambleRegion>
-                  {t.scrambleReady ? (
-                    <ScrambleText
-                      scramble={t.scramble}
-                      className="min-w-0 flex-1 text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink"
-                    />
-                  ) : (
-                    <p
-                      role={t.scrambleError ? "alert" : "status"}
-                      className="min-w-0 flex-1 font-mono text-[clamp(15px,1.45vw,20px)] leading-[1.75] text-ink-3"
-                    >
-                      Preparing scramble…
-                    </p>
-                  )}
-                </ScrambleRegion>
-                <button
-                  type="button"
-                  onClick={t.newScramble}
-                  disabled={!t.scrambleReady && !t.scrambleError}
-                  aria-busy={!t.scrambleReady}
-                  aria-label="New scramble"
-                  title="New scramble"
-                  className="mt-0.5 inline-flex h-8 shrink-0 items-center gap-2 rounded-[4px] px-2 text-ink-3 transition-colors duration-150 ease-out hover:bg-hover hover:text-ink-2 disabled:cursor-wait disabled:opacity-40"
-                >
-                  <RefreshCwIcon size={14} strokeWidth={1.75} />
-                  <span className="hidden md:inline">
-                    <Kbd>N</Kbd>
-                  </span>
-                </button>
-              </section>
-            )}
-
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div
+            className={`${TRAINING_STAGE} ${
+              t.phase === "idle" ? "cursor-default touch-none select-none" : ""
+            }`}
+            {...(t.phase === "idle" ? t.hold.pointerHandlers : stopHandlers)}
+          >
             <div
-              className={`relative flex min-h-0 flex-1 flex-col px-5 py-[clamp(12px,3vh,28px)] md:px-10 ${
-                t.phase === "idle"
-                  ? "cursor-default touch-none select-none"
-                  : ""
-              }`}
-              {...(t.phase === "idle" ? t.hold.pointerHandlers : stopHandlers)}
+              ref={t.phase === "idle" ? undefined : stageRef}
+              className="flex min-h-0 flex-1 flex-col justify-center"
             >
-              <div
-                ref={stageRef}
-                className="flex min-h-0 flex-1 flex-col justify-center"
-              >
-                <>
-                  {t.phase === "idle" ? (
-                    <Fade
-                      key={`idle-${t.mode}`}
-                      className="scroll-quiet max-h-full overflow-y-auto"
-                    >
-                      <TrainingIdle t={t} onHelp={() => setHelpOpen(true)} />
-                    </Fade>
-                  ) : (
-                    <Fade key={`run-${t.mode}`} className="h-full min-h-0">
-                      {t.mode === "recall" && (
-                        <MemoRecallWorkspace
-                          t={t}
-                          stage={stableStage.current}
-                        />
-                      )}
-                      {t.mode === "exec" && <ExecutionWorkspace t={t} />}
-                      {t.mode === "trace" && (
-                        <TraceSprintWorkspace
-                          t={t}
-                          stage={stableStage.current}
-                        />
-                      )}
-                      {t.mode === "guided" && <GuidedSolveWorkspace t={t} />}
-                    </Fade>
-                  )}
-                </>
-              </div>
+              <>
+                {t.phase === "idle" ? (
+                  <Fade
+                    key="idle"
+                    className="scroll-quiet max-h-full overflow-y-auto"
+                  >
+                    <TrainingIdle t={t} onHelp={() => setHelpOpen(true)} />
+                  </Fade>
+                ) : (
+                  <Fade key={`run-${t.mode}`} className="h-full min-h-0">
+                    {t.mode === "recall" && <MemoRecallWorkspace t={t} />}
+                    {t.mode === "exec" && <ExecutionWorkspace t={t} />}
+                    {t.mode === "trace" && (
+                      <TraceSprintWorkspace t={t} stage={stableStage.current} />
+                    )}
+                    {t.mode === "guided" && t.phase === "memo" && (
+                      <GuidedSolveWorkspace t={t} />
+                    )}
+                  </Fade>
+                )}
+              </>
             </div>
+          </div>
 
-            <TrainingDock t={t} />
-          </main>
-
-          {showAside && (
-            <TrainingAside
-              t={t}
-              recede={busy ? "opacity-[0.15]" : holding ? "opacity-60" : ""}
-            />
-          )}
-        </div>
+          <TrainingDock t={t} />
+        </main>
       </div>
 
+      {t.mode === "guided" && t.phase !== "idle" && t.phase !== "memo" && (
+        <GuidedSolveExecution t={t} />
+      )}
       <AnimatePresence>
+        {completedExecution && (
+          <ExecutionSprintAttemptDetails
+            key={completedExecution.id}
+            attempt={completedExecution}
+            session={t}
+          />
+        )}
         {t.phase === "review" && t.mode === "recall" && (
           <RecallReview key="recall" t={t} />
         )}
         {t.phase === "review" && t.mode === "trace" && (
           <TraceReview key="trace" t={t} />
         )}
-        {t.phase === "review" && t.mode === "guided" && (
-          <GuidedSolveReview key="guided" t={t} />
-        )}
-        {t.phase === "review" && t.mode === "exec" && (
-          <ExecReview key="exec" t={t} />
-        )}
+        {(t.phase === "report" || t.phase === "review") &&
+          t.mode === "guided" && <GuidedSolveReview key="guided" t={t} />}
       </AnimatePresence>
       <TrainingHelp
         open={helpOpen}
@@ -255,6 +192,7 @@ export function Training() {
         open={sheet.open}
         onClose={sheet.closeSheet}
         page="training"
+        trainingMode={t.mode}
       />
       {cleanup.dialog}
     </div>

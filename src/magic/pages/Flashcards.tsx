@@ -120,7 +120,7 @@ export function Flashcards() {
                             f.phase === "editing" ? (f.words[0] ?? "") : ""
                           }
                           placeholder={
-                            f.phase === "editing" ? "Mnemonic" : "Add alternate"
+                            f.phase === "editing" ? "Word" : "Add alternate"
                           }
                           large={f.phase === "editing"}
                           above={f.phase === "adding" ? f.words[0] : undefined}
@@ -136,6 +136,7 @@ export function Flashcards() {
                   </div>
                   <div className="hidden shrink-0 sm:block lg:hidden">
                     <PairCube
+                      animateOrientation
                       tokens={f.cardTokens}
                       type={cubeType}
                       size={170}
@@ -160,7 +161,12 @@ export function Flashcards() {
             className="flex h-[clamp(210px,38vh,330px)] shrink-0 items-center justify-center border-b border-line"
           >
             {f.cardTokens && (
-              <PairCube tokens={f.cardTokens} type={cubeType} size={cubeSize} />
+              <PairCube
+                animateOrientation
+                tokens={f.cardTokens}
+                type={cubeType}
+                size={cubeSize}
+              />
             )}
           </div>
           <SessionReadout
@@ -409,7 +415,7 @@ function EmptyState() {
         to="/pairs"
         className="mt-3 inline-flex w-fit items-center gap-2 text-[14px] text-ink-2 transition-colors duration-150 ease-out hover:text-ink"
       >
-        Add your first mnemonic
+        Add your first word
         <ArrowRightIcon size={14} strokeWidth={1.75} />
       </Link>
     </div>

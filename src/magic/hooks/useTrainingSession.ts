@@ -1,3 +1,6 @@
+import { scrambleToState } from "../../domain/bld/cubing";
+import type { CubeOrbitState } from "../../domain/bld/types";
+import { compareTraceGroups } from "../utils/traceValidation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppData } from "../contexts/AppDataContext";
 import { TrainMode } from "../data/trainingModes";
@@ -7,7 +10,7 @@ import {
   challengeFromScramble,
   makeChallenge,
 } from "../utils/bld";
-import { isTypingTarget } from "../utils/keyboard";
+import { isTypingTarget, ownsTrainingSpace } from "../utils/keyboard";
 import { pairKey, resolveWords } from "../utils/pairs";
 import { tokensOf } from "../utils/scheme";
 import {
@@ -35,10 +38,12 @@ export type ExecResult = "solved" | "dnf";
 
 export interface Attempt {
   id: string;
+  createdAt?: string;
   mode: TrainMode;
   ms: number;
   targets: number;
   correct: boolean;
+  accuracy?: number;
   pairs?: number;
   memoMs?: number;
   executionMs?: number;
@@ -106,10 +111,12 @@ export function useTrainingSession(
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .map((attempt) => ({
           id: attempt.id,
+          createdAt: attempt.createdAt,
           mode: attempt.trainingMode as TrainMode,
           ms: attempt.durationMs!,
           targets: attempt.targets ?? 0,
           correct: attempt.correct,
+          accuracy: attempt.accuracy,
           pairs: attempt.pairs,
           memoMs: attempt.memoMs,
           executionMs: attempt.executionMs,
@@ -132,22 +139,45 @@ export function useTrainingSession(
   const previousFilterRef = useRef(filter);
   const submittedAttemptIdRef = useRef<string | null>(null);
 
-  // Execution-oriented drills trace the exact state produced by the shown scramble.
+  // Scramble-based drills trace the exact state produced by the shown scramble.
   const [failedScrambleKey, setFailedScrambleKey] = useState<string | null>(
     null,
   );
   const preparedScramble = useExecScramble(
     filter,
     seed,
-    mode === "exec" || mode === "guided",
+    mode === "exec" || mode === "guided" || mode === "trace",
     setFailedScrambleKey,
   );
   const scramble = preparedScramble ?? "";
+  const traceKey = `${filter}:${seed}:${scramble}`;
+  const [traceState, setTraceState] = useState<{
+    key: string;
+    state: CubeOrbitState;
+  } | null>(null);
+  useEffect(() => {
+    if (mode !== "trace" || !preparedScramble) return;
+    let live = true;
+    // Match the fixed face frame of the displayed Training scramble/cubes.
+    scrambleToState(preparedScramble)
+      .then((state) => {
+        if (live) setTraceState({ key: traceKey, state });
+      })
+      .catch(() => {
+        if (live) setFailedScrambleKey(`${filter}:${seed}`);
+      });
+    return () => {
+      live = false;
+    };
+  }, [mode, preparedScramble, traceKey, filter, seed]);
+  const traceReady = traceState?.key === traceKey;
   const scrambleReady =
-    (mode !== "exec" && mode !== "guided") || preparedScramble !== null;
+    (mode !== "exec" && mode !== "guided" && mode !== "trace") ||
+    (preparedScramble !== null && (mode !== "trace" || traceReady));
   const challenge: Challenge = useMemo(
     () =>
-      (mode === "exec" || mode === "guided") && preparedScramble
+      (mode === "exec" || mode === "guided" || mode === "trace") &&
+      preparedScramble
         ? challengeFromScramble(scramble, filter, seed, {
             ...setup,
             m2SecondTargetSwap: prefs.m2SecondTargetSwap,
@@ -200,7 +230,31 @@ export function useTrainingSession(
     phase === "recall" ||
     phase === "memo" ||
     phase === "execution";
-  const targets = groups.reduce((n, g) => n + g.tokens.length, 0);
+  const results = useMemo(
+    () =>
+      mode === "trace" && traceReady
+        ? compareTraceGroups(
+            traceState!.state,
+            store.data.scheme,
+            groups,
+            inputs,
+            vocabulary,
+          )
+        : compareGroups(groups, inputs, vocabulary),
+    [
+      mode,
+      traceReady,
+      traceState,
+      store.data.scheme,
+      groups,
+      inputs,
+      vocabulary,
+    ],
+  );
+  const targets =
+    mode === "trace"
+      ? results.reduce((n, g) => n + g.actual.length, 0)
+      : groups.reduce((n, g) => n + g.tokens.length, 0);
   const pairCount = groups.reduce((n, g) => n + fullPairs(g.tokens).length, 0);
 
   useEffect(() => {
@@ -210,8 +264,9 @@ export function useTrainingSession(
   }, [running]);
 
   const start = useCallback(() => {
-    // Execution-oriented modes keep their seed so memo and scramble stay identical.
-    if (mode !== "exec" && mode !== "guided") setSeed((s) => s + 1);
+    // Scramble-based modes keep their seed so targets and scramble stay identical.
+    if (mode !== "exec" && mode !== "guided" && mode !== "trace")
+      setSeed((s) => s + 1);
     setInputs(groups.map(() => ""));
     setReport("solved");
     const t = performance.now();
@@ -255,11 +310,6 @@ export function useTrainingSession(
     setPhase("report");
   }, []);
 
-  const results = useMemo(
-    () => compareGroups(groups, inputs, vocabulary),
-    [groups, inputs, vocabulary],
-  );
-
   const submit = useCallback(() => {
     const expectedPhase = mode === "recall" ? "recall" : "active";
     const challengeId = `${mode}:${filter}:${seed}`;
@@ -275,7 +325,7 @@ export function useTrainingSession(
     setPhase("review");
     if (document.activeElement instanceof HTMLElement)
       document.activeElement.blur();
-    const r = compareGroups(groups, inputs, vocabulary);
+    const r = results;
     const ms =
       mode === "recall"
         ? (times.split ?? end) - times.start
@@ -311,6 +361,7 @@ export function useTrainingSession(
       ],
     }));
   }, [
+    results,
     groups,
     inputs,
     vocabulary,
@@ -453,7 +504,8 @@ export function useTrainingSession(
   );
 
   const next = useCallback(() => {
-    if (mode === "exec" || mode === "guided") setSeed((s) => s + 1);
+    if (mode === "exec" || mode === "guided" || mode === "trace")
+      setSeed((s) => s + 1);
     phaseRef.current = "idle";
     setPhase("idle");
   }, [mode]);
@@ -494,8 +546,8 @@ export function useTrainingSession(
       )
         return;
       if (
-        e.target instanceof HTMLButtonElement &&
-        (e.key === "Enter" || e.code === "Space")
+        (e.code === "Space" && !ownsTrainingSpace(e.target)) ||
+        (e.target instanceof HTMLButtonElement && e.key === "Enter")
       )
         return;
       if (phase === "report" && mode === "guided") {
@@ -583,6 +635,7 @@ export function useTrainingSession(
     allCorrect: results.every((g) => g.correct),
     elapsed,
     history,
+    reviewAttemptId: submittedAttemptIdRef.current,
     display,
     setDisplay,
     report,

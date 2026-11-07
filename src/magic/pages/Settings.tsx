@@ -362,7 +362,7 @@ export function Settings() {
         failFirst={!!init.feedbackFails}
         initialCategory={init.feedback ?? 'bug'} />
 
-      <ShortcutSheet open={sheet.open} onClose={sheet.closeSheet} page="timer" />
+      <ShortcutSheet open={sheet.open} onClose={sheet.closeSheet} page="settings" />
     </div>);
 
 }
@@ -375,7 +375,7 @@ function ClearAllPairs({ openInitially }: {openInitially: boolean;}) {
   const count = Object.keys(app.pairs).length;
   return (
     <div className="mt-8 border-t border-line pt-5">
-      <SettingsRow label="Clear all letter pairs" hint="Removes every saved mnemonic. Export a backup first if you might want them back.">
+      <SettingsRow label="Clear all letter pairs" hint="Removes every saved word. Export a backup first if you might want them back.">
         <button
           type="button"
           disabled={count === 0}
@@ -390,7 +390,7 @@ function ClearAllPairs({ openInitially }: {openInitially: boolean;}) {
       </p>
       <ConfirmDialog
         open={open}
-        title={`Clear all ${count} saved mnemonic ${count === 1 ? 'entry' : 'entries'}?`}
+        title={`Clear all ${count} saved word ${count === 1 ? 'entry' : 'entries'}?`}
         body="Every letter pair, alternate and edge or corner override will be removed. This can’t be undone."
         onCancel={() => setOpen(false)}
         confirm={{

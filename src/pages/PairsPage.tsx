@@ -94,7 +94,7 @@ export default function PairsPage() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Pair or mnemonic…"
+            placeholder="Pair or word…"
           />
         </label>
         <label className="filter-field">
@@ -120,7 +120,7 @@ export default function PairsPage() {
               <thead>
                 <tr>
                   <th>Pair</th>
-                  <th>Mnemonic</th>
+                  <th>Word</th>
                   <th>Alternates</th>
                   <th>
                     <span className="sr-only">Action</span>
@@ -135,7 +135,7 @@ export default function PairsPage() {
                     </th>
                     <td>
                       {i.pair?.primaryMnemonic || (
-                        <span className="subtle">No mnemonic saved</span>
+                        <span className="subtle">No word saved</span>
                       )}
                     </td>
                     <td className="subtle">{i.pair?.alternates.join(", ")}</td>

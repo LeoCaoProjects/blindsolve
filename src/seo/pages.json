@@ -5,11 +5,11 @@
   },
   "/pairs": {
     "heading": "Letter pairs",
-    "description": "Save and edit your letter-pair mnemonics."
+    "description": "Save and edit your letter-pair words."
   },
   "/flashcards": {
     "heading": "Flashcards",
-    "description": "Practice recalling your letter-pair mnemonics."
+    "description": "Practice recalling your letter-pair words."
   },
   "/training": {
     "heading": "Training",

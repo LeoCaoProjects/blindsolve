@@ -11,6 +11,23 @@ export function formatTime(ms: number): string {
   return `${seconds}.${hundredths}`;
 }
 
+/** Display-only average for a completed attempt; never saved with the record. */
+export function formatTimePerTarget(
+  totalMs?: number,
+  targets?: number,
+): string | undefined {
+  if (
+    typeof totalMs !== "number" ||
+    !Number.isFinite(totalMs) ||
+    totalMs < 0 ||
+    typeof targets !== "number" ||
+    !Number.isSafeInteger(targets) ||
+    targets <= 0
+  )
+    return undefined;
+  return formatTime(totalMs / targets);
+}
+
 export function effectiveTime(time: number, penalty: Penalty): number {
   if (penalty === "dnf") return Infinity;
   return penalty === "+2" ? time + 2000 : time;

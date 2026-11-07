@@ -517,7 +517,7 @@ function MemoReview({
               return (
                 <li className="memo-trace-pair" key={`${kind}-${key}-${index}`}>
                   <strong>{item.first.token}{item.second.token}</strong>
-                  {editing === key ? <input autoFocus aria-label={`${item.first.token} ${item.second.token} mnemonic used`} value={used} placeholder="add word" onFocus={(event) => event.currentTarget.select()} onChange={(event) => setWord(key, event.target.value)} onBlur={() => setEditing(null)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setEditing(null); } if (event.key === "Escape") { event.preventDefault(); setEditing(null); } }} /> : <button type="button" title="Edit the word you used" onClick={() => setEditing(key)}>{used || <span>add word</span>}{!stored && used.trim() && <small aria-label="new pair">+</small>}</button>}
+                  {editing === key ? <input autoFocus aria-label={`${item.first.token} ${item.second.token} word used`} value={used} placeholder="add word" onFocus={(event) => event.currentTarget.select()} onChange={(event) => setWord(key, event.target.value)} onBlur={() => setEditing(null)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setEditing(null); } if (event.key === "Escape") { event.preventDefault(); setEditing(null); } }} /> : <button type="button" title="Edit the word you used" onClick={() => setEditing(key)}>{used || <span>add word</span>}{!stored && used.trim() && <small aria-label="new pair">+</small>}</button>}
                   {changed && (
                     <div className="mnemonic-decision">
                       <span>{stored.primaryMnemonic} <i>→</i> <b>{used}</b></span>

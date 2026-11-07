@@ -44,7 +44,7 @@ test("viewport experiment adapts to ordinary and awkward window shapes", async (
   }
 });
 
-test("viewport prototype preserves the 900px-high reference appearance", async ({
+test("default viewport sizing matches the explicit viewport appearance", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });

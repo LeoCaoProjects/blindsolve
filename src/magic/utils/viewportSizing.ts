@@ -5,11 +5,11 @@ import {
   viewportLayoutPolicy,
 } from "./viewportLayoutPolicy";
 
-/** Local, opt-in sizing experiment. No browser zoom or display-DPI detection. */
+/** Default sizing baseline. ?sizing=legacy is a development comparison fallback.
+ * No browser zoom or display-DPI detection. */
 export const viewportSizingEnabled =
   typeof window !== "undefined" &&
-  (new URLSearchParams(window.location.search).get("sizing") === "viewport" ||
-    document.documentElement.hasAttribute("data-viewport-layout"));
+  new URLSearchParams(window.location.search).get("sizing") !== "legacy";
 
 // Shape and input capability survive desktop page zoom. Keep touch/portrait
 // layouts on their existing root sizing rather than following address-bar height.

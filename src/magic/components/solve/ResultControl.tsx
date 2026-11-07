@@ -8,6 +8,7 @@ interface ResultControlProps {
   onChange: (p: Penalty) => void;
   className?: string;
   size?: "sm" | "md" | "original";
+  options?: { value: Penalty; label: string }[];
 }
 
 const OPTIONS: { value: Penalty; label: string }[] = [
@@ -21,6 +22,7 @@ export function ResultControl({
   onChange,
   className = "",
   size = "md",
+  options = OPTIONS,
 }: ResultControlProps) {
   const id = useId();
   return (
@@ -31,18 +33,18 @@ export function ResultControl({
         if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
         event.preventDefault();
         const next =
-          (OPTIONS.findIndex((option) => option.value === value) +
+          (options.findIndex((option) => option.value === value) +
             (event.key === "ArrowRight" ? 1 : -1) +
-            OPTIONS.length) %
-          OPTIONS.length;
-        onChange(OPTIONS[next].value);
+            options.length) %
+          options.length;
+        onChange(options[next].value);
         const buttons =
           event.currentTarget.querySelectorAll<HTMLButtonElement>("button");
         buttons[next]?.focus();
       }}
       className={`inline-flex rounded-[5px] border border-line p-[3px] ${className}`}
     >
-      {OPTIONS.map((o, i) => {
+      {options.map((o, i) => {
         const active = value === o.value;
         return (
           <button

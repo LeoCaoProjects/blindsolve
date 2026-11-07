@@ -24,6 +24,7 @@ export const SUB_NAV_WIDTH = 224;
 export const SUB_NAV_EASE = [0.22, 1, 0.36, 1] as const;
 export const SUB_NAV_ITEM =
   "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-hover focus-visible:outline-offset-[-2px]";
+const SUB_NAV_TITLE = "text-[14px] font-bold text-ink";
 const pages: Record<string, { title: string; label: string }> = {
   "/training": { title: "Training", label: "Training controls" },
   "/settings": { title: "Settings", label: "Settings sections" },
@@ -48,16 +49,32 @@ const snapshot = () =>
 const Context = createContext<{
   desktop: boolean;
   target: HTMLDivElement | null;
+  subnavClassName?: string;
 }>({ desktop: false, target: null });
 
 /** Persistent layout column; only the workspace translation animates on width changes. */
-export function SubNavFrame({ children }: { children: React.ReactNode }) {
+export function SubNavFrame({
+  children,
+  header,
+  reference,
+  layoutClassName,
+  subnavClassName = "",
+}: {
+  children: React.ReactNode;
+  header?: React.ReactNode;
+  reference?: React.ReactNode;
+  layoutClassName?: string;
+  subnavClassName?: string;
+}) {
   const { pathname } = useLocation();
   const desktop = useSyncExternalStore(subscribe, snapshot, () => true);
   const reduced = useReducedMotion();
   const page = pages[pathname];
   const [target, setTarget] = useState<HTMLDivElement | null>(null);
-  const value = useMemo(() => ({ desktop, target }), [desktop, target]);
+  const value = useMemo(
+    () => ({ desktop, target, subnavClassName }),
+    [desktop, target, subnavClassName],
+  );
   const workspace = useRef<HTMLDivElement>(null);
   const previousInset = useRef<number | null>(null);
   const animation = useRef<Animation | null>(null);
@@ -90,42 +107,57 @@ export function SubNavFrame({ children }: { children: React.ReactNode }) {
   return (
     <Context.Provider value={value}>
       <div
-        className="flex h-full min-w-0 overflow-hidden font-sans text-ink"
-        data-subnav-shell
+        className={layoutClassName ?? "h-full"}
+        data-session-workspace={reference ? "" : undefined}
       >
-        {desktop && (
-          <aside
-            aria-label={page?.label ?? "Contextual navigation"}
-            aria-hidden={!page}
-            data-subnav-column
-            style={{ width: designRem(inset) }}
-            className="min-h-0 shrink-0 overflow-hidden bg-bg"
-          >
-            <motion.div
-              key={pathname}
-              initial={{ opacity: reduced ? 1 : 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: reduced ? 0 : 0.16, ease: SUB_NAV_EASE }}
-              style={{ width: designRem(SUB_NAV_WIDTH) }}
-              className="flex h-full min-h-0 flex-col border-r border-line px-3 pb-4 pt-6"
-            >
-              <h1 className="mb-3 shrink-0 px-3 text-[12px] font-medium text-ink-3">
-                {page?.title}
-              </h1>
-              <div
-                ref={setTarget}
-                className="scroll-quiet min-h-0 flex-1 overflow-y-auto"
-              />
-            </motion.div>
-          </aside>
-        )}
         <div
-          ref={workspace}
-          className="min-h-0 min-w-0 flex-1"
-          data-page-workspace
+          data-workspace-main
+          className="flex h-full min-h-0 min-w-0 flex-col font-sans text-ink"
         >
-          {children}
+          <div
+            className="flex min-h-0 min-w-0 flex-1 overflow-hidden font-sans text-ink"
+            data-subnav-shell
+          >
+            {desktop && (
+              <aside
+                aria-label={page?.label ?? "Contextual navigation"}
+                aria-hidden={!page}
+                data-subnav-column
+                style={{ width: designRem(inset) }}
+                className={`min-h-0 shrink-0 overflow-hidden bg-bg transition-opacity duration-200 ${subnavClassName}`}
+              >
+                <motion.div
+                  key={pathname}
+                  initial={{ opacity: reduced ? 1 : 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{
+                    duration: reduced ? 0 : 0.16,
+                    ease: SUB_NAV_EASE,
+                  }}
+                  style={{ width: designRem(SUB_NAV_WIDTH) }}
+                  className="flex h-full min-h-0 flex-col border-r border-line px-3 pb-4 pt-6"
+                >
+                  <h1 className={`mb-3 shrink-0 px-3 ${SUB_NAV_TITLE}`}>
+                    {page?.title}
+                  </h1>
+                  <div
+                    ref={setTarget}
+                    className="scroll-quiet min-h-0 flex-1 overflow-y-auto"
+                  />
+                </motion.div>
+              </aside>
+            )}
+            <div
+              ref={workspace}
+              className="flex min-h-0 min-w-0 flex-1 flex-col"
+              data-page-workspace
+            >
+              {header}
+              <div className="min-h-0 flex-1">{children}</div>
+            </div>
+          </div>
         </div>
+        {reference}
       </div>
     </Context.Provider>
   );
@@ -142,7 +174,7 @@ export function SubNavigation({
   trigger: React.ReactNode;
   children: React.ReactNode | ((close: () => void) => React.ReactNode);
 }) {
-  const { desktop, target } = useContext(Context);
+  const { desktop, target, subnavClassName } = useContext(Context);
   if (desktop)
     return target
       ? createPortal(
@@ -151,17 +183,24 @@ export function SubNavigation({
         )
       : null;
   return (
-    <MobileSubNavigation label={label} title={title} trigger={trigger}>
+    <MobileSubNavigation
+      label={label}
+      title={title}
+      trigger={trigger}
+      className={subnavClassName}
+    >
       {children}
     </MobileSubNavigation>
   );
 }
 function MobileSubNavigation({
+  className = "",
   label,
   title,
   trigger,
   children,
 }: {
+  className?: string;
   label: string;
   title: string;
   trigger: React.ReactNode;
@@ -177,7 +216,7 @@ function MobileSubNavigation({
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(true)}
-        className="flex h-12 shrink-0 items-center justify-between border-b border-line px-5 text-[14px] font-medium hover:bg-hover"
+        className={`flex h-12 shrink-0 items-center justify-between border-b border-line px-5 text-[14px] font-medium transition-opacity duration-200 hover:bg-hover ${className}`}
       >
         {trigger}
         <ChevronDownIcon size={16} aria-hidden />
@@ -186,7 +225,7 @@ function MobileSubNavigation({
         open={open}
         onClose={close}
         label={label}
-        title={title}
+        title={<span className={SUB_NAV_TITLE}>{title}</span>}
         width={320}
       >
         {typeof children === "function" ? children(close) : children}
