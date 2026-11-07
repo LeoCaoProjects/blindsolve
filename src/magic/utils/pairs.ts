@@ -1,31 +1,38 @@
-import { LetterPairDb } from '../types/solve';
-import { PairDb, PairEntry, PairScope } from '../types/app';
+import { LetterPairDb } from "../types/solve";
+import { PairDb, PairEntry, PairScope } from "../types/app";
 
 export const pairKey = (a: string, b: string) => `${a}|${b}`;
-export const splitKey = (key: string) => key.split('|') as [string, string];
+export const splitKey = (key: string) => key.split("|") as [string, string];
 
 export interface Resolved {
   words: string[];
-  source: 'shared' | 'override' | 'none';
+  source: "shared" | "override" | "none";
 }
 
 /** The single mnemonic rule used throughout the app: piece override, then shared default. */
-export function resolveWords(entry: PairEntry | undefined, scope: PairScope): Resolved {
-  if (!entry) return { words: [], source: 'none' };
-  if (scope === 'shared') return { words: entry.shared, source: entry.shared.length ? 'shared' : 'none' };
-  const own = entry[scope];
-  if (own && own.length) return { words: own, source: 'override' };
-  if (entry.shared.length) return { words: entry.shared, source: 'shared' };
-  return { words: [], source: 'none' };
+export function resolveWords(
+  entry: PairEntry | undefined,
+  scope: PairScope,
+): Resolved {
+  const shared = primaryWords(entry?.shared ?? []);
+  if (scope === "shared")
+    return { words: shared, source: shared.length ? "shared" : "none" };
+  const own = primaryWords(entry?.[scope] ?? []);
+  if (own.length) return { words: own, source: "override" };
+  return { words: shared, source: shared.length ? "shared" : "none" };
 }
 
-export const hasOverride = (entry?: PairEntry) => !!entry && (!!entry.edges?.length || !!entry.corners?.length);
+export const hasOverride = (entry?: PairEntry) =>
+  !!entry && (!!entry.edges?.length || !!entry.corners?.length);
 
 /** Words for practice when no piece type is chosen. */
 export function anyWords(entry: PairEntry | undefined): string[] {
   if (!entry) return [];
-  if (entry.shared.length) return entry.shared;
-  return entry.edges?.length ? entry.edges : entry.corners ?? [];
+  const shared = primaryWords(entry.shared);
+  if (shared.length) return shared;
+  return primaryWords(
+    entry.edges?.length ? entry.edges : (entry.corners ?? []),
+  );
 }
 
 /** Greedy longest-match tokenisation; keeps multi-character tokens intact. */
@@ -34,9 +41,11 @@ export function tokenize(raw: string, tokens: string[]): string[] {
   const greedy = (source: string) => {
     const result: string[] = [];
     let offset = 0;
-    const compact = source.toUpperCase().replace(/\s/g, '');
+    const compact = source.toUpperCase().replace(/\s/g, "");
     while (offset < compact.length) {
-      const match = sorted.find((t) => compact.startsWith(t.toUpperCase(), offset));
+      const match = sorted.find((t) =>
+        compact.startsWith(t.toUpperCase(), offset),
+      );
       if (match) {
         result.push(match);
         offset += match.length;
@@ -79,7 +88,7 @@ export function toTimerDb(db: PairDb): LetterPairDb {
     const pair = a + b;
     const fallback = anyWords(entry);
     if (fallback.length) out[pair] = fallback;
-    (['edges', 'corners'] as const).forEach((piece) => {
+    (["edges", "corners"] as const).forEach((piece) => {
       const words = resolveWords(entry, piece).words;
       if (words.length) out[`${piece}:${pair}`] = words;
     });
@@ -88,17 +97,16 @@ export function toTimerDb(db: PairDb): LetterPairDb {
 }
 
 /** Piece-aware Timer/reconstruction lookup with legacy flat-key fallback. */
-export function timerWords(db: LetterPairDb, pair: string, piece: 'edges' | 'corners') {
-  return db[`${piece}:${pair}`] ?? db[pair] ?? [];
+export function timerWords(
+  db: LetterPairDb,
+  pair: string,
+  piece: "edges" | "corners",
+) {
+  return primaryWords(db[`${piece}:${pair}`] ?? db[pair] ?? []);
 }
 
-export function normalizeWords(words: string[]): string[] {
-  const seen = new Set<string>();
-  return words.
-  map((w) => w.trim()).
-  filter((w) => {
-    if (!w || seen.has(w.toLowerCase())) return false;
-    seen.add(w.toLowerCase());
-    return true;
-  });
+/** Compatibility lists contain only the one active word. Ignore obsolete extra values. */
+export function primaryWords(words: string[]): string[] {
+  const word = words[0]?.trim();
+  return word ? [word] : [];
 }

@@ -66,7 +66,7 @@ for (const [width, height] of [
         name: `Suggest words for ${name}`,
         exact: true,
       });
-    let menu = page.getByRole("dialog", {
+    const menu = page.getByRole("dialog", {
       name: "Suggestions for AB",
       exact: true,
     });
@@ -84,8 +84,8 @@ for (const [width, height] of [
     await expect(menu).toHaveCount(0);
     await stable();
     await modal
-      .getByRole("button", { name: "Add edge override", exact: true })
-      .click();
+      .getByRole("textbox", { name: "Edge override", exact: true })
+      .fill("Arrow");
     await stable();
     expect(
       await modal
@@ -110,8 +110,8 @@ for (const [width, height] of [
     await expect(defaultInput).toHaveValue(selected);
     await stable();
     await modal
-      .getByRole("button", { name: "Add corner override", exact: true })
-      .click();
+      .getByRole("textbox", { name: "Corner override", exact: true })
+      .fill("Castle");
     await stable();
     const corner = modal.getByRole("textbox", {
       name: "Corner override",
@@ -154,49 +154,11 @@ for (const [width, height] of [
     await modal.locator("header").click();
     await expect(menu).toHaveCount(0);
     await stable();
-    await modal
-      .getByRole("region", { name: "Edge override", exact: true })
-      .getByRole("button", { name: "Use default", exact: true })
-      .click();
-    await expect(edge).toHaveCount(0);
+    await edge.fill("");
+    await expect(edge).toHaveValue("");
     await stable();
-    await modal
-      .getByRole("region", { name: "Corner override", exact: true })
-      .getByRole("button", { name: "Use default", exact: true })
-      .click();
-    await expect(corner).toHaveCount(0);
-    await stable();
-    await modal
-      .getByRole("button", {
-        name: "Alternative words for default word",
-        exact: true,
-      })
-      .click();
-    const alternatives = page.getByRole("dialog", {
-      name: "Alternative words for default word",
-      exact: true,
-    });
-    await expect(alternatives).toBeVisible();
-    await stable();
-    const alt = alternatives.getByRole("textbox", {
-      name: "Add alternate",
-      exact: true,
-    });
-    await alt.fill("Anchor point");
-    await alt.press("Space");
-    await expect(alt).toHaveValue("Anchor point ");
-    await alt.press("Enter");
-    await expect(
-      alternatives.getByRole("button", { name: "Anchor point", exact: true }),
-    ).toBeVisible();
-    await stable();
-    await alternatives
-      .getByRole("button", { name: "Anchor point", exact: true })
-      .click();
-    await expect(defaultInput).toHaveValue("Anchor point");
-    await stable();
-    await page.keyboard.press("Escape");
-    await expect(alternatives).toHaveCount(0);
+    await corner.fill("");
+    await expect(corner).toHaveValue("");
     await stable();
     await expect(
       modal.getByRole("button", { name: "Save", exact: true }),
@@ -212,7 +174,7 @@ for (const [width, height] of [
         () => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data,
       ),
     )["A|B"];
-    expect(entry.shared).toEqual(["Anchor point", selected]);
+    expect(entry.shared).toEqual([selected]);
     expect(entry.edges).toBeUndefined();
     expect(entry.corners).toBeUndefined();
   });

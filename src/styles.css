@@ -880,8 +880,7 @@ button svg {
 .memo-lookup > div:last-child {
   border: 0;
 }
-.memo-lookup > div > span,
-.alias-list li {
+.memo-lookup > div > span {
   overflow-wrap: anywhere;
   min-width: 0;
 }
@@ -1121,18 +1120,6 @@ summary {
 }
 .dialog-actions .primary {
   min-width: 100px;
-}
-.alias-list {
-  padding: 0;
-  list-style: none;
-  margin: 12px 0;
-}
-.alias-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 15px;
 }
 .suggestions-trigger {
   margin-top: 22px !important;

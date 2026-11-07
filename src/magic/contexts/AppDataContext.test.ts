@@ -120,7 +120,6 @@ describe("legacy vocabulary compatibility", () => {
         firstToken: "A",
         secondToken: "B",
         primaryMnemonic: words[0],
-        alternates: words.slice(1),
         encounters: 0,
         forgotten: 0,
         updatedAt: "2026-01-01T00:00:00.000Z",
@@ -131,9 +130,9 @@ describe("legacy vocabulary compatibility", () => {
     return { data, entry: pairsFromStore(data)[pairKey("A", "B")] };
   };
   it("collapses identical effective words to shared", () => {
-    expect(
-      withPair("shared", ["Apple", "alt"], ["Apple", "alt"]).entry,
-    ).toEqual({ shared: ["Apple", "alt"] });
+    expect(withPair("shared", ["Apple"], ["Apple"]).entry).toEqual({
+      shared: ["Apple"],
+    });
   });
   it("keeps a lone one-vocabulary record shared", () => {
     expect(withPair("shared", ["Apple"], []).entry).toEqual({
@@ -141,12 +140,9 @@ describe("legacy vocabulary compatibility", () => {
     });
   });
   it("preserves separate vocabularies as shared plus override", () => {
-    expect(
-      withPair("separate", ["Apple", "edge alt"], ["Anchor", "corner alt"])
-        .entry,
-    ).toEqual({
-      shared: ["Apple", "edge alt"],
-      corners: ["Anchor", "corner alt"],
+    expect(withPair("separate", ["Apple"], ["Anchor"]).entry).toEqual({
+      shared: ["Apple"],
+      corners: ["Anchor"],
     });
   });
   it("preserves one-sided separate records", () => {

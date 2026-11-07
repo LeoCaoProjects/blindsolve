@@ -18,7 +18,7 @@ async function completedMemo(page: Page, savedWord = false) {
           firstToken: "P",
           secondToken: "F",
           primaryMnemonic: "puff",
-          alternates: [],
+
           encounters: 0,
           forgotten: 0,
           updatedAt: new Date().toISOString(),

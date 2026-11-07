@@ -71,7 +71,6 @@ export const shortcutSections: ShortcutSection[] = [
       { keys: ["Space / Enter"], label: "Reveal, then mark remembered" },
       { keys: ["F"], label: "Mark forgotten after reveal" },
       { keys: ["E"], label: "Edit word after reveal" },
-      { keys: ["A"], label: "Add alternate after reveal" },
       { keys: ["Backspace"], label: "Delete latest history entry" },
       { keys: ["Shift + Backspace"], label: "Clear history" },
     ],

@@ -5,7 +5,6 @@ export interface LetterPair {
   firstToken: string;
   secondToken: string;
   primaryMnemonic: string;
-  alternates: string[];
   encounters: number;
   forgotten: number;
   updatedAt: string;
@@ -35,12 +34,10 @@ export const normalizeMnemonic = (value: string) =>
   value.trim().toLocaleLowerCase();
 export const mnemonicMatches = (
   value: string,
-  pair: Pick<LetterPair, "primaryMnemonic" | "alternates">,
+  pair: Pick<LetterPair, "primaryMnemonic">,
 ) => {
   const normalized = normalizeMnemonic(value);
-  return [pair.primaryMnemonic, ...pair.alternates].some(
-    (m) => normalizeMnemonic(m) === normalized,
-  );
+  return normalizeMnemonic(pair.primaryMnemonic) === normalized;
 };
 
 export function checkTokenAnswer(expected: string[], answer: string) {

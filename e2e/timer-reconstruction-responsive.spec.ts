@@ -73,7 +73,7 @@ for (const [width, height] of [
       await panel
         .getByRole("button", { name: "Continue", exact: true })
         .click();
-    const input = panel.getByPlaceholder("Enter mnemonic");
+    const input = panel.getByPlaceholder("Enter word");
     await expect(input).toBeVisible();
     await expect(panel.getByText("Not in your letter pairs yet")).toHaveCount(
       0,

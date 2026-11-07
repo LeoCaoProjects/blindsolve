@@ -93,7 +93,9 @@ export default function FlashcardsPage() {
         </div>
         <span className="subtle">{filled.length} available</span>
       </div>
-      {!card && filled.length ? <p role="status">Choosing a pair…</p> : !card ? (
+      {!card && filled.length ? (
+        <p role="status">Choosing a pair…</p>
+      ) : !card ? (
         <div className="empty-state">
           <h2>Add your first word</h2>
           <p>Save a word in Letter pairs to start practising.</p>
@@ -119,19 +121,19 @@ export default function FlashcardsPage() {
                     : undefined,
               }}
             >
-              <span className="flash-token">{data.scheme.stickers[card.firstStickerId].label}</span>
+              <span className="flash-token">
+                {data.scheme.stickers[card.firstStickerId].label}
+              </span>
               <span className="pair-separator">·</span>
-              <span className="flash-token">{data.scheme.stickers[card.secondStickerId].label}</span>
+              <span className="flash-token">
+                {data.scheme.stickers[card.secondStickerId].label}
+              </span>
             </div>
             <div className="answer-slot" aria-live="polite">
               {revealed ? (
                 <>
                   <h2>{card.primaryMnemonic}</h2>
-                  {!!card.alternates.length && (
-                    <p className="subtle">
-                      Also: {card.alternates.join(" · ")}
-                    </p>
-                  )}
+
                   <button
                     className="text-button"
                     onClick={() => setEditing(true)}

@@ -1,6 +1,6 @@
 export type PairScope = "shared" | "edges" | "corners";
 
-/** Words are ordered: primary first, then alternates. Overrides only exist when set. */
+/** Compatibility lists hold zero or one word. Overrides only exist when set. */
 export interface PairEntry {
   shared: string[];
   edges?: string[];

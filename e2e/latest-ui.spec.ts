@@ -13,7 +13,7 @@ function workspace(withPair = false) {
     const second = edges.find((s) => s.label === 'W')!;
     pairs[pairKey(first.id, second.id)] = {
       id: crypto.randomUUID(), firstStickerId: first.id, secondStickerId: second.id,
-      firstToken: 'T', secondToken: 'W', primaryMnemonic: 'tow', alternates: ['tower'],
+      firstToken: 'T', secondToken: 'W', primaryMnemonic: 'tow',
       encounters: 0, forgotten: 0, updatedAt: stamp,
     };
   }
@@ -98,52 +98,56 @@ test('signed-out workspaces do not call the admin-only feedback RPC', async ({ p
   expect(adminChecks).toEqual([]);
 });
 
-test('latest pair browser saves primary and alternate and reveals suggestions only on request', async ({ page }) => {
+test("pair browser saves one word and reveals suggestions only on request", async ({
+  page,
+}) => {
   await load(page);
-  await page.goto('/pairs');
-  await page.getByRole('gridcell', { name: 'TW, empty' }).click();
-  await expect(page.getByRole('button', { name: /tow/i })).toHaveCount(0);
-  await page.getByLabel('Mnemonic').fill('tow');
-  await page.getByLabel('Add alternate').fill('tower');
-  await page.getByRole('button', { name: 'Suggest words' }).click();
-  await expect(page.getByRole('button', { name: 'Hide suggestions' })).toBeVisible();
-  await page.getByRole('button', { name: /^Save/ }).last().click();
+  await page.goto("/pairs");
+  await page.getByRole("button", { name: /^T, / }).click();
+  await page.getByRole("gridcell", { name: "TW, empty" }).click();
+  await page
+    .getByRole("textbox", { name: "Default word", exact: true })
+    .fill("tow");
+  await page
+    .getByRole("button", {
+      name: "Suggest words for default word",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Suggestions for TW", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.reload();
-  await expect(page.getByRole('gridcell', { name: /TW, tow/ })).toBeVisible();
+  await page.getByRole("button", { name: /^T, / }).click();
+  await expect(page.getByRole("gridcell", { name: /TW, tow/ })).toBeVisible();
 });
-
-test('Letter Pair deletion promotes alternates and destructive clears require confirmation', async ({ page }) => {
+test("pair deletion and clear-all require destructive confirmation", async ({
+  page,
+}) => {
   await load(page, workspace(true));
-  await page.goto('/pairs');
-  await page.getByRole('gridcell', { name: /TW, tow/ }).click();
-  await page.getByRole('button', { name: 'Remove', exact: true }).click();
-  await expect(page.getByLabel('Mnemonic')).toHaveValue('tower');
-  await page.getByRole('button', { name: /^Save/ }).last().click();
-  await page.getByRole('gridcell', { name: /TW, tower/ }).click();
-  await page.getByRole('button', { name: 'Clear pair' }).click();
-  await expect(page.getByRole('alertdialog')).toBeVisible();
-  const cancelClear = page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' });
-  await expect(cancelClear).toBeFocused();
-  await cancelClear.click();
-  await expect(page.getByRole('button', { name: 'Clear pair' }).first()).toBeFocused();
-  await expect(page.getByLabel('Mnemonic')).toHaveValue('tower');
-  await page.getByRole('button', { name: 'Clear pair' }).first().click();
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Clear pair' }).click();
-  await expect(page.getByRole('gridcell', { name: 'TW, empty' })).toBeVisible();
-});
-
-test('clearing a first-token section and clearing all pairs use destructive confirmation', async ({ page }) => {
-  await load(page, workspace(true));
-  await page.goto('/pairs');
-  await page.getByRole('button', { name: 'Clear T pairs' }).click();
-  await expect(page.getByRole('alertdialog')).toContainText('can’t be undone');
-  await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.getByRole('gridcell', { name: /TW, tow/ })).toBeVisible();
-  await page.goto('/settings');
-  await page.getByRole('button', { name: 'Clear all…' }).click();
-  await page.getByRole('button', { name: 'Clear all', exact: true }).click();
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);
-  expect(Object.keys(saved.pairs)).toHaveLength(0);
+  await page.goto("/pairs");
+  await page.getByRole("button", { name: /^T, / }).click();
+  await page.getByRole("gridcell", { name: /TW, tow/ }).click();
+  await page.getByRole("dialog", { name: "Pair TW", exact: true }).getByRole("button", { name: "Clear pair", exact: true }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(
+    dialog.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeFocused();
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("textbox", { name: "Default word", exact: true }),
+  ).toHaveValue("tow");
+  await page.getByRole("dialog", { name: "Pair TW", exact: true }).getByRole("button", { name: "Clear pair", exact: true }).click();
+  await dialog.getByRole("button", { name: "Clear pair", exact: true }).click();
+  await expect(page.getByRole("gridcell", { name: "TW, empty" })).toBeVisible();
+  await page
+    .getByRole("button", { name: "Clear all pairs", exact: true })
+    .click();
+  await expect(dialog).toContainText("all Default, Edge and Corner words");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
 });
 
 test('flashcards use saved pairs, reveal, edit and persist an attempt', async ({ page }) => {
@@ -152,7 +156,7 @@ test('flashcards use saved pairs, reveal, edit and persist an attempt', async ({
   await page.getByRole('button', { name: /Reveal/ }).click();
   await expect(page.getByText('tow', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /^Edit/ }).click();
-  await page.getByLabel('Mnemonic').fill('towel');
+  await page.getByLabel('Word').fill('towel');
   await page.getByRole('button', { name: /^Save/ }).click();
   await page.getByRole('button', { name: 'Remembered', exact: false }).click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);
@@ -521,11 +525,11 @@ test('all Training drills share scope while retaining distinct challenges', asyn
 test('Settings no longer exposes vocabulary strategy while pair overrides remain available', async ({ page }) => {
   await load(page, workspace(true)); await page.goto('/settings');
   await expect(page.getByRole('radiogroup', { name: 'Edge and corner vocabulary' })).toHaveCount(0);
-  await page.goto('/pairs'); await page.getByRole('gridcell', { name: /TW, tow/ }).click();
+  await page.goto('/pairs'); await page.getByRole('button', { name: /^T, / }).click(); await page.getByRole('gridcell', { name: /TW, tow/ }).click();
   const editor = page.getByRole('dialog', { name: 'Pair TW' });
-  await expect(editor.getByRole('radio', { name: 'Shared' })).toBeVisible();
-  await expect(editor.getByRole('radio', { name: 'Edges' })).toBeVisible();
-  await expect(editor.getByRole('radio', { name: 'Corners' })).toBeVisible();
+  await expect(editor.getByRole('textbox', { name: 'Default word', exact: true })).toBeVisible();
+  await expect(editor.getByRole('textbox', { name: 'Edge override', exact: true })).toBeVisible();
+  await expect(editor.getByRole('textbox', { name: 'Corner override', exact: true })).toBeVisible();
 });
 
 test('Timer hold, memo split, execution stop and reconstruction save form one solve', async ({ page }) => {
