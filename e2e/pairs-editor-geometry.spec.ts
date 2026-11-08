@@ -47,6 +47,22 @@ for (const [width, height] of [
         modal.locator("header").boundingBox(),
         modal.locator("footer").boundingBox(),
       ]);
+    const label = modal.locator('section[aria-label="Default word"] > p');
+    await expect(label).toContainText("Used for both Edges and Corners");
+    if (width === 1440) {
+      const gap = await modal.evaluate((el) => {
+        const corner = el
+          .querySelector('input[aria-label="Corner override"]')!
+          .getBoundingClientRect();
+        const footer = el.querySelector("footer")!.getBoundingClientRect();
+        const root = parseFloat(
+          getComputedStyle(document.documentElement).fontSize,
+        );
+        return ((footer.top - corner.bottom) * 16) / root;
+      });
+      expect(gap).toBeGreaterThanOrEqual(12);
+      expect(gap).toBeLessThan(28);
+    }
     const original = await geometry();
     const stable = async () => expect(await geometry()).toEqual(original);
     const rowHeight = await modal
@@ -100,8 +116,10 @@ for (const [width, height] of [
     await expect(suggest("edge override")).toHaveCount(0);
     await expect(suggest("corner override")).toHaveCount(0);
     await expect(edge).toHaveAttribute("placeholder", "Optional");
-    await expect(modal.locator("section > p")).toHaveCount(3);
-    for (const heading of await modal.locator("section > p").all()) {
+    await expect(modal.locator("section > p.font-medium")).toHaveCount(3);
+    for (const heading of await modal
+      .locator("section > p.font-medium")
+      .all()) {
       await expect(heading).toHaveCSS("font-weight", "500");
       expect(
         await heading.evaluate((el) =>

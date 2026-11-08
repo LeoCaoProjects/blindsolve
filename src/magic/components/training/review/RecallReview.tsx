@@ -34,7 +34,7 @@ interface WordItem {
  * Missing words can be typed in place; nothing is written until Save.
  */
 export function RecallReview({ t }: { t: TrainingSession }) {
-  const { addWord } = useAppData();
+  const { setDefaultWord } = useAppData();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const { correct: ok, total } = targetAccuracyForResults(t.results);
   const completed = t.history.find(
@@ -67,7 +67,7 @@ export function RecallReview({ t }: { t: TrainingSession }) {
       const item = items.find((w) => w.key === key);
       const word = value.trim();
       if (!item || !word || word === item.word) return;
-      addWord(pairKey(item.a, item.b), item.piece, word);
+      setDefaultWord(pairKey(item.a, item.b), word);
     });
     t.next();
   };
@@ -135,6 +135,7 @@ export function RecallReview({ t }: { t: TrainingSession }) {
       </div>
 
       <section className="mt-9 border-t border-line pt-6">
+        {shown.length > 0 && <p className="text-[12px] text-ink-3">Word edits save to Default; optional overrides stay unchanged.</p>}
         {shown.length > 0 && (
           <ul className="mt-3 grid grid-cols-1 items-start gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
             {shown.map((w) => (

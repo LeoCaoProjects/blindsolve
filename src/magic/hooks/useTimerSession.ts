@@ -47,7 +47,7 @@ export function useTimerSession({
     solves,
     setSolves,
     timerDb: db,
-    applyTimerDbUpdates,
+    setDefaultWords,
     timerMode,
     setTimerMode,
     prefs,
@@ -306,12 +306,12 @@ export function useTimerSession({
               : solve,
           ),
         }));
-      applyTimerDbUpdates(result.dbUpdates);
+      setDefaultWords(result.defaultWords);
       setReconOpen(false);
       setDraft(null);
       void newScramble();
     },
-    [applyTimerDbUpdates, store],
+    [setDefaultWords, store],
   );
 
   const selectSolve = useCallback((id: string) => setSelectedId(id), []);

@@ -16,7 +16,7 @@ import {
   m2SecondTargetStickerId,
 } from "../../domain/bld/memoConventions";
 import { inferM2OrientationFromBuffer } from "../../domain/bld/orientation";
-import { timerWords } from "../utils/pairs";
+import { pairKey, timerWords } from "../utils/pairs";
 import { timerPieces } from "../utils/timerModes";
 
 export type ReconStep =
@@ -27,7 +27,7 @@ export type Decision = "keep" | "replace";
 export interface ReconResult {
   penalty: Penalty;
   memo: SolveMemo;
-  dbUpdates: LetterPairDb;
+  defaultWords: Record<string, string>;
   cycleBreaks: { corners: string[]; edges: string[] };
 }
 
@@ -51,6 +51,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
   const [penalty, setPenalty] = useState<Penalty>("ok");
   const [breaks, setBreaks] = useState<Partial<Record<Piece, string>>>({});
   const [words, setWords] = useState<Record<string, string>>({});
+  const [editedPiece, setEditedPiece] = useState<Record<string, Piece>>({});
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [optionFocus, setOptionFocus] = useState(0);
 
@@ -185,7 +186,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
           const first = tokens[index],
             second = tokens[index + 1],
             pair = first + second;
-          const key = `${piece}:${pair}`;
+          const key = pair;
           if (
             timerWords(db, pair, piece).length ||
             seen.has(key) ||
@@ -234,11 +235,10 @@ export function useReconstruction({ draft, db, onSave }: Options) {
   );
 
   const refKey = (pair: string, piece: Piece) => `${piece}:${pair}`;
-  const setWord = useCallback(
-    (pair: string, piece: Piece, word: string) =>
-      setWords((current) => ({ ...current, [refKey(pair, piece)]: word })),
-    [],
-  );
+  const setWord = useCallback((pair: string, piece: Piece, word: string) => {
+    setWords((current) => ({ ...current, [refKey(pair, piece)]: word }));
+    setEditedPiece((current) => ({ ...current, [pair]: piece }));
+  }, []);
   const decide = useCallback(
     (pair: string, piece: Piece, decision: Decision) =>
       setDecisions((current) => ({
@@ -249,18 +249,19 @@ export function useReconstruction({ draft, db, onSave }: Options) {
   );
   const wordFor = useCallback(
     (pair: string, piece: Piece) =>
-      words[refKey(pair, piece)] ?? timerWords(snapshot, pair, piece)[0] ?? "",
-    [snapshot, words],
+      words[refKey(pair, piece)] ??
+      timerWords(snapshot, pair, piece)[0] ??
+      (editedPiece[pair] ? words[refKey(pair, editedPiece[pair])] : "") ??
+      "",
+    [snapshot, words, editedPiece],
   );
   const isNew = useCallback(
     (pair: string, piece: Piece) =>
-      !timerWords(snapshot, pair, piece).length &&
-      !!words[refKey(pair, piece)]?.trim(),
+      !snapshot[pair]?.length && !!words[refKey(pair, piece)]?.trim(),
     [snapshot, words],
   );
   const storedFor = useCallback(
-    (pair: string, piece: Piece) =>
-      timerWords(snapshot, pair, piece)[0] ?? null,
+    (pair: string, _piece: Piece) => snapshot[pair]?.[0] ?? null,
     [snapshot],
   );
   const allPairs = useMemo(
@@ -268,58 +269,70 @@ export function useReconstruction({ draft, db, onSave }: Options) {
       Array.from(
         new Map(
           [
-            ...completedSample.corners.map((pair) => ({
+            ...completedSample.corners.map((pair, index) => ({
               piece: "corners" as const,
               pair,
+              tokens: presented?.corners.targets
+                .slice(index * 2, index * 2 + 2)
+                .map((t) => t.token) ?? [pair[0], pair.slice(1)],
             })),
-            ...completedSample.edges.map((pair) => ({
+            ...completedSample.edges.map((pair, index) => ({
               piece: "edges" as const,
               pair,
+              tokens: presented?.edges.targets
+                .slice(index * 2, index * 2 + 2)
+                .map((t) => t.token) ?? [pair[0], pair.slice(1)],
             })),
           ]
             .filter(({ pair }) => !pair.includes("·"))
             .map((ref) => [refKey(ref.pair, ref.piece), ref]),
         ).values(),
       ),
-    [completedSample],
+    [completedSample, presented],
   );
   const changedPairs = useMemo(
     () =>
       allPairs.filter(({ pair, piece }) => {
         const used = words[refKey(pair, piece)]?.trim(),
-          stored = timerWords(snapshot, pair, piece);
+          stored = snapshot[pair] ?? [];
         return (
+          editedPiece[pair] === piece &&
           !!used &&
-          !!stored &&
+          stored.length > 0 &&
           !stored.some(
             (word) => word.trim().toLowerCase() === used.toLowerCase(),
           )
         );
       }),
-    [allPairs, snapshot, words],
+    [allPairs, snapshot, words, editedPiece],
   );
   const newPairs = useMemo(
-    () => allPairs.filter(({ pair, piece }) => isNew(pair, piece)),
-    [allPairs, isNew],
+    () =>
+      allPairs.filter(
+        ({ pair, piece }) => editedPiece[pair] === piece && isNew(pair, piece),
+      ),
+    [allPairs, isNew, editedPiece],
   );
 
   const finish = useCallback(() => {
     const toPairs = (pairs: string[], piece: Piece) =>
       pairs.map((pair) => ({ pair, word: wordFor(pair, piece) }));
-    const updates: LetterPairDb = {};
-    allPairs.forEach(({ pair, piece }) => {
+    const updates: Record<string, string> = {};
+    allPairs.forEach(({ pair, piece, tokens }) => {
       const key = refKey(pair, piece),
         used = words[key]?.trim();
-      if (!used) return;
-      const existing = timerWords(snapshot, pair, piece);
-      if (!existing.length) updates[key] = [used];
+      if (!used || editedPiece[pair] !== piece) return;
+      const existing = snapshot[pair] ?? [];
+      if (tokens.length !== 2) return;
+      const defaultKey = pairKey(tokens[0], tokens[1]);
+      if (!existing.length) updates[defaultKey] = used;
       else if (
         !existing.some(
           (word) => word.trim().toLowerCase() === used.toLowerCase(),
         )
       ) {
         const decision = decisions[key] ?? "keep";
-        if (decision === "replace") updates[key] = [used];
+        if (decision === "replace") updates[defaultKey] = used;
       }
     });
     onSave({
@@ -329,14 +342,16 @@ export function useReconstruction({ draft, db, onSave }: Options) {
         edges: toPairs(completedSample.edges, "edges"),
         hasM2Parity: completedSample.hasM2Parity,
       },
-      dbUpdates: updates,
+      defaultWords: updates,
       cycleBreaks: choices,
     });
   }, [
     allPairs,
+    draft.engine,
     choices,
     completedSample,
     decisions,
+    editedPiece,
     onSave,
     penalty,
     snapshot,

@@ -1,3 +1,5 @@
+import { writeDefaultWords } from "../../magic/utils/pairPersistence";
+import { pairKey as logicalPairKey } from "../../magic/utils/pairs";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "../../app/Store";
@@ -144,7 +146,7 @@ export function Reconstruction({
     };
     const now = new Date().toISOString();
     update((workspace) => {
-      const nextPairs = { ...workspace.pairs };
+      const defaultWords: Record<string,string> = {};
       const visited = new Set<string>();
       for (const item of completePairs) {
         const second = item.second!;
@@ -152,35 +154,13 @@ export function Reconstruction({
         if (visited.has(key)) continue;
         visited.add(key);
         const used = words[key]?.trim() ?? "";
-        const existing = nextPairs[key];
-        if (!existing && used) {
-          nextPairs[key] = {
-            id: crypto.randomUUID(),
-            firstStickerId: item.first.stickerId,
-            secondStickerId: second.stickerId,
-            firstToken: item.first.token,
-            secondToken: second.token,
-            primaryMnemonic: used,
-            updatedAt: now,
-          };
-          continue;
-        }
-        if (!existing) continue;
-        const changed = !!used && !mnemonicMatches(used, existing);
-        const decision = decisions[key] ?? "keep";
-        if (changed && decision === "replace") {
-          nextPairs[key] = {
-            ...existing,
-            firstToken: item.first.token,
-            secondToken: second.token,
-            primaryMnemonic: used,
-            updatedAt: now,
-          };
+        const existing = workspace.pairs[key];
+        if (used && (!existing || (!mnemonicMatches(used, existing) && decisions[key] === "replace"))) {
+          defaultWords[logicalPairKey(item.first.token, second.token)] = used;
         }
       }
       return {
-        ...workspace,
-        pairs: nextPairs,
+        ...writeDefaultWords(workspace,defaultWords,now),
         solves: workspace.solves.map((item) =>
           item.id === solve.id
             ? {

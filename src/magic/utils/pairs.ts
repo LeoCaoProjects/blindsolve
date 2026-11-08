@@ -86,7 +86,7 @@ export function toTimerDb(db: PairDb): LetterPairDb {
   Object.entries(db).forEach(([key, entry]) => {
     const [a, b] = splitKey(key);
     const pair = a + b;
-    const fallback = anyWords(entry);
+    const fallback = primaryWords(entry.shared);
     if (fallback.length) out[pair] = fallback;
     (["edges", "corners"] as const).forEach((piece) => {
       const words = resolveWords(entry, piece).words;

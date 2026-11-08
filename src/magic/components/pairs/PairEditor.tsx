@@ -146,8 +146,11 @@ export function PairEditor({
         className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-6 pb-5"
       >
         <section aria-label="Default word" className="h-[100px]">
-          <p className="mb-2 text-[13px] font-medium text-ink-2">
-            Default word
+          <p className="mb-2 flex items-baseline gap-2 text-[13px] font-medium text-ink-2">
+            <span className="shrink-0">Default word</span>
+            <span className="text-[11px] font-normal text-ink-3">
+              Used for both Edges and Corners
+            </span>
           </p>
           {field("shared")}
         </section>
@@ -160,10 +163,13 @@ export function PairEditor({
               key={scope}
               aria-label={scopeLabel(scope)}
               data-override-row={scope}
-              className="h-[100px]"
+              className={scope === "edges" ? "h-[100px]" : undefined}
             >
               <p className="mb-2 text-[13px] font-medium text-ink-2">
                 {scope === "edges" ? "Edge" : "Corner"}
+                <span className="ml-2 text-[11px] font-normal text-ink-3">
+                  Optional override
+                </span>
               </p>
               {field(scope)}
             </section>

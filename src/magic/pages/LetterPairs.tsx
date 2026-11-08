@@ -1,4 +1,11 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useLocation } from "react-router-dom";
 import { Trash2Icon } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import {
@@ -22,6 +29,7 @@ import { PairScope } from "../types/app";
 import { pairKey, resolveWords, tokenize } from "../utils/pairs";
 import { DELETE_BUTTON_STYLE } from "../components/common/destructiveStyle";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
+import { isTypingTarget } from "../utils/keyboard";
 import { tokensOf } from "../utils/scheme";
 import { useScreenInit } from "../useScreenInit.js";
 
@@ -37,12 +45,16 @@ interface ScreenState {
  * Scope and the scheme's first-letter index belong to contextual navigation.
  */
 export function LetterPairs() {
+  const { pathname, key: routeKey } = useLocation();
   const init = useScreenInit() as ScreenState;
   const { pairs, savePair, deletePairGroup, setup } = useAppData();
   const [deletingFirst, setDeletingFirst] = useState<string | null>(null);
   const sheet = useShortcutSheet();
   const [view, setView] = useState<PairView>("default");
-  const axes = useMemo(() => tokensOf(setup.scheme), [setup.scheme]);
+  const axesKey = JSON.stringify(tokensOf(setup.scheme));
+  // Store hydration may replace scheme objects without changing their tokens.
+  // Keep the shortcut listener stable across those unrelated updates.
+  const axes = useMemo(() => JSON.parse(axesKey) as string[], [axesKey]);
   const overrideTokens = useMemo(
     () => ({
       edges: tokensOf(setup.scheme, "edge"),
@@ -62,6 +74,7 @@ export function LetterPairs() {
     init.editor && init.focus ? init.focus[1] : null,
   );
   const [refocus, setRefocus] = useState(init.editor ? 0 : 1);
+  const [jumpRequest, setJumpRequest] = useState(0);
   const typed = useRef<{ buf: string; timer?: number }>({ buf: "" });
 
   const activeFirst = axes.includes(first) ? first : axes[0];
@@ -109,6 +122,8 @@ export function LetterPairs() {
   };
 
   const selectFirst = (t: string) => {
+    window.clearTimeout(typed.current.timer);
+    typed.current.buf = "";
     setFirst(t);
     setRefocus((n) => n + 1);
   };
@@ -160,26 +175,68 @@ export function LetterPairs() {
         e.preventDefault();
         return open(focus);
     }
-    if (e.key.length === 1 && /[a-z0-9]/i.test(e.key)) {
-      e.preventDefault();
-      const t = typed.current;
-      window.clearTimeout(t.timer);
-      t.buf += e.key.toUpperCase();
-      const parts = tokenize(t.buf, axes);
-      const valid = parts.every((p) => axes.includes(p));
-      if (valid && parts.length >= 2) {
-        setFirst(parts[0]);
-        setFocus(axes.indexOf(parts[1]));
-        setRefocus((n) => n + 1);
-        t.buf = "";
-      } else if (valid && parts.length === 1) {
-        setFirst(parts[0]);
-        t.timer = window.setTimeout(() => (t.buf = ""), 900);
-      } else {
-        t.buf = "";
-      }
-    }
   };
+
+  useLayoutEffect(() => {
+    const reset = () => {
+      window.clearTimeout(typed.current.timer);
+      typed.current.buf = "";
+    };
+    reset();
+    if (pathname.replace(/\/$/, "") !== "/pairs") return;
+    const onLetter = (e: KeyboardEvent) => {
+      if (
+        e.defaultPrevented ||
+        e.repeat ||
+        e.isComposing ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        isTypingTarget(e.target) ||
+        document.querySelector('[role="dialog"], [role="alertdialog"]')
+      ) {
+        reset();
+        return;
+      }
+      if (e.key.length === 1 && /[a-z0-9]/i.test(e.key)) {
+        e.preventDefault();
+        const t = typed.current;
+        window.clearTimeout(t.timer);
+        t.buf += e.key.toUpperCase();
+        const parts = tokenize(t.buf, axes);
+        const valid = parts.every((p) => axes.includes(p));
+        if (valid && parts.length >= 2) {
+          setJumpRequest((n) => n + 1);
+          setFirst(parts[0]);
+          setFocus(axes.indexOf(parts[1]));
+          setRefocus((n) => n + 1);
+          t.buf = "";
+        } else if (valid && parts.length === 1) {
+          setFirst(parts[0]);
+          t.timer = window.setTimeout(() => (t.buf = ""), 900);
+        } else {
+          t.buf = "";
+        }
+      }
+    };
+    window.addEventListener("keydown", onLetter);
+    const onFocus = (event: FocusEvent) => {
+      if (
+        isTypingTarget(event.target) ||
+        (event.target instanceof HTMLElement &&
+          event.target.closest('[role="dialog"], [role="alertdialog"]'))
+      )
+        reset();
+    };
+    document.addEventListener("focusin", onFocus);
+    window.addEventListener("blur", reset);
+    return () => {
+      reset();
+      window.removeEventListener("keydown", onLetter);
+      document.removeEventListener("focusin", onFocus);
+      window.removeEventListener("blur", reset);
+    };
+  }, [axes, view, editing, deletingFirst, sheet.open, pathname, routeKey]);
 
   const closeEditor = () => {
     setEditing(null);
@@ -253,29 +310,6 @@ export function LetterPairs() {
                     : "Overrides"}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                {view === "overrides" && (
-                  <select
-                    aria-label="Add override"
-                    value=""
-                    onChange={(event) => open(Number(event.target.value))}
-                    className="h-8 max-w-[130px] cursor-pointer rounded-[4px] border border-line-strong bg-bg px-2 text-[12px] text-ink-2"
-                  >
-                    <option value="" disabled>
-                      Add override
-                    </option>
-                    {axes.map(
-                      (second, index) =>
-                        second !== activeFirst && (
-                          <option key={second} value={index}>
-                            {activeFirst}
-                            {second}
-                          </option>
-                        ),
-                    )}
-                  </select>
-                )}
-              </div>
             </div>
           </header>
           <PairGroups
@@ -287,6 +321,7 @@ export function LetterPairs() {
             onOpen={open}
             onKeyDown={onKeyDown}
             refocus={refocus}
+            jumpRequest={jumpRequest}
           />
         </div>
       </main>

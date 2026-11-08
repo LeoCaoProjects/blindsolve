@@ -2,6 +2,7 @@ import {
   deleteFirstLetterPairs,
   pairsFromStore,
   writePairEntries,
+  writeDefaultWords,
   replacePairEntries,
 } from "../utils/pairPersistence";
 export { pairsFromStore } from "../utils/pairPersistence";
@@ -22,13 +23,12 @@ import type {
   CubeViewPref,
   PairDb,
   PairEntry,
-  PairScope,
   Prefs,
   SyncStatus,
 } from "../types/app";
 import type { LetterPairDb, Solve } from "../types/solve";
 import { modeOf, solvesForMode, type TimerMode } from "../utils/timerModes";
-import { pairKey, toTimerDb } from "../utils/pairs";
+import { toTimerDb } from "../utils/pairs";
 import { ALL_STICKERS, speffzScheme } from "../utils/scheme";
 import { supabase } from "../../lib/supabase";
 import type { Feedback, NewFeedback } from "../types/feedback";
@@ -44,9 +44,9 @@ type NavGuard = ((path: string) => boolean) | null;
 interface AppDataValue {
   pairs: PairDb;
   savePair: (key: string, entry: PairEntry | null) => void;
-  addWord: (key: string, scope: PairScope, word: string) => void;
+  setDefaultWord: (key: string, word: string) => void;
   timerDb: LetterPairDb;
-  applyTimerDbUpdates: (updates: LetterPairDb) => void;
+  setDefaultWords: (words: Record<string, string>) => void;
   solves: Solve[];
   setSolves: React.Dispatch<React.SetStateAction<Solve[]>>;
   timerMode: TimerMode;
@@ -473,24 +473,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const value: AppDataValue = {
     pairs,
     savePair: writeEntry,
-    addWord: (key, scope, word) => {
-      const entry = pairs[key] ?? { shared: [] };
-      writeEntry(key, { ...entry, [scope]: word.trim() ? [word.trim()] : [] });
-    },
+    setDefaultWord: (key, word) => store.update(current => writeDefaultWords(current, {[key]:word})),
     timerDb: toTimerDb(pairs),
-    applyTimerDbUpdates: (updates) =>
-      Object.entries(updates).forEach(([encoded, words]) => {
-        const scoped = encoded.match(/^(edges|corners):(.*)$/),
-          flat = scoped?.[2] ?? encoded;
-        const key = pairKey(flat[0], flat.slice(1)),
-          entry = pairs[key] ?? { shared: [] };
-        writeEntry(
-          key,
-          scoped
-            ? { ...entry, [scoped[1]]: words }
-            : { ...entry, shared: words },
-        );
-      }),
+    setDefaultWords: (words) => store.update(current => writeDefaultWords(current, words)),
     solves,
     setSolves,
     timerMode: data.activeTimerMode ?? "3bld",

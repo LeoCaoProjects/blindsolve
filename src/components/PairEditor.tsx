@@ -1,3 +1,5 @@
+import { writeDefaultWords } from "../magic/utils/pairPersistence";
+import { pairKey as logicalPairKey } from "../magic/utils/pairs";
 import { useState } from "react";
 import { Dialog } from "./Dialog";
 import { useStore } from "../app/Store";
@@ -11,7 +13,7 @@ export function PairEditor({
   ids: PairSelection;
   onClose: () => void;
 }) {
-  const { data, upsertPair, notify } = useStore(),
+  const { data, update, notify } = useStore(),
     pair = data.pairs[pairKey(...ids)];
   const first = data.scheme.stickers[ids[0]],
     second = data.scheme.stickers[ids[1]];
@@ -25,15 +27,11 @@ export function PairEditor({
       : [];
   const save = () => {
     const old = pair;
-    upsertPair({
-      id: pair?.id ?? crypto.randomUUID(),
-      firstStickerId: ids[0],
-      secondStickerId: ids[1],
-      firstToken: first.label,
-      secondToken: second.label,
-      primaryMnemonic: primary.trim(),
-      updatedAt: new Date().toISOString(),
-    });
+    update((current) =>
+      writeDefaultWords(current, {
+        [logicalPairKey(first.label, second.label)]: primary.trim(),
+      }),
+    );
     notify(
       primary.trim()
         ? `Saved ${first.label} · ${second.label}.`
@@ -43,6 +41,10 @@ export function PairEditor({
   };
   return (
     <Dialog title={`${first.label} · ${second.label}`} onClose={onClose}>
+      <p className="subtle">
+        Saves as Default for both Edges and Corners; optional overrides stay
+        unchanged.
+      </p>
       <form
         onSubmit={(e) => {
           e.preventDefault();

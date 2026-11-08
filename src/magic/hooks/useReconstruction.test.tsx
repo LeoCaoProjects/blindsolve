@@ -6,7 +6,7 @@ import { useReconstruction } from "./useReconstruction";
 afterEach(cleanup);
 describe("Timer piece-scoped reconstruction", () => {
   for (const mode of ["edges", "corners"] as const)
-    it(`reconstructs and learns only ${mode}`, async () => {
+    it(`reconstructs ${mode} while learning Default words`, async () => {
       const onSave = vi.fn();
       const state = await scrambleToState("R U F");
       const { result } = renderHook(() =>
@@ -47,9 +47,68 @@ describe("Timer piece-scoped reconstruction", () => {
       expect(saved.memo[other]).toEqual([]);
       expect(saved.cycleBreaks[other]).toEqual([]);
       expect(saved.memo[mode].length).toBeGreaterThan(0);
-      expect(Object.keys(saved.dbUpdates).length).toBeGreaterThan(0);
+      expect(Object.keys(saved.defaultWords).length).toBeGreaterThan(0);
       expect(
-        Object.keys(saved.dbUpdates).every((key) => key.startsWith(mode + ":")),
+        Object.keys(saved.defaultWords).every(
+          (key) => key.includes("|") && !key.includes(":"),
+        ),
       ).toBe(true);
     });
+});
+
+it("keeps piece-specific solve words while ordinary edits save only Default", async () => {
+  const onSave = vi.fn();
+  const state = await scrambleToState("R U F");
+  const labels = "ABCDEFGHIJKLMNOPQRSTUVWX".split("");
+  const db = Object.fromEntries(
+    labels.flatMap((a) =>
+      labels
+        .filter((b) => b !== a)
+        .flatMap((b) => [
+          [a + b, ["Apple"]],
+          [`edges:${a + b}`, ["Arrow"]],
+          [`corners:${a + b}`, ["Castle"]],
+        ]),
+    ),
+  );
+  const { result } = renderHook(() =>
+    useReconstruction({
+      draft: {
+        time: 3000,
+        memoTime: 1000,
+        scramble: "R U F",
+        date: new Date().toISOString(),
+        timerMode: "3bld",
+        sample: { edges: [], corners: [] },
+        engine: { state, scheme: createSpeffzScheme() },
+      },
+      db,
+      onSave,
+    }),
+  );
+  for (let i = 0; i < 50 && result.current.step.kind !== "review"; i++)
+    act(() => {
+      const step = result.current.step;
+      if (step.kind === "break") result.current.pickBreak(step.options[0]);
+      else result.current.next();
+    });
+  const pair = result.current.sample.edges.find((pair) => pair.length === 2)!;
+  expect(result.current.wordFor(pair, "edges")).toBe("Arrow");
+  expect(result.current.wordFor(pair, "corners")).toBe("Castle");
+  act(() => {
+    result.current.setWord(pair, "edges", "Plum");
+    result.current.decide(pair, "edges", "replace");
+  });
+  expect(result.current.wordFor(pair, "corners")).toBe("Castle");
+  act(() => result.current.finish());
+  const saved = onSave.mock.calls[0][0];
+  expect(saved.defaultWords).toEqual({ [`${pair[0]}|${pair[1]}`]: "Plum" });
+  expect(
+    saved.memo.corners
+      .filter((p: { pair: string }) => p.pair.length === 2)
+      .every((p: { word: string }) => p.word === "Castle"),
+  ).toBe(true);
+  expect(
+    saved.memo.edges.find((p: { pair: string }) => p.pair === pair).word,
+  ).toBe("Plum");
 });

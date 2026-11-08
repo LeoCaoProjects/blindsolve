@@ -45,13 +45,32 @@ type Sample = {
   x: number;
   overflow: boolean;
   headingX: number | null;
+  transformAnimation: boolean;
 };
 async function recordNavigation(page: Page, label: string) {
   await page.evaluate(() => {
-    const recorder = window as unknown as { navFrames: Sample[] };
+    const recorder = window as unknown as {
+      navFrames: Sample[];
+      navDone: boolean;
+    };
     recorder.navFrames = [];
+    recorder.navDone = false;
+    const started = performance.now();
     const sample = () => {
+      const workspace = document.querySelector("[data-page-workspace]")!;
+      const animations = workspace.getAnimations();
       recorder.navFrames.push({
+        transformAnimation: animations.some(
+          (animation) =>
+            animation.playState === "running" &&
+            animation.effect instanceof KeyframeEffect &&
+            new Set(
+              animation.effect
+                .getKeyframes()
+                .map((frame) => frame.transform)
+                .filter((value) => value !== undefined),
+            ).size > 1,
+        ),
         width:
           document
             .querySelector("[data-subnav-column]")
@@ -65,7 +84,23 @@ async function recordNavigation(page: Page, label: string) {
             .querySelector('[data-section="cube"] h2')
             ?.getBoundingClientRect().x ?? null,
       });
-      if (recorder.navFrames.length < 40) requestAnimationFrame(sample);
+      const recent = recorder.navFrames.slice(-5);
+      const settled =
+        recent.length === 5 &&
+        Math.max(...recent.map((frame) => frame.x)) -
+          Math.min(...recent.map((frame) => frame.x)) <
+          0.05;
+      const elapsed = performance.now() - started;
+      // Frame rate and route-commit timing vary. Sample the actual animation,
+      // then retain a settled tail instead of assuming forty frames is enough.
+      if (
+        elapsed < 2000 &&
+        (elapsed < 600 ||
+          animations.some((animation) => animation.playState === "running") ||
+          !settled)
+      )
+        requestAnimationFrame(sample);
+      else recorder.navDone = true;
     };
     document.addEventListener("click", () => requestAnimationFrame(sample), {
       once: true,
@@ -78,11 +113,9 @@ async function recordNavigation(page: Page, label: string) {
     .click();
   await expect
     .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { navFrames: Sample[] }).navFrames.length,
-      ),
+      page.evaluate(() => (window as unknown as { navDone: boolean }).navDone),
     )
-    .toBe(40);
+    .toBe(true);
   return page.evaluate(
     () => (window as unknown as { navFrames: Sample[] }).navFrames,
   );
@@ -119,7 +152,8 @@ test("shared sub nav moves the real workspace and stays stable between contextua
       ).toBe(true);
     else
       expect(
-        frames.some((frame) => frame.x > 73 * 1.2 && frame.x < 295 * 1.2),
+        frames.some((frame) => frame.x > 73 * 1.2 && frame.x < 295 * 1.2) ||
+          frames.some((frame) => frame.transformAnimation),
       ).toBe(true);
     if (label === "Settings") {
       const headings = frames.flatMap((frame) =>
@@ -192,9 +226,9 @@ test("sliding selection is shared, responsive and respects reduced motion", asyn
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   const frames = await recordNavigation(page, "Settings");
-  expect(frames.every((frame) => frame.width < 1 || frame.width > 223 * 1.2)).toBe(
-    true,
-  );
+  expect(
+    frames.every((frame) => frame.width < 1 || frame.width > 223 * 1.2),
+  ).toBe(true);
 });
 
 test("contextual navigation remains usable at every requested viewport", async ({

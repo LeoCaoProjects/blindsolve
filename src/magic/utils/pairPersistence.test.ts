@@ -17,6 +17,7 @@ import {
 import {
   pairsFromStore,
   writePairEntries,
+  writeDefaultWords,
   replacePairEntries,
   deleteFirstLetterPairs,
 } from "./pairPersistence";
@@ -370,5 +371,39 @@ describe("logical pair vocabulary survives the full persistence paths", () => {
     expect(timerWords(timer, "AB", "edges")).toEqual(["Arrow"]);
     expect(timerWords(timer, "AB", "corners")).toEqual(["Castle"]);
     expect(timer.AB).toEqual(["Apple"]);
+  });
+});
+
+describe("ordinary word writes", () => {
+  it("ordinary word creation writes only Default across reload and sync", () => {
+    const next = writeDefaultWords(emptyData(), { "A|B": "Apple" }, stamp(1));
+    expect(pairsFromStore(sync(reload(next)))["A|B"]).toEqual({
+      shared: ["Apple"],
+    });
+    expect(resolveWords(pairsFromStore(next)["A|B"], "edges").words).toEqual([
+      "Apple",
+    ]);
+    expect(resolveWords(pairsFromStore(next)["A|B"], "corners").words).toEqual([
+      "Apple",
+    ]);
+  });
+  it("edits Default while preserving explicit overrides, including override-only data", () => {
+    for (const shared of [[], ["Apple"]]) {
+      const before = writePairEntries(
+        emptyData(),
+        { "A|B": { shared, edges: ["Arrow"], corners: ["Castle"] } },
+        stamp(1),
+      );
+      const next = writeDefaultWords(before, { "A|B": "Anchor" }, stamp(2));
+      expect(pairsFromStore(sync(reload(next)))["A|B"]).toEqual({
+        shared: ["Anchor"],
+        edges: ["Arrow"],
+        corners: ["Castle"],
+      });
+      const db = toTimerDb(pairsFromStore(next));
+      expect(timerWords(db, "AB", "edges")).toEqual(["Arrow"]);
+      expect(timerWords(db, "AB", "corners")).toEqual(["Castle"]);
+      expect(writeDefaultWords(next, { "A|B": "Anchor" }, stamp(3))).toBe(next);
+    }
   });
 });
