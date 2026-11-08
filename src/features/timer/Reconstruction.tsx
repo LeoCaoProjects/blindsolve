@@ -145,20 +145,14 @@ export function Reconstruction({
     const now = new Date().toISOString();
     update((workspace) => {
       const nextPairs = { ...workspace.pairs };
-      const occurrences = new Map<string, number>();
+      const visited = new Set<string>();
       for (const item of completePairs) {
         const second = item.second!;
         const key = pairKey(item.first.stickerId, second.stickerId);
-        occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
-      }
-      for (const item of completePairs) {
-        const second = item.second!;
-        const key = pairKey(item.first.stickerId, second.stickerId);
-        if (!occurrences.has(key)) continue;
+        if (visited.has(key)) continue;
+        visited.add(key);
         const used = words[key]?.trim() ?? "";
         const existing = nextPairs[key];
-        const count = occurrences.get(key)!;
-        occurrences.delete(key);
         if (!existing && used) {
           nextPairs[key] = {
             id: crypto.randomUUID(),
@@ -167,9 +161,6 @@ export function Reconstruction({
             firstToken: item.first.token,
             secondToken: second.token,
             primaryMnemonic: used,
-
-            encounters: count,
-            forgotten: 0,
             updatedAt: now,
           };
           continue;
@@ -177,17 +168,15 @@ export function Reconstruction({
         if (!existing) continue;
         const changed = !!used && !mnemonicMatches(used, existing);
         const decision = decisions[key] ?? "keep";
-        const next: LetterPair = {
-          ...existing,
-          firstToken: item.first.token,
-          secondToken: second.token,
-          encounters: existing.encounters + count,
-          updatedAt: now,
-        };
         if (changed && decision === "replace") {
-          next.primaryMnemonic = used;
+          nextPairs[key] = {
+            ...existing,
+            firstToken: item.first.token,
+            secondToken: second.token,
+            primaryMnemonic: used,
+            updatedAt: now,
+          };
         }
-        nextPairs[key] = next;
       }
       return {
         ...workspace,

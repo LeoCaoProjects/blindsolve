@@ -14,7 +14,6 @@ interface PairEditorProps {
   first: string;
   second: string;
   entry: PairEntry | undefined;
-  uses: number;
   suggestionsOpen?: boolean;
   availableOverrides?: ("edges" | "corners")[];
   onSave: (entry: PairEntry | null) => void;
@@ -28,7 +27,6 @@ const scopeLabel = (scope: PairScope) =>
       ? "Edge override"
       : "Corner override";
 type Panel = {
-  scope: PairScope;
   anchor: HTMLButtonElement;
 };
 const fieldStyle =
@@ -39,7 +37,6 @@ export function PairEditor({
   first,
   second,
   entry,
-  uses,
   suggestionsOpen = false,
   availableOverrides = [...overrideScopes],
   onSave,
@@ -57,7 +54,6 @@ export function PairEditor({
   useEffect(() => {
     if (suggestionsOpen && defaultSuggest.current)
       setPanel({
-        scope: "shared",
         anchor: defaultSuggest.current,
       });
   }, [suggestionsOpen]);
@@ -82,10 +78,8 @@ export function PairEditor({
         : out,
     );
   };
-  const togglePanel = (scope: PairScope, anchor: HTMLButtonElement) =>
-    setPanel((current) =>
-      current?.scope === scope ? null : { scope, anchor },
-    );
+  const togglePanel = (anchor: HTMLButtonElement) =>
+    setPanel((current) => (current ? null : { anchor }));
   const field = (scope: PairScope) => {
     const words = draft[scope] ?? [],
       primary = words[0] ?? "";
@@ -111,24 +105,24 @@ export function PairEditor({
             }}
             className={fieldStyle}
           />
-          <button
-            ref={scope === "shared" ? defaultSuggest : undefined}
-            type="button"
-            aria-label={`Suggest words for ${scopeLabel(scope).toLowerCase()}`}
-            disabled={scope !== "shared" && !availableOverrides.includes(scope)}
-            aria-haspopup="dialog"
-            aria-expanded={panel?.scope === scope}
-            onClick={(event) => togglePanel(scope, event.currentTarget)}
-            className="absolute right-1 top-1 flex h-9 w-8 items-center justify-center rounded-[4px] text-ink-3 transition-colors hover:bg-hover hover:text-ink"
-          >
-            <SparklesIcon size={14} strokeWidth={1.75} aria-hidden />
-          </button>
+          {scope === "shared" && (
+            <button
+              ref={defaultSuggest}
+              type="button"
+              aria-label={`Suggest words for ${scopeLabel(scope).toLowerCase()}`}
+              aria-haspopup="dialog"
+              aria-expanded={panel !== null}
+              onClick={(event) => togglePanel(event.currentTarget)}
+              className="absolute right-1 top-1 flex h-9 w-8 items-center justify-center rounded-[4px] text-ink-3 transition-colors hover:bg-hover hover:text-ink"
+            >
+              <SparklesIcon size={14} strokeWidth={1.75} aria-hidden />
+            </button>
+          )}
         </div>
       </>
     );
   };
-  const activeScope = panel?.scope ?? "shared";
-  const primary = draft[activeScope]?.[0] ?? "";
+  const primary = draft.shared[0] ?? "";
   return (
     <PairEditorDialog label={`Pair ${first}${second}`} onClose={onClose}>
       <header className="shrink-0 px-6 pb-4 pt-5">
@@ -139,11 +133,6 @@ export function PairEditor({
               second={second}
               className="block font-mono text-[26px] font-medium leading-none tracking-[0.04em] text-ink"
             />
-            {uses > 0 && (
-              <p className="mt-2 text-[12px] text-ink-3">
-                Used in {uses} solves
-              </p>
-            )}
           </div>
           <div className="-mr-2 -mt-1">
             <IconButton label="Close" onClick={onClose}>
@@ -157,7 +146,7 @@ export function PairEditor({
         className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-6 pb-5"
       >
         <section aria-label="Default word" className="h-[100px]">
-          <p className="mb-3 text-[14px] font-semibold text-ink">
+          <p className="mb-2 text-[13px] font-medium text-ink-2">
             Default word
           </p>
           {field("shared")}
@@ -173,7 +162,7 @@ export function PairEditor({
               data-override-row={scope}
               className="h-[100px]"
             >
-              <p className="mb-3 text-[14px] font-semibold text-ink">
+              <p className="mb-2 text-[13px] font-medium text-ink-2">
                 {scope === "edges" ? "Edge" : "Corner"}
               </p>
               {field(scope)}
@@ -213,16 +202,16 @@ export function PairEditor({
       >
         <div
           className="scroll-quiet max-h-[min(320px,65dvh)] overflow-y-auto"
-          key={activeScope}
+          key="shared"
         >
           <SuggestionMenu
             first={first}
             second={second}
             current={primary}
             onPick={(word) => {
-              setWords(activeScope, [word]);
+              setWords("shared", [word]);
               setPanel(null);
-              refs.current[activeScope]?.focus();
+              refs.current.shared?.focus();
             }}
           />
         </div>

@@ -34,15 +34,6 @@ export default function FlashcardsPage() {
     if (!card || !revealed) return;
     update((d) => ({
       ...d,
-      pairs: {
-        ...d.pairs,
-        [pairKey(card.firstStickerId, card.secondStickerId)]: {
-          ...card,
-          encounters: card.encounters + 1,
-          forgotten: card.forgotten + Number(forgot),
-          updatedAt: new Date().toISOString(),
-        },
-      },
       attempts: [
         ...d.attempts,
         {

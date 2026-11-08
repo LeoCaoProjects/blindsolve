@@ -148,8 +148,6 @@ export function writePairEntries(
         firstToken: first,
         secondToken: second,
         primaryMnemonic: words[0],
-        encounters: old?.encounters ?? 0,
-        forgotten: old?.forgotten ?? 0,
         updatedAt: timestamp,
         vocabulary,
       };
@@ -167,6 +165,22 @@ export function writePairEntries(
             : timestamp,
       }
     : data;
+}
+
+/** Exact persisted first-token match, including records from older lettering schemes.
+ * The existing store diff produces pair tombstones; all other data stays untouched.
+ */
+export function deleteFirstLetterPairs(
+  data: AppData,
+  firstToken: string,
+): AppData {
+  const entries = Object.entries(data.pairs);
+  const remaining = entries.filter(
+    ([, pair]) => pair.firstToken !== firstToken,
+  );
+  return remaining.length === entries.length
+    ? data
+    : { ...data, pairs: Object.fromEntries(remaining) };
 }
 
 export function replacePairEntries(

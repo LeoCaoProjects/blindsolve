@@ -96,7 +96,7 @@ export function PairGroups({
                       {row.words[0] ?? "No word"}
                     </span>
                     {row.overrides.length > 0 && (
-                      <span className="ml-auto shrink-0 text-[10.5px] text-ink-3">
+                      <span className="ml-auto shrink-0 text-[10.5px] italic text-ink-3">
                         {row.overrides.length}{" "}
                         {row.overrides.length === 1 ? "override" : "overrides"}
                       </span>

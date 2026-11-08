@@ -97,17 +97,20 @@ for (const [width, height] of [
       exact: true,
     });
     await expect(edge).toBeFocused();
-    await suggest("edge override").click();
-    await stable();
-    await expect(menu).toHaveCount(1);
-    const edgeWord = await menu
-      .getByRole("list")
-      .getByRole("button")
-      .nth(1)
-      .innerText();
-    await menu.getByRole("list").getByRole("button").nth(1).click();
-    await expect(edge).toHaveValue(edgeWord);
-    await expect(defaultInput).toHaveValue(selected);
+    await expect(suggest("edge override")).toHaveCount(0);
+    await expect(suggest("corner override")).toHaveCount(0);
+    await expect(edge).toHaveAttribute("placeholder", "Optional");
+    await expect(modal.locator("section > p")).toHaveCount(3);
+    for (const heading of await modal.locator("section > p").all()) {
+      await expect(heading).toHaveCSS("font-weight", "500");
+      expect(
+        await heading.evaluate((el) =>
+          parseFloat(getComputedStyle(el).fontSize),
+        ),
+      ).toBeLessThan(
+        await edge.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+      );
+    }
     await stable();
     await modal
       .getByRole("textbox", { name: "Corner override", exact: true })
@@ -137,12 +140,10 @@ for (const [width, height] of [
     await suggest("default word").press("Enter");
     await expect(menu).toHaveCount(1);
     await stable();
-    await suggest("corner override").focus();
-    await suggest("corner override").press("Enter");
-    await expect(menu).toHaveCount(1);
-    await stable();
-    await menu.getByRole("list").getByRole("button").first().click();
-    await expect(corner).toHaveValue(selected);
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(edge).toHaveValue("Arrow");
+    await expect(corner).toHaveValue("Castle");
     await stable();
     await suggest("default word").focus();
     await suggest("default word").press("Enter");

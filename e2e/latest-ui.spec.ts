@@ -13,8 +13,7 @@ function workspace(withPair = false) {
     const second = edges.find((s) => s.label === 'W')!;
     pairs[pairKey(first.id, second.id)] = {
       id: crypto.randomUUID(), firstStickerId: first.id, secondStickerId: second.id,
-      firstToken: 'T', secondToken: 'W', primaryMnemonic: 'tow',
-      encounters: 0, forgotten: 0, updatedAt: stamp,
+      firstToken: 'T', secondToken: 'W', primaryMnemonic: 'tow', updatedAt: stamp,
     };
   }
   return {
@@ -123,7 +122,7 @@ test("pair browser saves one word and reveals suggestions only on request", asyn
   await page.getByRole("button", { name: /^T, / }).click();
   await expect(page.getByRole("gridcell", { name: /TW, tow/ })).toBeVisible();
 });
-test("pair deletion and clear-all require destructive confirmation", async ({
+test("pair deletion and selected-letter deletion require destructive confirmation", async ({
   page,
 }) => {
   await load(page, workspace(true));
@@ -144,7 +143,7 @@ test("pair deletion and clear-all require destructive confirmation", async ({
   await dialog.getByRole("button", { name: "Clear pair", exact: true }).click();
   await expect(page.getByRole("gridcell", { name: "TW, empty" })).toBeVisible();
   await page
-    .getByRole("button", { name: "Clear all pairs", exact: true })
+    .getByRole("button", { name: "Delete T pairs", exact: true })
     .click();
   await expect(dialog).toContainText("all Default, Edge and Corner words");
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();

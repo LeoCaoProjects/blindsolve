@@ -6,9 +6,9 @@ import { clamp, useElementSize } from "../../hooks/useElementSize";
 import { CubeState } from "../../utils/cube";
 import { Cube3D } from "../cube/Cube3D";
 import { QuietButton } from "../common/PrimaryButton";
+import { DELETE_BUTTON_STYLE } from "../common/destructiveStyle";
 
-export const DETAILS_DELETE_BUTTON =
-  "inline-flex h-9 items-center rounded-[4px] border border-[var(--danger)] bg-[var(--danger-soft)] px-3 text-[var(--danger)] transition-opacity hover:opacity-80";
+export const DETAILS_DELETE_BUTTON = DELETE_BUTTON_STYLE;
 
 /** Extracted verbatim from Timer's saved-solve inspector. */
 export function SolveDetailsShell({

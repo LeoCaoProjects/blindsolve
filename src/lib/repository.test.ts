@@ -22,8 +22,6 @@ const pair = (word: string, time = "2026-09-25T00:00:00Z"): LetterPair => ({
   secondToken: "W",
   primaryMnemonic: word,
 
-  encounters: 1,
-  forgotten: 0,
   updatedAt: time,
 });
 describe("workspace integrity", () => {
@@ -70,6 +68,24 @@ describe("workspace integrity", () => {
       (change) => change.kind === "pair",
     )!.payload;
     expect(payload).not.toHaveProperty("alternates");
+  });
+  it("ignores legacy pair usage fields during hydration and omits them from outgoing payloads", () => {
+    const original = emptyData();
+    const key = pairKey("B:BR", "D:DB");
+    const legacy = { ...pair("Tow"), encounters: 99, forgotten: 7 };
+    original.pairs[key] = legacy;
+    const restored = parseData(original);
+    expect(restored.pairs[key]).not.toHaveProperty("encounters");
+    expect(restored.pairs[key]).not.toHaveProperty("forgotten");
+    expect(legacy.encounters).toBe(99);
+    expect(legacy.forgotten).toBe(7);
+    const payload = seedSyncChanges(restored).find(
+      (change) => change.kind === "pair",
+    )!.payload;
+    expect(payload).not.toHaveProperty("encounters");
+    expect(payload).not.toHaveProperty("forgotten");
+    expect(restored.pairs[key].primaryMnemonic).toBe("Tow");
+    expect(diffSyncChanges(restored, parseData(restored))).toEqual([]);
   });
   it("rejects malformed backup and invalid timing", () => {
     expect(() => parseBackup('{"pairs":[]}')).toThrow();

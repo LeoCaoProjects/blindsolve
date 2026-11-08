@@ -1,4 +1,5 @@
 import {
+  deleteFirstLetterPairs,
   pairsFromStore,
   writePairEntries,
   replacePairEntries,
@@ -44,7 +45,6 @@ interface AppDataValue {
   pairs: PairDb;
   savePair: (key: string, entry: PairEntry | null) => void;
   addWord: (key: string, scope: PairScope, word: string) => void;
-  usage: Record<string, number>;
   timerDb: LetterPairDb;
   applyTimerDbUpdates: (updates: LetterPairDb) => void;
   solves: Solve[];
@@ -67,6 +67,7 @@ interface AppDataValue {
   retrySync: () => void;
   syncMessage: string;
   replacePairs: React.Dispatch<React.SetStateAction<PairDb>>;
+  deletePairGroup: (firstToken: string) => void;
   navGuard: NavGuard;
   setNavGuard: (g: NavGuard) => void;
   feedback: Feedback[];
@@ -286,14 +287,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }
     return counts;
   }, [data.solves, sessions]);
-  const usage = useMemo(() => {
-    const result: Record<string, number> = {};
-    Object.values(data.pairs).forEach((p) => {
-      const key = pairKey(p.firstToken, p.secondToken);
-      result[key] = (result[key] ?? 0) + p.encounters;
-    });
-    return result;
-  }, [data.pairs]);
   const prefs: Prefs = {
     multiphase: data.multiphaseTiming,
     showLiveTimer: data.showLiveTimer,
@@ -484,7 +477,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       const entry = pairs[key] ?? { shared: [] };
       writeEntry(key, { ...entry, [scope]: word.trim() ? [word.trim()] : [] });
     },
-    usage,
     timerDb: toTimerDb(pairs),
     applyTimerDbUpdates: (updates) =>
       Object.entries(updates).forEach(([encoded, words]) => {
@@ -549,6 +541,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     },
     retrySync: store.retry,
     syncMessage: store.message,
+    deletePairGroup: (firstToken) => store.update((current) => deleteFirstLetterPairs(current, firstToken)),
     replacePairs: (action) => {
       const db = typeof action === "function" ? action(pairs) : action;
       store.update((current) => replacePairEntries(current, db));

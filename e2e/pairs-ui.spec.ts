@@ -23,6 +23,8 @@ const fixture = writePairEntries(
       corners: ["Castle"],
     },
     "B|C": { shared: ["Boat"] },
+    "T|W": { shared: ["Tow"], edges: ["Twist"], corners: ["Tower"] },
+    "T|C": { shared: ["Taco"] },
     "A|D": { shared: ["Airport"] },
     "A|E": { shared: ["Atlas"] },
     "A|F": {
@@ -87,6 +89,13 @@ test("Default is primary; Overrides lists only exceptions and keeps letter navig
   await expect(nav.getByRole("radio")).toHaveCount(2);
   await expect(row(page, "AB")).toContainText("Apple");
   await expect(row(page, "AB")).toContainText("2 overrides");
+  await expect(
+    row(page, "AB").getByText("2 overrides", { exact: true }),
+  ).toHaveCSS("font-style", "italic");
+  await expect(row(page, "AB").getByText("Apple", { exact: true })).toHaveCSS(
+    "font-style",
+    "normal",
+  );
   await expect(row(page, "AD")).not.toContainText(/missing|override/i);
   await expect(row(page, "AD")).toHaveCSS("cursor", "pointer");
   const old = await row(page, "AD").evaluate(
@@ -226,6 +235,9 @@ test("One Save edits Default and both optional overrides; clearing Edge removes 
   )["A|D"];
   expect(entry).toEqual({ shared: ["Air port"], corners: ["Castle"] });
   expect(resolveWords(entry, "edges").words).toEqual(["Air port"]);
+  await expect(
+    row(page, "AD").getByText("1 override", { exact: true }),
+  ).toHaveCSS("font-style", "italic");
 });
 
 test("Default suggestions and safe Escape remain available without secondary word controls", async ({
@@ -375,7 +387,7 @@ test("Desktop native zoom preserves pair columns and contextual navigation", asy
 });
 
 for (const width of [1440, 320])
-  test(`Clear all pairs is isolated, deliberate and available in subnav at ${width}`, async ({
+  test(`Delete selected letter is isolated, deliberate and available in subnav at ${width}`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 844 });
@@ -409,14 +421,25 @@ for (const width of [1440, 320])
     });
     await page.reload();
     await row(page, "AC").click();
-    const editor = page.getByRole("dialog", { name: "Pair AC", exact: true });
-    await editor
+    const initialEditor = page.getByRole("dialog", {
+      name: "Pair AC",
+      exact: true,
+    });
+    await initialEditor
       .getByRole("textbox", { name: "Default word", exact: true })
       .fill("Ace");
-    await editor.getByRole("button", { name: "Save", exact: true }).click();
+    await initialEditor
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
     const snapshot = await page.evaluate(
       () => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data,
     );
+    const navigationTrigger = page.getByRole("button", {
+      name: "Letter Pairs navigation",
+      exact: true,
+    });
+    if (await navigationTrigger.isVisible()) await navigationTrigger.click();
+    await page.getByRole("button", { name: /^T, / }).click();
     const open = async () => {
       const trigger = page.getByRole("button", {
         name: "Letter Pairs navigation",
@@ -424,22 +447,22 @@ for (const width of [1440, 320])
       });
       if (await trigger.isVisible()) await trigger.click();
       await expect(
-        page.getByRole("button", { name: "Clear all pairs", exact: true }),
+        page.getByRole("button", { name: "Delete T pairs", exact: true }),
       ).toHaveCSS("color", "rgb(240, 100, 98)");
       await page
-        .getByRole("button", { name: "Clear all pairs", exact: true })
+        .getByRole("button", { name: "Delete T pairs", exact: true })
         .click();
     };
     await expect(
-      page.locator("main").getByRole("button", { name: /Clear.*pairs/ }),
+      page.locator("main").getByRole("button", { name: /Delete.*pairs/ }),
     ).toHaveCount(0);
     await open();
     const confirmation = page.getByRole("alertdialog", {
-      name: "Clear all letter pairs?",
+      name: "Delete T pairs?",
       exact: true,
     });
     await expect(confirmation).toContainText(
-      "all Default, Edge and Corner words",
+      "all Default, Edge and Corner words for pairs beginning with T",
     );
     await expect(
       confirmation.getByRole("button", { name: "Cancel", exact: true }),
@@ -454,17 +477,45 @@ for (const width of [1440, 320])
     ).toEqual(snapshot.pairs);
     await open();
     await confirmation
-      .getByRole("button", { name: "Clear all pairs", exact: true })
+      .getByRole("button", { name: "Delete T pairs", exact: true })
       .click();
     await expect(confirmation).toHaveCount(0);
     const saved = await page.evaluate(
       () => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data,
     );
-    expect(saved.pairs).toEqual({});
+    const remaining = Object.fromEntries(
+      Object.entries(snapshot.pairs).filter(
+        ([, p]) => (p as { firstToken: string }).firstToken !== "T",
+      ),
+    );
+    expect(saved.pairs).toEqual(remaining);
+    const envelope = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!),
+    );
+    const deletedKeys = Object.keys(snapshot.pairs).filter(
+      (key) => snapshot.pairs[key].firstToken === "T",
+    );
+    for (const key of deletedKeys)
+      expect(envelope.tombstones[`pair:${key}`]).toBeTruthy();
     expect(saved.solves).toEqual(snapshot.solves);
     expect(saved.attempts).toEqual(snapshot.attempts);
     expect(saved.scheme).toEqual(snapshot.scheme);
     expect(saved.showLiveTimer).toBe(snapshot.showLiveTimer);
+    await expect(row(page, "TW")).toContainText("No word");
     await page.reload();
-    await expect(row(page, "AB")).toContainText("No word");
+    if (await navigationTrigger.isVisible()) await navigationTrigger.click();
+    await page.getByRole("button", { name: /^T, / }).click();
+    await expect(row(page, "TW")).toContainText("No word");
+    await choose(page, "Overrides");
+    await expect(page.getByText("No overrides", { exact: true })).toBeVisible();
+    await choose(page, "Default");
+    const blank = await editor(page, "TW");
+    for (const input of await blank.getByRole("textbox").all())
+      await expect(input).toHaveValue("");
+    await blank.getByRole("button", { name: "Close", exact: true }).click();
+    if (await navigationTrigger.isVisible()) await navigationTrigger.click();
+    await page.getByRole("button", { name: /^A, / }).click();
+    await choose(page, "Default");
+    await expect(row(page, "AB")).toContainText("Apple");
+    await expect(row(page, "AB")).toContainText("2 overrides");
   });
