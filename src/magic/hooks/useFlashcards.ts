@@ -125,17 +125,8 @@ export function useFlashcards(opts: Options) {
     (result: 'remembered' | 'forgot') => {
       if (!card || performance.now() - shownAt.current < 220) return;
       const createdAt = new Date().toISOString();
-      const [first, second] = splitKey(card.key);
       store.update((data) => ({
         ...data,
-        pairs: Object.fromEntries(Object.entries(data.pairs).map(([key, pair]) => {
-          const type = data.scheme.stickers[pair.firstStickerId]?.pieceType;
-          const matchesPiece = card.piece === 'edges' ? type === 'edge' : type === 'corner';
-          return [key, matchesPiece && pair.firstToken === first && pair.secondToken === second ? {
-            ...pair, encounters: pair.encounters + 1,
-            forgotten: pair.forgotten + (result === 'forgot' ? 1 : 0), updatedAt: createdAt,
-          } : pair];
-        })),
         attempts: [{
           id: crypto.randomUUID(), kind: 'flashcard', correct: result === 'remembered',
           accuracy: result === 'remembered' ? 1 : 0, pairKey: card.key, pairPiece: card.piece, createdAt,

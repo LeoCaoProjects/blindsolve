@@ -5,8 +5,6 @@ export interface LetterPair {
   firstToken: string;
   secondToken: string;
   primaryMnemonic: string;
-  encounters: number;
-  forgotten: number;
   updatedAt: string;
   /** Explicit logical vocabulary; absent on legacy effective-only records. */
   vocabulary?: {

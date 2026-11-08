@@ -25,9 +25,6 @@ test.beforeEach(async ({ page }) => {
           firstToken: a,
           secondToken: b,
           primaryMnemonic: word,
-
-          encounters: 0,
-          forgotten: 0,
           updatedAt: "2026-11-06T00:00:00Z",
         },
       ];

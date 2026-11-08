@@ -20,6 +20,7 @@ import { useAppData } from "../contexts/AppDataContext";
 import { useShortcutSheet } from "../hooks/useShortcutSheet";
 import { PairScope } from "../types/app";
 import { pairKey, resolveWords, tokenize } from "../utils/pairs";
+import { DELETE_BUTTON_STYLE } from "../components/common/destructiveStyle";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { tokensOf } from "../utils/scheme";
 import { useScreenInit } from "../useScreenInit.js";
@@ -37,8 +38,8 @@ interface ScreenState {
  */
 export function LetterPairs() {
   const init = useScreenInit() as ScreenState;
-  const { pairs, savePair, replacePairs, usage, setup } = useAppData();
-  const [confirmSection, setConfirmSection] = useState(false);
+  const { pairs, savePair, deletePairGroup, setup } = useAppData();
+  const [deletingFirst, setDeletingFirst] = useState<string | null>(null);
   const sheet = useShortcutSheet();
   const [view, setView] = useState<PairView>("default");
   const axes = useMemo(() => tokensOf(setup.scheme), [setup.scheme]);
@@ -99,9 +100,11 @@ export function LetterPairs() {
     return out;
   }, [axes, pairs]);
 
-  const clearAllPairs = () => {
-    replacePairs({});
-    setConfirmSection(false);
+  const deleteSelectedPairs = () => {
+    if (!deletingFirst) return;
+    deletePairGroup(deletingFirst);
+    setEditing(null);
+    setDeletingFirst(null);
     setRefocus((n) => n + 1);
   };
 
@@ -220,12 +223,12 @@ export function LetterPairs() {
                 type="button"
                 onClick={() => {
                   close();
-                  setConfirmSection(true);
+                  setDeletingFirst(activeFirst);
                 }}
-                className="mt-3 flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[12px] font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-soft)]"
+                className={`${DELETE_BUTTON_STYLE} mt-3 w-full gap-2 text-left text-[13px] font-medium`}
               >
-                <Trash2Icon size={14} strokeWidth={1.75} aria-hidden />
-                Clear all pairs
+                <Trash2Icon size={15} aria-hidden />
+                Delete {activeFirst} pairs
               </button>
             </div>
           </div>
@@ -300,7 +303,6 @@ export function LetterPairs() {
                 overrideTokens[piece].includes(activeFirst) &&
                 overrideTokens[piece].includes(editing),
             )}
-            uses={usage[pairKey(activeFirst, editing)] ?? 0}
             suggestionsOpen={!!init.suggestions}
             onClose={closeEditor}
             onSave={(entry) => {
@@ -311,13 +313,13 @@ export function LetterPairs() {
         )}
       </AnimatePresence>
       <ConfirmDialog
-        open={confirmSection}
-        title="Clear all letter pairs?"
-        body="This will remove all Default, Edge and Corner words. Timer solves, Training attempts and settings are kept. This can’t be undone."
-        onCancel={() => setConfirmSection(false)}
+        open={deletingFirst !== null}
+        title={`Delete ${deletingFirst} pairs?`}
+        body={`This will remove all Default, Edge and Corner words for pairs beginning with ${deletingFirst}. This can’t be undone.`}
+        onCancel={() => setDeletingFirst(null)}
         confirm={{
-          label: "Clear all pairs",
-          onClick: clearAllPairs,
+          label: `Delete ${deletingFirst} pairs`,
+          onClick: deleteSelectedPairs,
           tone: "danger",
         }}
       />

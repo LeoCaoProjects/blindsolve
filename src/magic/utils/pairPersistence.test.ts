@@ -18,6 +18,7 @@ import {
   pairsFromStore,
   writePairEntries,
   replacePairEntries,
+  deleteFirstLetterPairs,
 } from "./pairPersistence";
 import { resolveWords, toTimerDb, timerWords } from "./pairs";
 import type { PairEntry } from "../types/app";
@@ -194,6 +195,69 @@ describe("logical pair vocabulary survives the full persistence paths", () => {
     expect(
       changes.every((change) => change.kind === "pair" && change.deleted),
     ).toBe(true);
+  });
+  it("deletes only actual records with the exact first token and survives stale sync/reload", () => {
+    const before = writePairEntries(
+      emptyData(),
+      {
+        "A|B": { shared: ["Apple"], edges: ["Arrow"], corners: ["Castle"] },
+        "A|C": { shared: ["Ace"] },
+        "B|C": { shared: ["Boat"], corners: ["Box"] },
+        "C|D": { shared: ["Card"] },
+      },
+      stamp(1),
+    );
+    Object.values(before.pairs)
+      .filter((p) => p.firstToken === "C")
+      .forEach((p) => {
+        p.firstToken = "AA";
+      });
+    const after = deleteFirstLetterPairs(before, "A");
+    expect(Object.values(after.pairs).map((p) => p.firstToken)).not.toContain(
+      "A",
+    );
+    expect(Object.values(after.pairs).some((p) => p.firstToken === "AA")).toBe(
+      true,
+    );
+    expect(pairsFromStore(after)["B|C"]).toEqual(pairsFromStore(before)["B|C"]);
+    expect({ ...after, pairs: undefined }).toEqual({
+      ...before,
+      pairs: undefined,
+    });
+    expect(after.solves).toBe(before.solves);
+    expect(after.attempts).toBe(before.attempts);
+    const changes = diffSyncChanges(before, after, stamp(9));
+    const deleted = Object.entries(before.pairs)
+      .filter(([, p]) => p.firstToken === "A")
+      .map(([key]) => key)
+      .sort();
+    expect(changes.map((c) => c.recordId).sort()).toEqual(deleted);
+    expect(changes.every((c) => c.kind === "pair" && c.deleted)).toBe(true);
+    const local: LocalEnvelope = {
+      data: reload(after),
+      dirty: true,
+      revision: 2,
+      pending: coalesceSyncChanges(
+        seedSyncChanges(before).reduce(
+          (pending, change) => coalesceSyncChanges(pending, [change]),
+          {},
+        ),
+        changes,
+      ),
+      tombstones: trackDeletions({}, changes),
+    };
+    const remote: LocalEnvelope = {
+      data: before,
+      dirty: false,
+      revision: 2,
+      pending: {},
+    };
+    expect(reconcileSync(local, remote).data.pairs).toEqual(after.pairs);
+    expect(deleteFirstLetterPairs(after, "A")).toBe(after);
+    for (const pair of Object.values(after.pairs)) {
+      expect(pair).not.toHaveProperty("encounters");
+      expect(pair).not.toHaveProperty("forgotten");
+    }
   });
   it("does not enqueue hydration writeback or no-op saves", () => {
     const data = edit(emptyData(), { shared: ["Apple"], edges: ["Arrow"] });

@@ -120,8 +120,6 @@ describe("legacy vocabulary compatibility", () => {
         firstToken: "A",
         secondToken: "B",
         primaryMnemonic: words[0],
-        encounters: 0,
-        forgotten: 0,
         updatedAt: "2026-01-01T00:00:00.000Z",
       };
     };

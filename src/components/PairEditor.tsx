@@ -32,19 +32,17 @@ export function PairEditor({
       firstToken: first.label,
       secondToken: second.label,
       primaryMnemonic: primary.trim(),
-      encounters: pair?.encounters ?? 0,
-      forgotten: pair?.forgotten ?? 0,
       updatedAt: new Date().toISOString(),
     });
     notify(
       primary.trim()
-        ? `Saved ${first.label} Â· ${second.label}.`
-        : `Cleared ${first.label} Â· ${second.label}${old?.primaryMnemonic ? `. Previous word: ${old.primaryMnemonic}` : ""}.`,
+        ? `Saved ${first.label} · ${second.label}.`
+        : `Cleared ${first.label} · ${second.label}${old?.primaryMnemonic ? `. Previous word: ${old.primaryMnemonic}` : ""}.`,
     );
     onClose();
   };
   return (
-    <Dialog title={`${first.label} Â· ${second.label}`} onClose={onClose}>
+    <Dialog title={`${first.label} · ${second.label}`} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -52,7 +50,7 @@ export function PairEditor({
         }}
       >
         <p className="subtle">
-          {first.pieceType === "edge" ? "Edges" : "Corners"} Â· {ids[0]} â†’{" "}
+          {first.pieceType === "edge" ? "Edges" : "Corners"} · {ids[0]} →{" "}
           {ids[1]}
         </p>
         <label>

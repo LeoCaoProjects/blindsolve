@@ -151,8 +151,6 @@ const pairSchema = z
     firstToken: text,
     secondToken: text,
     primaryMnemonic: text,
-    encounters: z.number().int().nonnegative(),
-    forgotten: z.number().int().nonnegative(),
     updatedAt: iso,
     vocabulary: z
       .object({
@@ -169,8 +167,7 @@ const pairSchema = z
           .optional(),
       })
       .optional(),
-  })
-  .refine((p) => p.forgotten <= p.encounters);
+  });
 const schemeSchema = z.object({
   id: text,
   name: text,
@@ -906,16 +903,12 @@ export function mergeData(
         id: p.id,
         vocabulary,
         primaryMnemonic: words[0] ?? "",
-        encounters: Math.max(old.encounters, p.encounters),
-        forgotten: Math.max(old.forgotten, p.forgotten),
       };
       continue;
     }
     pairs[key] = {
       ...newer,
       id: p.id,
-      encounters: Math.max(old.encounters, p.encounters),
-      forgotten: Math.max(old.forgotten, p.forgotten),
     };
   }
   const solveMap = new Map(local.solves.map((s) => [s.id, s]));
@@ -1046,7 +1039,7 @@ async function loadLegacyCloud(): Promise<AppData> {
     supabase
       .from("letter_pairs")
       .select(
-        "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,encounters,forgotten,updated_at",
+        "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,updated_at",
       )
       .order("id"),
     supabase
@@ -1072,7 +1065,7 @@ async function loadLegacyCloud(): Promise<AppData> {
       const next = await supabase
         .from("letter_pairs")
         .select(
-          "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,encounters,forgotten,updated_at",
+          "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,updated_at",
         )
         .order("id")
         .range(offset, offset + 999);
@@ -1103,8 +1096,6 @@ async function loadLegacyCloud(): Promise<AppData> {
       firstToken: p.first_token,
       secondToken: p.second_token,
       primaryMnemonic: p.primary_mnemonic,
-      encounters: p.encounters,
-      forgotten: p.forgotten,
       updatedAt: p.updated_at,
     };
   data.solves = (solves.data ?? []).map((s) => ({
