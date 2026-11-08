@@ -6,7 +6,8 @@ import { MergeDialog } from "../auth/MergeDialog";
 import { ProviderButtons } from "../auth/ProviderButtons";
 import { GoogleMark, WcaMark } from "../auth/ProviderMarks";
 import { ConfirmDialog } from "../common/ConfirmDialog";
-import { SecondaryButton, SettingsRow } from "./SettingsSection";
+import { SettingsRow } from "./SettingsSection";
+import { SecondaryButton } from "../common/PrimaryButton";
 
 export function AccountSection({ initialStep }: { initialStep?: SignInStep }) {
   const { account, setAccount, retrySync, syncMessage } = useAppData();
