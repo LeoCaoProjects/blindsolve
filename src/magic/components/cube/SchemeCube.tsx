@@ -1,11 +1,23 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useDefaultView } from '../../contexts/AppDataContext';
-import { CubeMode, CubeViewPref, FaceColor, LetterScheme } from '../../types/app';
-import { FACES, Face, slotType } from '../../utils/cube';
-import { COLOR_HEX, COLOR_TEXT, REFERENCE_COLORS, siblingsOf } from '../../utils/scheme';
-import { applyView, glyphRotation, viewTransform } from '../../utils/view';
-import { cubeGeometry } from '../../utils/cubeGeometry';
-import { useViewportSizingActive } from '../../utils/viewportSizing';
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useDefaultView } from "../../contexts/AppDataContext";
+import {
+  CubeMode,
+  CubeViewPref,
+  FaceColor,
+  LetterScheme,
+} from "../../types/app";
+import { FACES, Face, slotType } from "../../utils/cube";
+import {
+  COLOR_HEX,
+  COLOR_TEXT,
+  REFERENCE_COLORS,
+  siblingsOf,
+} from "../../utils/scheme";
+import { applyView, glyphRotation, viewTransform } from "../../utils/view";
+import { cubeGeometry } from "../../utils/cubeGeometry";
+import { useViewportSizingActive } from "../../utils/viewportSizing";
+import { bestRotation } from "../../utils/camera";
+import { useReducedMotion } from "framer-motion";
 
 export interface CubeView {
   up: Face;
@@ -19,14 +31,14 @@ interface SchemeCubeProps {
   size: number;
   /** Camera only — defaults to the saved Default Cube View */
   view?: CubeViewPref;
-  mode?: CubeMode | 'static';
+  mode?: CubeMode | "static";
   selected?: string | null;
   edgeBuffer?: string;
   cornerBuffer?: string;
   showBuffers?: boolean;
   /** Emphasise stickers carrying these tokens: [first, second] */
   highlightTokens?: string[];
-  highlightType?: 'corner' | 'edge' | null;
+  highlightType?: "corner" | "edge" | null;
   /** Exact sticker ids to emphasise, in pair order. Takes precedence over highlightTokens. */
   highlightIds?: string[];
   /** How many leading highlightIds belong to the pair's first token (accent ring); the rest get the ink ring */
@@ -35,9 +47,11 @@ interface SchemeCubeProps {
   onViewChange?: (view: CubeView) => void;
   resetSignal?: number;
   /** Camera angle to animate to (e.g. to show the stickers of a flashcard) */
-  rotation?: {x: number;y: number;};
+  rotation?: { x: number; y: number };
   /** Opt-in for in-place card changes; workspace/settings cameras stay instant. */
   animateOrientation?: boolean;
+  /** Reveal a physical selection using the shared target camera. */
+  revealSelected?: boolean;
   label?: string;
   className?: string;
 }
@@ -49,7 +63,7 @@ const NORMALS: Record<Face, [number, number, number]> = {
   F: [0, 0, 1],
   B: [0, 0, -1],
   R: [1, 0, 0],
-  L: [-1, 0, 0]
+  L: [-1, 0, 0],
 };
 
 /**
@@ -61,7 +75,7 @@ export function SchemeCube({
   colors = REFERENCE_COLORS,
   size,
   view,
-  mode = 'view',
+  mode = "view",
   selected = null,
   edgeBuffer,
   cornerBuffer,
@@ -75,15 +89,27 @@ export function SchemeCube({
   resetSignal = 0,
   rotation,
   animateOrientation = false,
-  label = 'Cube',
-  className = ''
+  revealSelected = false,
+  label = "Cube",
+  className = "",
 }: SchemeCubeProps) {
-  const rootUnits=useViewportSizingActive();
+  const rootUnits = useViewportSizingActive();
   const savedView = useDefaultView();
   const camera = view ?? savedView;
   const [rot, setRot] = useState(rotation ?? DEFAULT_ROT);
+  const reduced = useReducedMotion();
+  const currentRot = useRef(rot);
+  currentRot.current = rot;
+  const lastSelectionView = useRef<string | null>(null);
+  const [selectionMotion, setSelectionMotion] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const dragRef = useRef<{x: number;y: number;rx: number;ry: number;moved: boolean;} | null>(null);
+  const dragRef = useRef<{
+    x: number;
+    y: number;
+    rx: number;
+    ry: number;
+    moved: boolean;
+  } | null>(null);
   const movedRef = useRef(false);
 
   const S = Math.round(size * 0.56);
@@ -91,10 +117,26 @@ export function SchemeCube({
   const gap = Math.max(2, Math.round(S * 0.032));
   const radius = Math.max(1.5, S * 0.022);
 
-  useLayoutEffect(() => setRot(rotation ?? DEFAULT_ROT), [resetSignal, camera.top, camera.front]);
-  useEffect(() => {
+  useLayoutEffect(
+    () => setRot(rotation ?? DEFAULT_ROT),
+    [resetSignal, camera.top, camera.front],
+  );
+  useLayoutEffect(() => {
     if (rotation) setRot(rotation);
   }, [rotation?.x, rotation?.y]);
+
+  useLayoutEffect(() => {
+    if (!revealSelected || !selected) {
+      if (lastSelectionView.current) setRot(rotation ?? DEFAULT_ROT);
+      lastSelectionView.current = null;
+      setSelectionMotion(false);
+      return;
+    }
+    const key = `${camera.top}/${camera.front}`;
+    setSelectionMotion(lastSelectionView.current === key);
+    setRot(bestRotation([selected[0] as Face], camera, currentRot.current).rot);
+    lastSelectionView.current = key;
+  }, [revealSelected, selected, camera.top, camera.front]);
 
   useEffect(() => {
     onViewChange?.(computeView(rot.x, rot.y, camera));
@@ -110,21 +152,24 @@ export function SchemeCube({
       d.moved = true;
       movedRef.current = true;
       setDragging(true);
-      setRot({ x: Math.max(-88, Math.min(88, d.rx - dy * 0.45)), y: d.ry + dx * 0.45 });
+      setRot({
+        x: Math.max(-88, Math.min(88, d.rx - dy * 0.45)),
+        y: d.ry + dx * 0.45,
+      });
     };
     const up = () => {
-      if (dragRef.current?.moved && mode === 'cube-view') {
+      if (dragRef.current?.moved && mode === "cube-view") {
         // Snap to the nearest quarter turn so "Use this view" is unambiguous.
         setRot((r) => ({ x: snap(r.x, true), y: snap(r.y, false) }));
       }
       dragRef.current = null;
       setDragging(false);
     };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
     return () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
     };
   }, [mode]);
 
@@ -132,152 +177,249 @@ export function SchemeCube({
     if (e.button !== 0) return;
     e.stopPropagation();
     movedRef.current = false;
-    dragRef.current = { x: e.clientX, y: e.clientY, rx: rot.x, ry: rot.y, moved: false };
+    dragRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      rx: rot.x,
+      ry: rot.y,
+      moved: false,
+    };
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.target !== e.currentTarget) return;
-    const snapping = mode === 'cube-view';
+    const snapping = mode === "cube-view";
     const step = snapping ? 90 : 15;
-    if (e.key === 'ArrowLeft') setRot((r) => ({ ...r, y: r.y - step }));else
-    if (e.key === 'ArrowRight') setRot((r) => ({ ...r, y: r.y + step }));else
-    if (e.key === 'ArrowUp') setRot((r) => ({ ...r, x: snapping ? r.x < -30 ? -27 : 88 : Math.min(88, r.x + step) }));else
-    if (e.key === 'ArrowDown') setRot((r) => ({ ...r, x: snapping ? r.x > 30 ? -27 : -88 : Math.max(-88, r.x - step) }));else
-    return;
+    if (e.key === "ArrowLeft") setRot((r) => ({ ...r, y: r.y - step }));
+    else if (e.key === "ArrowRight") setRot((r) => ({ ...r, y: r.y + step }));
+    else if (e.key === "ArrowUp")
+      setRot((r) => ({
+        ...r,
+        x: snapping ? (r.x < -30 ? -27 : 88) : Math.min(88, r.x + step),
+      }));
+    else if (e.key === "ArrowDown")
+      setRot((r) => ({
+        ...r,
+        x: snapping ? (r.x > 30 ? -27 : -88) : Math.max(-88, r.x - step),
+      }));
+    else return;
     e.preventDefault();
   };
 
   const hasHighlight = !!(highlightIds?.length || highlightTokens?.length);
   const edgeSiblings = showBuffers && edgeBuffer ? siblingsOf(edgeBuffer) : [];
-  const cornerSiblings = showBuffers && cornerBuffer ? siblingsOf(cornerBuffer) : [];
+  const cornerSiblings =
+    showBuffers && cornerBuffer ? siblingsOf(cornerBuffer) : [];
 
   return (
     <div
       role="group"
       aria-label={label}
+      data-cube-view={`${camera.top}/${camera.front}`}
       tabIndex={0}
       onPointerDown={onPointerDown}
       onDoubleClick={() => setRot(DEFAULT_ROT)}
       onKeyDown={onKeyDown}
-      className={`relative shrink-0 touch-none select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'} ${className}`}
-      style={cubeGeometry({ width: size, height: size, perspective: size * 3.4 },rootUnits)}>
-      
+      className={`relative shrink-0 touch-none select-none ${dragging ? "cursor-grabbing" : "cursor-grab"} ${className}`}
+      style={cubeGeometry(
+        { width: size, height: size, perspective: size * 3.4 },
+        rootUnits,
+      )}
+    >
       <div
         className="absolute inset-0"
         style={{
-          transformStyle: 'preserve-3d',
+          transformStyle: "preserve-3d",
           transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) ${viewTransform(camera)}`,
-          transition: !dragging && animateOrientation ? 'transform 260ms cubic-bezier(0.23, 1, 0.32, 1)' : 'none'
-        }}>
-        
-        {FACES.map((face) =>
-        <div
-          key={face}
-          className="absolute grid"
-          style={cubeGeometry({
-            left: (size - S) / 2,
-            top: (size - S) / 2,
-            width: S,
-            height: S,
-            transform: faceTransform(face, half),
-            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-            gridTemplateRows: 'repeat(3, minmax(0, 1fr))',
-            gap,
-            padding: gap,
-            background: 'var(--cube-body)',
-            borderRadius: S * 0.045,
-            backfaceVisibility: 'hidden'
-          },rootUnits)}>
-          
+          transition:
+            !dragging && !reduced && (animateOrientation || selectionMotion)
+              ? "transform 260ms cubic-bezier(0.23, 1, 0.32, 1)"
+              : "none",
+        }}
+      >
+        {FACES.map((face) => (
+          <div
+            key={face}
+            className="absolute grid"
+            style={cubeGeometry(
+              {
+                left: (size - S) / 2,
+                top: (size - S) / 2,
+                width: S,
+                height: S,
+                transform: faceTransform(face, half),
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gridTemplateRows: "repeat(3, minmax(0, 1fr))",
+                gap,
+                padding: gap,
+                background: "var(--cube-body)",
+                borderRadius: S * 0.045,
+                backfaceVisibility: "hidden",
+              },
+              rootUnits,
+            )}
+          >
             {Array.from({ length: 9 }).map((_, i) => {
-            const color = colors[face];
-            const bg = COLOR_HEX[color];
-            const type = slotType(i);
-            if (!type) {
-              // Centres are never targets: when a pair is highlighted they dim with everything else.
-              return (
-                <div
-                  key={i}
-                  style={cubeGeometry({ background: bg, borderRadius: radius, opacity: hasHighlight ? 0.2 : 1, transition: 'opacity 180ms ease-out' },rootUnits)} />);
+              const color = colors[face];
+              const bg = COLOR_HEX[color];
+              const type = slotType(i);
+              if (!type) {
+                // Centres are never targets: when a pair is highlighted they dim with everything else.
+                return (
+                  <div
+                    key={i}
+                    style={cubeGeometry(
+                      {
+                        background: bg,
+                        borderRadius: radius,
+                        opacity: hasHighlight
+                          ? 0.2
+                          : selected || (showBuffers && mode !== "cube-view")
+                            ? 0.45
+                            : 1,
+                        transition: "opacity 180ms ease-out",
+                      },
+                      rootUnits,
+                    )}
+                  />
+                );
+              }
+              const id = `${face}${i}`;
+              const token = scheme[id] ?? "";
+              const pickable =
+                mode === "lettering" ||
+                (mode === "edge-buffer" && type === "edge") ||
+                (mode === "corner-buffer" && type === "corner");
+              const typeDim =
+                (mode === "edge-buffer" && type !== "edge") ||
+                (mode === "corner-buffer" && type !== "corner");
+              // Targets resolve by exact sticker id when given, so an edge "X" and a corner "CH" never mix.
+              const tokenIndex = highlightIds
+                ? highlightIds.indexOf(id)
+                : highlightTokens
+                  ? highlightTokens.indexOf(token)
+                  : -1;
+              const tokenMatch =
+                tokenIndex !== -1 &&
+                (!!highlightIds || !highlightType || highlightType === type);
+              // With a highlight, everything except the tested stickers is dimmed (centres too, above).
+              const isBuffer =
+                showBuffers && (id === edgeBuffer || id === cornerBuffer);
+              const isBufferPiece =
+                !isBuffer &&
+                (edgeSiblings.includes(id) || cornerSiblings.includes(id));
+              const isSelected = selected === id;
+              const emphasizeBuffers = showBuffers && mode !== "cube-view";
+              const dim = typeDim || (hasHighlight && !tokenMatch);
+              const quiet =
+                (selected && !isSelected) ||
+                (emphasizeBuffers && !isBuffer && !isBufferPiece);
 
+              const shadows: string[] = [];
+              if (isBuffer)
+                shadows.push(
+                  `inset 0 0 0 ${Math.max(3, S * 0.028)}px var(--ink)`,
+                  `inset 0 0 0 ${Math.max(5, S * 0.05)}px var(--cube-body)`,
+                );
+              else if (isBufferPiece)
+                shadows.push(
+                  "inset 0 0 0 2px var(--cube-body)",
+                  "inset 0 0 0 3.5px var(--ink)",
+                );
+              if (tokenMatch)
+                shadows.push(
+                  tokenIndex < (highlightIds ? highlightPrimaryCount : 1)
+                    ? `inset 0 0 0 ${Math.max(2, S * 0.024)}px var(--accent)`
+                    : `inset 0 0 0 ${Math.max(1.5, S * 0.014)}px var(--cube-body), inset 0 0 0 ${Math.max(3, S * 0.03)}px var(--ink)`,
+                );
+              if (isSelected)
+                shadows.push(
+                  `inset 0 0 0 ${Math.max(3, S * 0.035)}px var(--accent)`,
+                  `inset 0 0 0 ${Math.max(5, S * 0.06)}px var(--cube-body)`,
+                );
 
-            }
-            const id = `${face}${i}`;
-            const token = scheme[id] ?? '';
-            const pickable =
-            mode === 'lettering' || mode === 'edge-buffer' && type === 'edge' || mode === 'corner-buffer' && type === 'corner';
-            const typeDim = mode === 'edge-buffer' && type !== 'edge' || mode === 'corner-buffer' && type !== 'corner';
-            // Targets resolve by exact sticker id when given, so an edge "X" and a corner "CH" never mix.
-            const tokenIndex = highlightIds ?
-            highlightIds.indexOf(id) :
-            highlightTokens ?
-            highlightTokens.indexOf(token) :
-            -1;
-            const tokenMatch = tokenIndex !== -1 && (!!highlightIds || !highlightType || highlightType === type);
-            // With a highlight, everything except the tested stickers is dimmed (centres too, above).
-            const dim = typeDim || hasHighlight && !tokenMatch;
-            const isBuffer = showBuffers && (id === edgeBuffer || id === cornerBuffer);
-            const isBufferPiece = !isBuffer && (edgeSiblings.includes(id) || cornerSiblings.includes(id));
-            const isSelected = selected === id;
-
-            const shadows: string[] = [];
-            if (isBuffer) shadows.push('inset 0 0 0 2px rgba(0,0,0,0.72)', '0 0 0 1.5px var(--ink)');else
-            if (isBufferPiece) shadows.push('inset 0 0 0 2px rgba(0,0,0,0.38)');
-            if (tokenMatch)
-            shadows.push(
-              tokenIndex < (highlightIds ? highlightPrimaryCount : 1) ?
-              `inset 0 0 0 ${Math.max(2, S * 0.024)}px var(--accent)` :
-              `inset 0 0 0 ${Math.max(1.5, S * 0.014)}px var(--cube-body), inset 0 0 0 ${Math.max(3, S * 0.03)}px var(--ink)`
-            );
-            if (isSelected) shadows.push('0 0 0 2px var(--accent)');
-
-            const fontSize = Math.max(8, S * (token.length > 2 ? 0.075 : token.length === 2 ? 0.1 : 0.13));
-            const style: React.CSSProperties = cubeGeometry({
-              background: bg,
-              borderRadius: radius,
-              opacity: dim ? 0.2 : 1,
-              boxShadow: shadows.join(', ') || undefined,
-              color: COLOR_TEXT[color],
-              fontSize,
-              transition: 'opacity 180ms ease-out, box-shadow 150ms ease-out'
-            },rootUnits);
-            const turn = glyphRotation(face, camera);
-            const content =
-            <>
-                  <span className="inline-block" style={{ transform: turn ? `rotate(${turn}deg)` : undefined }}>
+              const fontSize = Math.max(
+                8,
+                S *
+                  (token.length > 2 ? 0.075 : token.length === 2 ? 0.1 : 0.13),
+              );
+              const style: React.CSSProperties = cubeGeometry(
+                {
+                  background: bg,
+                  borderRadius: radius,
+                  opacity: dim ? 0.2 : quiet ? 0.45 : 1,
+                  boxShadow: shadows.join(", ") || undefined,
+                  color: COLOR_TEXT[color],
+                  fontSize,
+                  transition:
+                    "opacity 180ms ease-out, box-shadow 150ms ease-out",
+                },
+                rootUnits,
+              );
+              const turn = glyphRotation(face, camera);
+              const content = (
+                <>
+                  <span
+                    className="inline-block"
+                    style={{
+                      transform: turn ? `rotate(${turn}deg)` : undefined,
+                    }}
+                  >
                     {token}
                   </span>
                   {isBuffer && <span className="sr-only"> (buffer)</span>}
-                </>;
+                </>
+              );
 
-            if (pickable && onPick) {
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  aria-label={`Sticker ${token || 'unlabelled'}${isBuffer ? ', buffer' : ''}`}
-                  aria-pressed={isSelected}
-                  onClick={() => {
-                    if (!movedRef.current) onPick(id);
-                  }}
-                  className="flex items-center justify-center font-mono font-medium leading-none outline-none"
-                  style={style}>
-                  
+              if (pickable && onPick) {
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    data-sticker-id={id}
+                    data-selected={isSelected || undefined}
+                    data-buffer={
+                      isBuffer
+                        ? id === edgeBuffer
+                          ? "edge"
+                          : "corner"
+                        : undefined
+                    }
+                    aria-label={`Sticker ${token || "unlabelled"}${isBuffer ? ", buffer" : ""}`}
+                    aria-pressed={isSelected}
+                    onClick={() => {
+                      if (!movedRef.current) onPick(id);
+                    }}
+                    className="flex items-center justify-center font-mono font-medium leading-none outline-none"
+                    style={style}
+                  >
                     {content}
-                  </button>);
-
-            }
-            return (
-              <div key={i} className="flex items-center justify-center font-mono font-medium leading-none" style={style}>
+                  </button>
+                );
+              }
+              return (
+                <div
+                  key={i}
+                  data-sticker-id={id}
+                  data-buffer={
+                    isBuffer
+                      ? id === edgeBuffer
+                        ? "edge"
+                        : "corner"
+                      : undefined
+                  }
+                  className="flex items-center justify-center font-mono font-medium leading-none"
+                  style={style}
+                >
                   {content}
-                </div>);
-
-          })}
+                </div>
+              );
+            })}
           </div>
-        )}
+        ))}
       </div>
-    </div>);
-
+    </div>
+  );
 }
 
 function snap(v: number, clamp: boolean): number {
@@ -292,27 +434,31 @@ function snap(v: number, clamp: boolean): number {
 
 function faceTransform(face: Face, half: number): string {
   switch (face) {
-    case 'F':
+    case "F":
       return `translateZ(${half}px)`;
-    case 'B':
+    case "B":
       return `rotateY(180deg) translateZ(${half}px)`;
-    case 'R':
+    case "R":
       return `rotateY(90deg) translateZ(${half}px)`;
-    case 'L':
+    case "L":
       return `rotateY(-90deg) translateZ(${half}px)`;
-    case 'U':
+    case "U":
       return `rotateX(90deg) translateZ(${half}px)`;
-    case 'D':
+    case "D":
       return `rotateX(-90deg) translateZ(${half}px)`;
   }
 }
 
 /** Which face points up, and which faces the viewer, for the saved view plus a manual rotation. */
-function computeView(rxDeg: number, ryDeg: number, camera: CubeViewPref): CubeView {
-  const rx = rxDeg * Math.PI / 180;
-  const ry = ryDeg * Math.PI / 180;
-  let up: Face = 'U';
-  let front: Face = 'F';
+function computeView(
+  rxDeg: number,
+  ryDeg: number,
+  camera: CubeViewPref,
+): CubeView {
+  const rx = (rxDeg * Math.PI) / 180;
+  const ry = (ryDeg * Math.PI) / 180;
+  let up: Face = "U";
+  let front: Face = "F";
   let minY = Infinity;
   let maxZ = -Infinity;
   FACES.forEach((face) => {
@@ -333,11 +479,15 @@ function computeView(rxDeg: number, ryDeg: number, camera: CubeViewPref): CubeVi
       front = face;
     }
   });
-  if ((front as Face) === up || NORMALS[front].every((v, i) => v === -NORMALS[up][i])) {
+  if (
+    (front as Face) === up ||
+    NORMALS[front].every((v, i) => v === -NORMALS[up][i])
+  ) {
     // Looking straight down: the face nearest the bottom of the screen is the front.
     let best = -Infinity;
     FACES.forEach((face) => {
-      if (face === up || NORMALS[face].every((v, i) => v === -NORMALS[up][i])) return;
+      if (face === up || NORMALS[face].every((v, i) => v === -NORMALS[up][i]))
+        return;
       const [nx, ny, nz] = applyView(camera, NORMALS[face]);
       const z1 = -nx * Math.sin(ry) + nz * Math.cos(ry);
       const y2 = -ny * Math.cos(rx) - z1 * Math.sin(rx);
