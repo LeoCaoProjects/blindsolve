@@ -359,7 +359,7 @@ function InlineWordInput({
           onClick={() => onSubmit(value)}
           className="inline-flex h-8 items-center rounded-[4px] px-2 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
         >
-          Save <span className="ml-2 font-mono text-[11px]">↵</span>
+          Save as default <span className="ml-2 font-mono text-[11px]">↵</span>
         </button>
         <button
           type="button"

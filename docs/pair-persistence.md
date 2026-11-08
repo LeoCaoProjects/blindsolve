@@ -29,3 +29,32 @@ Ordinary edits continue through the existing local-first record path. The contex
 The obsolete `encounters` and `forgotten` fields were part of the pair domain type, repository schema/merge/legacy-cloud reader, pair writers and fixtures. Both Flashcards implementations incremented them; the legacy Timer reconstruction writer also incremented encounters and retimestamped pairs merely used in a solve. AppDataContext summed encounters for the pair editor’s usage line. These dependencies have been removed. Flashcard/Training attempts and Timer solves remain independent and preserved. Reading/practising an existing word no longer changes its pair record.
 
 Hydration strips historical counter fields without writeback; new pair records and outgoing JSON omit them. Old local/backups/sync JSON may still contain ignored fields. Historical SQL migration 202609250002_bld_training.sql also defines integer columns `public.letter_pairs.encounters` and `forgotten`. They remain unused; no migration or production operation was performed. Removing them physically would require a separately reviewed DROP COLUMN migration (including associated constraints); removing historical JSON would require a separate revision-aware rewrite of pair payloads in bld_sync_records and any legacy backups. Two SQL integer values are eight bytes before row overhead; JSON also carries field names and digits. This is a small per-record saving, not a claim of substantial database reduction.
+
+
+## Ordinary word authoring is Default-only
+
+`writeDefaultWords(data, logicalPairWords)` is the shared semantic operation for normal word authoring. It merges only `shared` into each decoded entry and delegates to the existing `writePairEntries`, preserving explicit Edge/Corner overrides, identities, timestamps and record-level sync. AppDataContext exposes `setDefaultWord` / `setDefaultWords`; ordinary callers receive no persistence-scope parameter. The old piece-directed `addWord` / `applyTimerDbUpdates` and legacy physical `upsertPair` entry points were removed.
+
+| User action | Mutation path | Persisted scope |
+| --- | --- | --- |
+| Timer missing word, suggestion or changed-word review | useReconstruction.finish → defaultWords → useTimerSession → setDefaultWords → writeDefaultWords | Default |
+| Memo Recall typed/suggested word, explicit Save | RecallReview → setDefaultWord → writeDefaultWords | Default |
+| Flashcards inline edit | useFlashcards.editPrimary → setDefaultWord → writeDefaultWords | Default |
+| Legacy Timer/saved-solve reconstruction | Reconstruction.save → writeDefaultWords | Default |
+| Legacy pair/Flashcards editor | PairEditor → writeDefaultWords | Default |
+| Unified Letter Pairs editor | savePair → writePairEntries | The explicitly labelled Default, Edge or Corner fields |
+| Structured vocabulary import / backup / synchronization | Existing replace/merge/schema operations | Preserve explicitly supplied stored scope |
+
+Current saved-solve inspectors and Execution Sprint, Guided Solve and Trace Sprint reviews are read-only mnemonic consumers, not additional word-writing surfaces. Suggestion components themselves only return a selected value to their owning workflow.
+
+The previous bug was concrete: Timer reconstruction used `piece:pair` keys for both effective lookup and mutation. Its adapter parsed that prefix and wrote the corresponding override. Memo Recall passed `item.piece` directly to `addWord`; Flashcards reused the effective lookup's `source` to choose the edit destination. Solving context had become an implicit persistence instruction.
+
+Effective lookup remains piece-specific (explicit override, then Default). The flat Timer database key now means Default only; explicit piece-prefixed keys retain their read values. Reconstruction keeps the words actually used in each piece context separate from Default persistence. It compares replacement decisions with Default, not the effective override; if the same pair is edited in both contexts, the latest explicit edit supplies the single Default change. Copy states that edits save to Default; existing overrides remain untouched.
+
+Historical accidental and deliberate overrides cannot be distinguished safely: the records retain scope/value/timestamps but no authoring-origin or user-intent marker. No historical values were guessed, flattened, migrated or rewritten.
+
+## Pair shortcut ownership
+
+Previously the letter handler lived on the grid's bubbling `onKeyDown`. Navigation/link focus was outside that grid, and grid autofocus deliberately yielded to vocabulary controls. Thus route/view changes could leave the shortcut without its event source.
+
+The letter listener now belongs to the active `/pairs` route, is installed in a layout effect before paint, and resets with the router history entry. Grid arrow/Enter handling remains local. A completed pair has an explicit focus request, so navigation-focus protection does not swallow an intentional jump. Token-list identity is stable by token contents, preventing unrelated scheme-object refreshes from discarding a partial sequence. The existing 900ms timeout remains; input/textarea/select/contenteditable, modal activity, window blur, explicit letter selection and lifecycle changes safely reset or suspend the sequence. Listeners/timers are cleaned up on exit.

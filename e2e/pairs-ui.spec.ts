@@ -137,10 +137,11 @@ test("Default is primary; Overrides lists only exceptions and keeps letter navig
   await page.keyboard.press("ArrowRight");
   await expect(row(page, "BN")).toBeFocused();
   await choose(page, "Overrides");
-  await page
-    .getByRole("combobox", { name: "Add override", exact: true })
-    .selectOption("0");
-  modal = page.getByRole("dialog", { name: "Pair BA", exact: true });
+  await expect(
+    page.getByRole("combobox", { name: "Add override", exact: true }),
+  ).toHaveCount(0);
+  await choose(page, "Default");
+  modal = await editor(page, "BA");
   await expect(modal.getByRole("textbox", { name: /override/i })).toHaveCount(
     2,
   );
@@ -149,6 +150,7 @@ test("Default is primary; Overrides lists only exceptions and keeps letter navig
     .getByRole("textbox", { name: "Edge override", exact: true })
     .fill("Boat");
   await modal.getByRole("button", { name: "Save", exact: true }).click();
+  await choose(page, "Overrides");
   await expect(row(page, "BA")).toContainText("Boat");
   const column = await nav.boundingBox();
   await page

@@ -50,6 +50,9 @@ export function WordEntry({
           }`}
         />
       </div>
+      <p className="mt-2 text-[12px] text-ink-3">
+        Saves as Default for both Edges and Corners.
+      </p>
       <div className="mt-3 flex justify-end text-[12.5px]">
         <div className="flex items-center gap-2">
           <SuggestPopover

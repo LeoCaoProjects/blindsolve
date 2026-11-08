@@ -18,6 +18,7 @@ interface PairGroupsProps {
   onOpen: (index: number) => void;
   onKeyDown: (event: React.KeyboardEvent) => void;
   refocus: number;
+  jumpRequest?: number;
 }
 export const GROUP = 12;
 /** Default vocabulary, or just its explicit exceptions, in the same reading columns. */
@@ -30,7 +31,9 @@ export function PairGroups({
   onOpen,
   onKeyDown,
   refocus,
+  jumpRequest = 0,
 }: PairGroupsProps) {
+  const lastJump = useRef(jumpRequest);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const entries = rows.flatMap((row, index) =>
     isVisiblePair(row, view) ? [{ row, index }] : [],
@@ -43,7 +46,10 @@ export function PairGroups({
     : entries[0]?.index;
   useEffect(() => {
     const active = document.activeElement;
+    const jumped = lastJump.current !== jumpRequest;
+    lastJump.current = jumpRequest;
     if (
+      !jumped &&
       active instanceof HTMLElement &&
       active.closest(
         '[role="dialog"], [data-pair-index], [aria-label="Vocabulary"], select',
@@ -55,7 +61,7 @@ export function PairGroups({
       (refocus > 0 || active?.closest("[data-pair-grid]"))
     )
       refs.current[activeIndex]?.focus({ preventScroll: true });
-  }, [activeIndex, first, refocus]);
+  }, [activeIndex, first, refocus, jumpRequest]);
   if (!entries.length)
     return <p className="px-3 py-3 text-[13px] text-ink-3">No overrides</p>;
   return (

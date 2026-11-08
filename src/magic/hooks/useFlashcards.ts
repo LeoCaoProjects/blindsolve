@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppData } from '../contexts/AppDataContext';
-import { PairScope } from '../types/app';
 import { pairKey, resolveWords, splitKey } from '../utils/pairs';
 import { tokensOf } from '../utils/scheme';
 import { isTypingTarget } from '../utils/keyboard';
@@ -53,7 +52,7 @@ export function distinctMnemonicCardCount(
  */
 export function useFlashcards(opts: Options) {
   const store = useStore();
-  const { pairs, setup, savePair } = useAppData();
+  const { pairs, setup, setDefaultWord } = useAppData();
   // Derive recent cards from saved data, including later account/cloud hydration.
   const log = useMemo<CardLog[]>(() => store.data.attempts
     .filter((attempt) => attempt.kind === 'flashcard' && attempt.pairKey)
@@ -138,27 +137,9 @@ export function useFlashcards(opts: Options) {
     [card, pick, store]
   );
 
-  /** Which stored list the visible word came from, so edits land in the right place. */
-  const targetScope = useCallback(
-    (c: Card): PairScope => {
-      const r = resolveWords(pairs[c.key], c.piece);
-      return r.source === 'override' ? c.piece : 'shared';
-    },
-    [pairs]
-  );
-
-  const updateWords = useCallback(
-    (c: Card, nextWords: string[]) => {
-      const entry = pairs[c.key] ?? { shared: [] };
-      const target = targetScope(c);
-      savePair(c.key, target === 'shared' ? { ...entry, shared: nextWords } : { ...entry, [target]: nextWords });
-    },
-    [pairs, savePair, targetScope]
-  );
-
   const editPrimary = (word: string) => {
     if (!card || !word.trim()) return;
-    updateWords(card, [word.trim()]);
+    setDefaultWord(card.key, word.trim());
     setPhase('revealed');
   };
 

@@ -34,7 +34,7 @@ vi.mock("../contexts/AppDataContext", () => ({
     solves: [],
     setSolves: vi.fn(),
     timerDb: {},
-    applyTimerDbUpdates: vi.fn(),
+    setDefaultWords: vi.fn(),
     timerMode: mocks.mode,
     setTimerMode: vi.fn(),
     prefs: { m2SecondTargetSwap: false, memoOrder: "corners-first" },

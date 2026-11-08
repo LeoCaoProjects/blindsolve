@@ -57,7 +57,7 @@ export function PairEditorDialog({
         transition={{ duration: reduced ? 0 : 0.18, ease: EASE_OUT }}
         style={{
           width: `min(${designRem(460)}, 100%)`,
-          height: `min(${designRem(520)}, 90dvh)`,
+          height: `min(${designRem(456)}, 90dvh)`,
         }}
         className="relative flex max-h-[90dvh] flex-col overflow-hidden rounded-[6px] border border-line bg-raised font-sans text-ink shadow-overlay"
       >

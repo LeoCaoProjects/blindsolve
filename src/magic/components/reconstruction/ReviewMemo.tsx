@@ -39,6 +39,9 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
 
   return (
     <div>
+      <p className="mb-4 text-[12px] text-ink-3">
+        Word edits save to Default; optional overrides stay unchanged.
+      </p>
       <div className="grid gap-8">
         {rows.map((row) => (
           <section
@@ -112,7 +115,7 @@ function ChangedRow({
 }) {
   const options: { value: Decision; label: string }[] = [
     { value: "keep", label: `Keep ${stored}` },
-    { value: "replace", label: `Use ${used}` },
+    { value: "replace", label: `Save ${used} as default` },
   ];
 
   return (

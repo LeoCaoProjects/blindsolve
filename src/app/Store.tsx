@@ -30,8 +30,6 @@ import {
   type AppData,
   type LocalEnvelope,
 } from "../lib/repository";
-import type { LetterPair } from "../domain/letterPairs";
-import { pairKey } from "../domain/letterPairs";
 
 type SyncState = "local" | "loading" | "saving" | "saved" | "offline" | "error";
 interface StoreValue {
@@ -46,7 +44,6 @@ interface StoreValue {
   recoveryEnvelope: () => LocalEnvelope;
   notify: (s: string) => void;
   update: (fn: (d: AppData) => AppData) => boolean;
-  upsertPair: (p: LetterPair) => void;
   retry: () => void;
   importData: (data: AppData) => void;
   focus: boolean;
@@ -563,17 +560,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
     // Account ownership is held in refs so listeners remain stable.
   }, [flush]);
-  const upsertPair = useCallback(
-    (pair: LetterPair) =>
-      update((d) => ({
-        ...d,
-        pairs: {
-          ...d.pairs,
-          [pairKey(pair.firstStickerId, pair.secondStickerId)]: pair,
-        },
-      })),
-    [update],
-  );
   const importData = (incoming: AppData) => {
     const result = mergeData(current.current.data, incoming);
     const persisted = update(() => result.data);
@@ -611,7 +597,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         recoveryEnvelope: () => current.current,
         notify,
         update,
-        upsertPair,
         retry: () => void retry(),
         importData,
         focus,

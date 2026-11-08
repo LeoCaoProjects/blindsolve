@@ -199,3 +199,22 @@ export function replacePairEntries(
   );
   return writePairEntries(data, edits, timestamp);
 }
+
+/** Ordinary solving/practice edits Default only. Explicit overrides are preserved. */
+export function writeDefaultWords(
+  data: AppData,
+  words: Record<string, string>,
+  timestamp?: string,
+): AppData {
+  const pairs = pairsFromStore(data);
+  return writePairEntries(
+    data,
+    Object.fromEntries(
+      Object.entries(words).map(([key, word]) => [
+        key,
+        { ...(pairs[key] ?? { shared: [] }), shared: primaryWords([word]) },
+      ]),
+    ),
+    timestamp,
+  );
+}
