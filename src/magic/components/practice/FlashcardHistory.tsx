@@ -39,8 +39,10 @@ export function FlashcardHistory() {
                 <span className="truncate text-[12px] text-ink-3">
                   {f.wordsForLog(entry)[0]}
                 </span>
-                <span className="font-mono text-[11px] text-ink-3">
-                  {entry.result === "forgot" ? "Forgot" : "Remembered"}
+                <span
+                  className={`text-[12px] font-medium ${entry.result === "forgot" ? "text-accent" : "text-ink-2"}`}
+                >
+                  {entry.result === "forgot" ? "Incorrect" : "Correct"}
                 </span>
               </div>
               <RowDelete

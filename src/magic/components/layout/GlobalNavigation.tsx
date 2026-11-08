@@ -99,7 +99,21 @@ function GlobalNavigation({ className, onShortcuts }: Registration) {
         >
           <Link
             to={item.path}
-            onClick={(e) => onNav(e, item.path)}
+            onClick={(e) => {
+              onNav(e, item.path);
+              // A pointer-selected route is not the user's keyboard workspace.
+              // Don't leave its link focused for a later dialog to restore.
+              if (
+                !e.defaultPrevented &&
+                e.detail > 0 &&
+                e.button === 0 &&
+                !e.metaKey &&
+                !e.ctrlKey &&
+                !e.shiftKey &&
+                !e.altKey
+              )
+                e.currentTarget.blur();
+            }}
             aria-label={item.label}
             aria-current={active ? "page" : undefined}
             className={`${mobile ? "flex h-full flex-col items-center justify-center gap-1" : "group flex w-14 flex-col items-center gap-1 rounded-lg py-2"} transition-colors duration-150 ease-out ${active ? "text-ink " + (mobile ? "" : "bg-raised") : "text-ink-3 hover:text-ink"}`}

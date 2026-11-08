@@ -4,7 +4,10 @@ const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
 
 /** Keeps keyboard focus in the top-most dialog and returns it when the dialog closes. */
-export function useDialogFocus<T extends HTMLElement>(open = true) {
+export function useDialogFocus<T extends HTMLElement>(
+  open = true,
+  quietRestore = false,
+) {
   const rootRef = useRef<T>(null);
   const wasOpen = useRef(false);
   const previousFocus = useRef<HTMLElement | null>(null);
@@ -64,9 +67,21 @@ export function useDialogFocus<T extends HTMLElement>(open = true) {
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", trap);
-      if (previous?.isConnected) previous.focus();
+      if (previous?.isConnected) {
+        if (quietRestore) {
+          // Restore keyboard continuity without painting a fresh focus ring on
+          // the workspace/control behind a completed deletion popup.
+          previous.setAttribute("data-quiet-focus-return", "");
+          previous.addEventListener(
+            "blur",
+            () => previous.removeAttribute("data-quiet-focus-return"),
+            { once: true },
+          );
+        }
+        previous.focus({ preventScroll: true });
+      }
     };
-  }, [open]);
+  }, [open, quietRestore]);
 
   return rootRef;
 }
