@@ -1,5 +1,10 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useRef, useState, type ReactNode } from "react";
+import {
+  AnimatePresence,
+  motion,
+  useIsPresent,
+  useReducedMotion,
+} from "framer-motion";
 import { ArrowRightIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSessionWorkspace } from "../contexts/SessionWorkspaceContext";
@@ -8,6 +13,7 @@ import { ShortcutSheet } from "../components/common/ShortcutSheet";
 import { PrimaryButton, QuietButton } from "../components/common/PrimaryButton";
 import { AppBar } from "../components/layout/AppBar";
 import { PairTokens } from "../components/pairs/PairTokens";
+import { DefaultWordField } from "../components/pairs/DefaultWordField";
 import { PairCube } from "../components/practice/PairCube";
 import { useShortcutSheet } from "../hooks/useShortcutSheet";
 import { EASE_OUT } from "../utils/keyboard";
@@ -15,7 +21,13 @@ import { splitKey } from "../utils/pairs";
 
 export function Flashcards() {
   const { flashcards: f } = useSessionWorkspace();
+  const reduced = useReducedMotion();
   const sheet = useShortcutSheet();
+  const workspace = useRef<HTMLElement>(null);
+  const finishEditing = () => {
+    f.setPhase("revealed");
+    workspace.current?.focus({ preventScroll: true });
+  };
   const latestLog = f.log[0];
   const cleanup = useHistoryCleanup({
     count: f.log.length,
@@ -34,8 +46,10 @@ export function Flashcards() {
       ) : (
         <div className="scroll-quiet flex min-h-0 flex-1 overflow-y-auto px-5 py-6 vp-md:px-10">
           <section
+            ref={workspace}
+            tabIndex={-1}
             aria-label="Flashcard"
-            className="m-auto flex w-full min-w-0 max-w-[560px] flex-col items-center text-center"
+            className="m-auto flex w-full min-w-0 max-w-[560px] flex-col items-center text-center outline-none"
           >
             <div className="mb-3 vp-md:hidden">
               <PairCube
@@ -54,69 +68,103 @@ export function Flashcards() {
               {f.cardType === "edge" ? "Edge" : "Corner"}
             </span>
             <div
-              aria-live="polite"
-              className="flex h-[104px] vp-md:h-[140px] w-full items-center justify-center py-5"
+              data-flashcard-interaction
+              className="relative h-[148px] w-full shrink-0 vp-md:h-[184px]"
             >
-              {f.phase === "question" && (
-                <span aria-hidden className="h-px w-12 bg-line-strong" />
-              )}
-              {f.phase === "revealed" && (
-                <motion.p
-                  key={f.cardId}
-                  initial={{ opacity: 0, y: 3 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.14, ease: EASE_OUT }}
-                  className="max-h-full overflow-y-auto break-words text-[clamp(26px,4.5vh,40px)] leading-tight text-ink"
-                >
-                  {f.words[0]}
-                </motion.p>
-              )}
-              {f.phase === "editing" && (
-                <InlineWordInput
-                  initial={f.words[0] ?? ""}
-                  placeholder="Word"
-                  onSubmit={f.editPrimary}
-                  onCancel={() => f.setPhase("revealed")}
-                />
-              )}
+              <AnimatePresence initial={false}>
+                {f.phase === "editing" ? (
+                  <StateLayer key={`editing-${f.editSession}`} name="editing">
+                    <DefaultWordEditor
+                      first={f.cardTokens[0]}
+                      second={f.cardTokens[1]}
+                      initial={f.defaultWord}
+                      onSave={(word) => {
+                        f.editPrimary(word);
+                        finishEditing();
+                      }}
+                      onCancel={finishEditing}
+                    />
+                  </StateLayer>
+                ) : (
+                  <StateLayer key="practice" name="practice">
+                    <div
+                      aria-live="polite"
+                      className="flex h-[104px] w-full shrink-0 items-center justify-center py-5 vp-md:h-[140px]"
+                    >
+                      {f.phase === "question" ? (
+                        <span
+                          aria-hidden
+                          className="h-px w-12 bg-line-strong"
+                        />
+                      ) : (
+                        <motion.p
+                          key={f.cardId}
+                          initial={{
+                            opacity: reduced ? 1 : 0,
+                            y: reduced ? 0 : 3,
+                          }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: reduced ? 0 : 0.14,
+                            ease: EASE_OUT,
+                          }}
+                          className="max-h-full overflow-y-auto break-words text-[clamp(26px,4.5vh,40px)] leading-tight text-ink"
+                        >
+                          {f.words[0]}
+                        </motion.p>
+                      )}
+                    </div>
+                    <fieldset
+                      aria-label="Card actions"
+                      className="flex h-11 w-full min-w-0 shrink-0 items-center justify-center border-0 p-0"
+                    >
+                      <div
+                        data-flashcard-controls
+                        className="relative h-full w-full max-w-[360px]"
+                      >
+                        <AnimatePresence initial={false}>
+                          {f.phase === "question" ? (
+                            <StateLayer key="reveal" name="reveal">
+                              <PrimaryButton
+                                onClick={f.reveal}
+                                hint="Space"
+                                className="min-w-[132px] justify-center"
+                              >
+                                Reveal
+                              </PrimaryButton>
+                            </StateLayer>
+                          ) : (
+                            <StateLayer key="review" name="review">
+                              <div className="grid w-full grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] gap-1.5">
+                                <PrimaryButton
+                                  onClick={() => f.next("remembered")}
+                                  hint="1"
+                                  className="justify-center !gap-1.5 !px-2 [&_span]:hidden vp-md:[&_span]:inline"
+                                >
+                                  Remembered
+                                </PrimaryButton>
+                                <QuietButton
+                                  onClick={() => f.next("forgot")}
+                                  className="justify-center gap-2 border border-line-strong !px-2 text-ink"
+                                >
+                                  Forgot <KeyHint>2</KeyHint>
+                                </QuietButton>
+                                <QuietButton
+                                  onClick={f.beginEdit}
+                                  className="justify-center gap-2 border border-line-strong !px-2"
+                                >
+                                  Edit <KeyHint>3</KeyHint>
+                                </QuietButton>
+                              </div>
+                            </StateLayer>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </fieldset>
+                  </StateLayer>
+                )}
+              </AnimatePresence>
             </div>
-            <fieldset
-              aria-label="Card actions"
-              disabled={f.phase === "editing"}
-              className="flex h-11 w-full min-w-0 items-center justify-center border-0 p-0"
-            >
-              {f.phase === "question" ? (
-                <PrimaryButton
-                  onClick={f.reveal}
-                  hint="Space"
-                  className="min-w-[132px] justify-center"
-                >
-                  Reveal
-                </PrimaryButton>
-              ) : (
-                <div className="grid w-full max-w-[360px] grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] gap-1.5">
-                  <PrimaryButton
-                    onClick={() => f.next("remembered")}
-                    hint="1"
-                    className="justify-center !gap-1.5 !px-2 [&_span]:hidden vp-md:[&_span]:inline"
-                  >
-                    Remembered
-                  </PrimaryButton>
-                  <QuietButton
-                    onClick={() => f.next("forgot")}
-                    className="justify-center gap-2 border border-line-strong !px-2 text-ink"
-                  >
-                    Forgot <KeyHint>2</KeyHint>
-                  </QuietButton>
-                  <QuietButton
-                    onClick={() => f.setPhase("editing")}
-                    className="justify-center gap-2 border border-line-strong !px-2"
-                  >
-                    Edit <KeyHint>3</KeyHint>
-                  </QuietButton>
-                </div>
-              )}
-            </fieldset>
           </section>
         </div>
       )}
@@ -138,56 +186,81 @@ function KeyHint({ children }: { children: string }) {
   );
 }
 
-function InlineWordInput({
+/** Only opacity/translation animate; every state uses the already-reserved bounds.
+ * Exiting layers immediately stop accepting focus, pointer and shortcut actions. */
+function StateLayer({ children, name }: { children: ReactNode; name: string }) {
+  const present = useIsPresent();
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      data-flashcard-state={name}
+      inert={!present}
+      aria-hidden={!present || undefined}
+      initial={{ opacity: 0, y: reduced ? 0 : 3 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: reduced ? 0 : -2 }}
+      transition={{ duration: reduced ? 0 : 0.16, ease: EASE_OUT }}
+      className={`absolute inset-0 flex flex-col items-center justify-center ${present ? "" : "pointer-events-none"}`}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function DefaultWordEditor({
+  first,
+  second,
   initial,
-  placeholder,
-  onSubmit,
+  onSave,
   onCancel,
 }: {
+  first: string;
+  second: string;
   initial: string;
-  placeholder: string;
-  onSubmit: (w: string) => void;
+  onSave: (word: string) => void;
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(initial);
+  const save = () => {
+    if (value.trim()) onSave(value.trim());
+  };
   return (
-    <div>
-      <input
-        autoFocus
-        aria-label={placeholder}
-        value={value}
-        placeholder={placeholder}
-        onFocus={(e) => e.currentTarget.select()}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            onSubmit(value);
-          }
-          if (e.key === "Escape") {
-            e.preventDefault();
-            onCancel();
-          }
-        }}
-        className="w-full max-w-[640px] border-b border-accent bg-transparent pb-1 text-[clamp(30px,5.5vh,52px)] text-ink outline-none placeholder:text-ink-3"
-      />
-
-      <p className="mt-3 flex gap-1 text-[12.5px] text-ink-3">
-        <button
-          type="button"
-          onClick={() => onSubmit(value)}
-          className="inline-flex h-8 items-center rounded-[4px] px-2 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
+    <div
+      className="flex h-full w-full max-w-[360px] flex-col"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && !event.nativeEvent.isComposing) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!event.repeat) onCancel();
+        }
+      }}
+    >
+      <div className="flex h-[104px] shrink-0 flex-col justify-center text-left vp-md:h-[140px]">
+        <p className="mb-2 flex flex-wrap items-baseline gap-x-2 text-[13px] font-medium text-ink-2">
+          <span>Default word</span>
+          <span className="text-[11px] font-normal text-ink-3">
+            Used for both Edges and Corners
+          </span>
+        </p>
+        <DefaultWordField
+          first={first}
+          second={second}
+          value={value}
+          onChange={setValue}
+          onSubmit={save}
+        />
+      </div>
+      <div className="flex h-11 shrink-0 items-center justify-end gap-2">
+        <QuietButton onClick={onCancel}>Cancel</QuietButton>
+        <PrimaryButton
+          onClick={save}
+          disabled={!value.trim()}
+          hint=""
+          className="min-w-[84px] justify-center"
         >
-          Save as default <span className="ml-2 font-mono text-[11px]">↵</span>
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex h-8 items-center rounded-[4px] px-2 transition-colors duration-150 hover:bg-hover hover:text-ink-2"
-        >
-          Cancel <span className="ml-2 font-mono text-[11px]">esc</span>
-        </button>
-      </p>
+          Save
+        </PrimaryButton>
+      </div>
     </div>
   );
 }

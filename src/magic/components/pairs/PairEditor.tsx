@@ -1,13 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { SparklesIcon, XIcon } from "lucide-react";
+import React, { useState } from "react";
+import { XIcon } from "lucide-react";
 import type { PairEntry, PairScope } from "../../types/app";
 import { primaryWords } from "../../utils/pairs";
 import { IconButton } from "../common/IconButton";
 import { PairEditorDialog } from "./PairEditorDialog";
 import { PrimaryButton, QuietButton } from "../common/PrimaryButton";
 import { ConfirmDialog } from "../common/ConfirmDialog";
-import { SuggestionMenu } from "../common/SuggestWords";
-import { Popover } from "../common/Popover";
+import { DefaultWordField, PAIR_WORD_FIELD } from "./DefaultWordField";
 import { PairTokens } from "./PairTokens";
 
 interface PairEditorProps {
@@ -26,12 +25,6 @@ const scopeLabel = (scope: PairScope) =>
     : scope === "edges"
       ? "Edge override"
       : "Corner override";
-type Panel = {
-  anchor: HTMLButtonElement;
-};
-const fieldStyle =
-  "h-11 w-full min-w-0 rounded-[4px] border border-line-strong bg-surface pl-3 pr-10 text-[16px] text-ink caret-accent outline-none placeholder:text-ink-3 focus:rounded-[4px] focus:border-ink-3";
-
 /** A fixed editor with reserved rows and one floating tools surface. */
 export function PairEditor({
   first,
@@ -44,19 +37,6 @@ export function PairEditor({
 }: PairEditorProps) {
   const [draft, setDraft] = useState<PairEntry>(() => entry ?? { shared: [] });
   const [confirmClear, setConfirmClear] = useState(false);
-  const [panel, setPanel] = useState<Panel | null>(null);
-  const refs = useRef<Partial<Record<PairScope, HTMLInputElement | null>>>({});
-  const defaultSuggest = useRef<HTMLButtonElement>(null);
-  const anchorRef = useMemo(
-    () => ({ current: panel?.anchor ?? null }),
-    [panel?.anchor],
-  );
-  useEffect(() => {
-    if (suggestionsOpen && defaultSuggest.current)
-      setPanel({
-        anchor: defaultSuggest.current,
-      });
-  }, [suggestionsOpen]);
   const savedCount = entry
     ? entry.shared.length +
       (entry.edges?.length ?? 0) +
@@ -78,24 +58,28 @@ export function PairEditor({
         : out,
     );
   };
-  const togglePanel = (anchor: HTMLButtonElement) =>
-    setPanel((current) => (current ? null : { anchor }));
   const field = (scope: PairScope) => {
+    if (scope === "shared")
+      return (
+        <DefaultWordField
+          first={first}
+          second={second}
+          value={draft.shared[0] ?? ""}
+          onChange={(word) => setWords("shared", [word])}
+          onSubmit={save}
+          suggestionsOpen={suggestionsOpen}
+        />
+      );
     const words = draft[scope] ?? [],
       primary = words[0] ?? "";
     return (
       <>
         <div className="relative h-11">
           <input
-            ref={(el) => {
-              refs.current[scope] = el;
-            }}
-            data-dialog-autofocus={scope === "shared" ? "" : undefined}
-            autoFocus={scope === "shared"}
             aria-label={scopeLabel(scope)}
-            disabled={scope !== "shared" && !availableOverrides.includes(scope)}
+            disabled={!availableOverrides.includes(scope)}
             value={primary}
-            placeholder={scope === "shared" ? "Enter word" : "Optional"}
+            placeholder="Optional"
             onChange={(event) => setWords(scope, [event.target.value])}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.nativeEvent.isComposing) {
@@ -103,26 +87,12 @@ export function PairEditor({
                 save();
               }
             }}
-            className={fieldStyle}
+            className={PAIR_WORD_FIELD}
           />
-          {scope === "shared" && (
-            <button
-              ref={defaultSuggest}
-              type="button"
-              aria-label={`Suggest words for ${scopeLabel(scope).toLowerCase()}`}
-              aria-haspopup="dialog"
-              aria-expanded={panel !== null}
-              onClick={(event) => togglePanel(event.currentTarget)}
-              className="absolute right-1 top-1 flex h-9 w-8 items-center justify-center rounded-[4px] text-ink-3 transition-colors hover:bg-hover hover:text-ink"
-            >
-              <SparklesIcon size={14} strokeWidth={1.75} aria-hidden />
-            </button>
-          )}
         </div>
       </>
     );
   };
-  const primary = draft.shared[0] ?? "";
   return (
     <PairEditorDialog label={`Pair ${first}${second}`} onClose={onClose}>
       <header className="shrink-0 px-6 pb-4 pt-5">
@@ -180,7 +150,6 @@ export function PairEditor({
         {savedCount > 0 ? (
           <QuietButton
             onClick={() => {
-              setPanel(null);
               setConfirmClear(true);
             }}
             className="text-[var(--danger)] hover:bg-[var(--danger-soft)]"
@@ -198,30 +167,6 @@ export function PairEditor({
           Save
         </PrimaryButton>
       </footer>
-      <Popover
-        open={panel !== null}
-        onClose={() => setPanel(null)}
-        anchorRef={anchorRef}
-        width={260}
-        label={`Suggestions for ${first}${second}`}
-        className="theme-workspace"
-      >
-        <div
-          className="scroll-quiet max-h-[min(320px,65dvh)] overflow-y-auto"
-          key="shared"
-        >
-          <SuggestionMenu
-            first={first}
-            second={second}
-            current={primary}
-            onPick={(word) => {
-              setWords("shared", [word]);
-              setPanel(null);
-              refs.current.shared?.focus();
-            }}
-          />
-        </div>
-      </Popover>
       <ConfirmDialog
         open={confirmClear}
         title={`Clear ${first}${second}?`}

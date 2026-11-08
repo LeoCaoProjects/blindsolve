@@ -86,7 +86,7 @@ test("stable reveal, shared buttons, 1/2/3, repeat/typing/modal guards and passi
   expect((await attempts(page))[0].correct).toBe(false);
   await reveal(page);
   await page.keyboard.press("3");
-  const input = page.getByRole("textbox", { name: "Word", exact: true });
+  const input = page.getByRole("textbox", { name: "Default word", exact: true });
   await expect(input).toBeFocused();
   await input.fill("123 Word");
   await input.press("Space");
