@@ -68,9 +68,10 @@ export const shortcutSections: ShortcutSection[] = [
     id: "flashcards",
     title: "Flashcards",
     items: [
-      { keys: ["Space / Enter"], label: "Reveal, then mark remembered" },
-      { keys: ["F"], label: "Mark forgotten after reveal" },
-      { keys: ["E"], label: "Edit word after reveal" },
+      { keys: ["Space"], label: "Reveal answer" },
+      { keys: ["1"], label: "Mark remembered after reveal" },
+      { keys: ["2"], label: "Mark forgotten after reveal" },
+      { keys: ["3"], label: "Edit word after reveal" },
       { keys: ["Backspace"], label: "Delete latest history entry" },
       { keys: ["Shift + Backspace"], label: "Clear history" },
     ],

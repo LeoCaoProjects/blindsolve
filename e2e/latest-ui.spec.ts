@@ -179,12 +179,12 @@ test('a held Flashcard shortcut reveals once and never records before release', 
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts)).toHaveLength(1);
 });
 
-test('Flashcards keep physical variants but count a shared mnemonic once', async ({ page }) => {
+test('Flashcards keep physical variants without a deck-count heading', async ({ page }) => {
   await load(page, workspace(true));
   await page.goto('/flashcards');
   await expect(page.getByRole('radiogroup', { name: 'Pieces' })).toHaveCount(0);
   await expect(page.getByText(/^(Edge|Corner)$/)).toBeVisible();
-  await expect(page.getByText('1 card', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 card', { exact: true })).toHaveCount(0);
 });
 
 test('Trace Sprint submits once, freezes time, and Enter review advances without another record', async ({ page }) => {

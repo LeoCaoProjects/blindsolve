@@ -14,6 +14,8 @@ import { TrainingHistory } from "../training/TrainingHistory";
 import { TrainingRegion } from "../training/TrainingRegion";
 import { TrainingHeader } from "../training/TrainingHeader";
 import { WorkspaceScrambleHeader } from "./WorkspaceScrambleHeader";
+import { PairCube } from "../practice/PairCube";
+import { FlashcardHistory } from "../practice/FlashcardHistory";
 
 /** A single mounted reference surface. Only the left workspace participates in
  * the existing contextual-nav slide; the cube never travels with that slide. */
@@ -23,9 +25,10 @@ export function SessionWorkspaceFrame({
   children: React.ReactNode;
 }) {
   const { pathname } = useLocation();
-  const shared = pathname === "/" || pathname === "/training";
+  const flashcards = pathname === "/flashcards";
+  const shared = pathname === "/" || pathname === "/training" || flashcards;
   const training = pathname === "/training";
-  const { timer: s, training: t } = useSessionWorkspace();
+  const { timer: s, training: t, flashcards: f } = useSessionWorkspace();
   const { phase } = s.timer;
   const init = useScreenInit() as { letters?: boolean };
   const [letters, setLetters] = useState(!!init.letters);
@@ -41,13 +44,14 @@ export function SessionWorkspaceFrame({
   const timerDisabled =
     s.running || s.overlayOpen || phase === "armed" || phase === "ready";
   const holdReady = training && t.hold.phase === "ready";
-  const recede = training
-    ? ""
-    : s.running
-      ? "opacity-[0.1]"
-      : phase === "ready"
-        ? "opacity-40"
-        : "";
+  const recede =
+    training || flashcards
+      ? ""
+      : s.running
+        ? "opacity-[0.1]"
+        : phase === "ready"
+          ? "opacity-40"
+          : "";
   const scrambleMode =
     t.mode === "exec" || t.mode === "guided" || t.mode === "trace";
   const cubeVisible = !training || t.mode !== "trace";
@@ -97,11 +101,11 @@ export function SessionWorkspaceFrame({
       subnavClassName={holdReady ? "opacity-40" : ""}
       layoutClassName={
         shared
-          ? `timer-layout grid h-full min-h-0 grid-cols-1 ${training ? "training-workspace grid-rows-1" : "grid-rows-[minmax(0,1fr)_minmax(128px,25dvh)]"} vp-md:grid-rows-1`
+          ? `timer-layout grid h-full min-h-0 grid-cols-1 ${training || flashcards ? "training-workspace grid-rows-1" : "grid-rows-[minmax(0,1fr)_minmax(128px,25dvh)]"} vp-md:grid-rows-1`
           : undefined
       }
       header={
-        shared ? (
+        shared && !flashcards ? (
           training ? (
             <TrainingRegion
               name="scramble"
@@ -119,7 +123,7 @@ export function SessionWorkspaceFrame({
         shared ? (
           <aside
             data-workspace-reference
-            className={`timer-reference-column min-h-0 flex-col border-t border-line bg-surface transition-opacity duration-300 ease-out vp-md:border-l vp-md:border-t-0 ${training ? "hidden vp-md:flex" : "flex"} ${training ? (t.running ? "opacity-[0.1]" : holdReady ? "opacity-40" : "") : recede}`}
+            className={`timer-reference-column min-h-0 flex-col border-t border-line bg-surface transition-opacity duration-300 ease-out vp-md:border-l vp-md:border-t-0 ${training || flashcards ? "hidden vp-md:flex" : "flex"} ${training ? (t.running ? "opacity-[0.1]" : holdReady ? "opacity-40" : "") : recede}`}
           >
             <TrainingRegion
               name="cube"
@@ -131,49 +135,63 @@ export function SessionWorkspaceFrame({
                 data-timer-cube-viewport
                 className="timer-cube-viewport relative h-8 shrink-0 border-b border-line"
               >
-                <div
-                  role="group"
-                  aria-label={
-                    training ? "Training utilities" : "Timer utilities"
-                  }
-                  className="pointer-events-none absolute inset-0 z-10"
-                >
-                  {!training && (
-                    <div className="pointer-events-auto absolute right-3 top-0.5 vp-md:top-1">
-                      <TimerModeControl
-                        value={s.timerMode}
-                        onChange={s.setTimerMode}
-                        disabled={timerDisabled}
-                      />
-                    </div>
-                  )}
-                  <CubeUtilityButton
-                    label="Sticker letters"
-                    pressed={letters}
-                    onClick={() => setLetters((v) => !v)}
-                    disabled={
-                      !cubeVisible || (training && t.phase === "recall")
+                {!flashcards && (
+                  <div
+                    role="group"
+                    aria-label={
+                      training ? "Training utilities" : "Timer utilities"
                     }
-                    className={`cube-utility-letters pointer-events-auto absolute hidden vp-md:inline-flex `}
+                    className="pointer-events-none absolute inset-0 z-10"
                   >
-                    <CaseSensitiveIcon />
-                  </CubeUtilityButton>
-                </div>
+                    {!training && (
+                      <div className="pointer-events-auto absolute right-3 top-0.5 vp-md:top-1">
+                        <TimerModeControl
+                          value={s.timerMode}
+                          onChange={s.setTimerMode}
+                          disabled={timerDisabled}
+                        />
+                      </div>
+                    )}
+                    <CubeUtilityButton
+                      label="Sticker letters"
+                      pressed={letters}
+                      onClick={() => setLetters((v) => !v)}
+                      disabled={
+                        !cubeVisible || (training && t.phase === "recall")
+                      }
+                      className={`cube-utility-letters pointer-events-auto absolute hidden vp-md:inline-flex `}
+                    >
+                      <CaseSensitiveIcon />
+                    </CubeUtilityButton>
+                  </div>
+                )}
                 <div
                   className={`absolute inset-0 hidden items-center justify-center vp-md:flex  ${training && scrambleMode && !t.scrambleReady ? "opacity-25" : ""}`}
                 >
-                  {!(training && t.mode === "trace") && (
-                    <Cube3D
-                      state={state}
-                      size={cubeSize}
-                      showLetters={letters}
-                      label={cubeLabel}
-                    />
-                  )}
+                  {flashcards
+                    ? f.cardTokens && (
+                        <PairCube
+                          key="flashcards"
+                          tokens={f.cardTokens}
+                          type={f.cardType}
+                          size={cubeSize}
+                          animateOrientation
+                        />
+                      )
+                    : !(training && t.mode === "trace") && (
+                        <Cube3D
+                          state={state}
+                          size={cubeSize}
+                          showLetters={letters}
+                          label={cubeLabel}
+                        />
+                      )}
                 </div>
               </div>
             </TrainingRegion>
-            {training ? (
+            {flashcards ? (
+              <FlashcardHistory />
+            ) : training ? (
               <div
                 data-training-history
                 className={`flex min-h-0 flex-1 flex-col transition-opacity duration-300 ease-out ${recede}`}
