@@ -118,6 +118,11 @@ body {
   outline-offset: 2px;
   border-radius: 3px;
 }
+/* History popups return functional focus quietly. Normal focus styling resumes
+   once the user moves focus again; interactive controls keep their usual rings. */
+[data-quiet-focus-return]:focus {
+  outline: none !important;
+}
 .scroll-quiet {
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;

@@ -49,7 +49,7 @@ export function Flashcards() {
             ref={workspace}
             tabIndex={-1}
             aria-label="Flashcard"
-            className="m-auto flex w-full min-w-0 max-w-[560px] flex-col items-center text-center outline-none"
+            className="m-auto flex w-full min-w-0 max-w-[560px] flex-col items-center text-center outline-none focus-visible:outline-none"
           >
             <div className="mb-3 vp-md:hidden">
               <PairCube

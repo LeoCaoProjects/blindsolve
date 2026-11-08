@@ -210,6 +210,39 @@ for (const [width, height] of [
     await page.screenshot({ path: test.info().outputPath("editor.png") });
   });
 
+test("keyboard editor exit leaves no frame ring and history clearly labels outcomes", async ({
+  page,
+}) => {
+  await open(page);
+  await edit(page);
+  const frame = page.getByRole("region", { name: "Flashcard", exact: true });
+  await input(page).press("Escape");
+  await expect(frame).toBeFocused();
+  await expect(frame).toHaveCSS("outline-color", "rgba(0, 0, 0, 0)");
+  await page.keyboard.press("3");
+  await expect(input(page)).toHaveValue("Apple");
+  await input(page).fill("Anchor");
+  await input(page).press("Enter");
+  await expect(frame).toBeFocused();
+  await expect(frame).toHaveCSS("outline-color", "rgba(0, 0, 0, 0)");
+  await page.keyboard.press("1");
+  const rows = page.locator("[data-flashcard-row]");
+  await expect(rows.first()).toContainText("Correct");
+  await page.keyboard.press("Space");
+  await page.waitForTimeout(240);
+  await page.keyboard.press("2");
+  await expect(rows.first()).toContainText("Incorrect");
+  await expect(rows.first()).toHaveCSS("cursor", "default");
+  const before = await stored(page);
+  await rows.first().click();
+  expect((await stored(page)).attempts).toEqual(before.attempts);
+  await page.locator('[aria-label="Recent cards"] button').first().click();
+  expect((await stored(page)).attempts).toHaveLength(1);
+  await page.screenshot({
+    path: test.info().outputPath("history-outcomes.png"),
+  });
+});
+
 test("reduced motion uses instant state changes with identical outer geometry", async ({
   page,
 }) => {
