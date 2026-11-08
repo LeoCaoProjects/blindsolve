@@ -155,7 +155,7 @@ test('flashcards use saved pairs, reveal, edit and persist an attempt', async ({
   await page.getByRole('button', { name: /Reveal/ }).click();
   await expect(page.getByText('tow', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /^Edit/ }).click();
-  await page.getByLabel('Word').fill('towel');
+  await page.getByRole('textbox', { name: 'Default word', exact: true }).fill('towel');
   await page.getByRole('button', { name: /^Save/ }).click();
   await page.getByRole('button', { name: 'Remembered', exact: false }).click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data);

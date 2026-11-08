@@ -77,6 +77,12 @@ export function useFlashcards(opts: Options, active = true) {
     [store.data.attempts],
   );
   const [phase, setPhase] = useState<CardPhase>(opts.phase ?? "question");
+  // Reopening during an exit fade starts a fresh draft rather than reviving it.
+  const [editSession, setEditSession] = useState(0);
+  const beginEdit = useCallback(() => {
+    setEditSession((current) => current + 1);
+    setPhase("editing");
+  }, []);
 
   const wordsFor = useCallback(
     (key: string, piece: CardPiece) => resolveWords(pairs[key], piece).words,
@@ -227,12 +233,12 @@ export function useFlashcards(opts: Options, active = true) {
         e.preventDefault();
         if (e.key === "1") next("remembered");
         else if (e.key === "2") next("forgot");
-        else setPhase("editing");
+        else beginEdit();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, card, next, phase]);
+  }, [active, card, next, phase, beginEdit]);
 
   const remembered = log.filter((l) => l.result === "remembered").length;
 
@@ -244,6 +250,9 @@ export function useFlashcards(opts: Options, active = true) {
       ? ((card.piece === "edges" ? "edge" : "corner") as "edge" | "corner")
       : null,
     words,
+    defaultWord: card ? (pairs[card.key]?.shared[0] ?? "") : "",
+    editSession,
+    beginEdit,
     phase,
     setPhase,
     reveal: () => setPhase("revealed"),

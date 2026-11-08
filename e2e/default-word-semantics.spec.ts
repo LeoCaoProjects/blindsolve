@@ -139,8 +139,8 @@ test("Flashcards ordinary editing preserves both explicit overrides", async ({
     page.getByText(/^(Arrow|Castle)$/, { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: /^Edit/ }).click();
-  await page.getByRole("textbox", { name: "Word", exact: true }).fill("Anchor");
-  await page.getByRole("button", { name: /^Save as default/ }).click();
+  await page.getByRole("textbox", { name: "Default word", exact: true }).fill("Anchor");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.reload();
   expect(pairsFromStore(await read(page))["A|B"]).toEqual({
     shared: ["Anchor"],
