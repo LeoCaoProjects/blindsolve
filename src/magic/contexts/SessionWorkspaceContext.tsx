@@ -12,10 +12,12 @@ import { TrainFilter } from "../utils/bld";
 import { useScreenInit } from "../useScreenInit.js";
 import { useAppData } from "./AppDataContext";
 import { useStore } from "../../app/Store";
+import { useFlashcards } from "../hooks/useFlashcards";
 
 interface SessionWorkspaceValue {
   timer: TimerSession;
   training: TrainingSession;
+  flashcards: ReturnType<typeof useFlashcards>;
 }
 
 const SessionWorkspaceContext = createContext<SessionWorkspaceValue | null>(
@@ -94,9 +96,10 @@ function OwnerWorkspace({
     stage: init.stage ?? stage,
     active: pathname === "/",
   });
+  const flashcards = useFlashcards({}, pathname === "/flashcards");
 
   return (
-    <SessionWorkspaceContext.Provider value={{ timer, training }}>
+    <SessionWorkspaceContext.Provider value={{ timer, training, flashcards }}>
       {children}
     </SessionWorkspaceContext.Provider>
   );
