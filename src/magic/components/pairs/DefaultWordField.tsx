@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "lucide-react";
 import { Popover } from "../common/Popover";
 import { SuggestionMenu } from "../common/SuggestWords";
+import { TEXT_INPUT_STYLE } from "../common/formStyles";
 
-export const PAIR_WORD_FIELD =
-  "h-11 w-full min-w-0 rounded-[4px] border border-line-strong bg-surface pl-3 pr-10 text-[16px] text-ink caret-accent outline-none placeholder:text-ink-3 focus:rounded-[4px] focus:border-ink-3";
+export const PAIR_WORD_FIELD = `${TEXT_INPUT_STYLE} pr-10`;
 
 /** Default-only field and floating suggestions shared by pair and practice editors. */
 export function DefaultWordField({

@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { EASE_OUT } from "../../utils/keyboard";
 import { useDialogFocus } from "../../hooks/useDialogFocus";
 import { useDialogSpaceClose } from "../../hooks/useDialogSpaceClose";
+import { SecondaryButton } from "./PrimaryButton";
 
 interface Action {
   label: string;
@@ -110,13 +111,9 @@ export function ConfirmDialog({
                 {cancelLabel}
               </button>
               {secondary && (
-                <button
-                  type="button"
-                  onClick={() => runAction(secondary)}
-                  className="inline-flex h-9 items-center rounded-[4px] border border-line-strong px-3.5 text-[13px] text-ink transition-colors duration-150 ease-out hover:bg-hover"
-                >
+                <SecondaryButton onClick={() => runAction(secondary)}>
                   {secondary.label}
-                </button>
+                </SecondaryButton>
               )}
               <button
                 type="button"
