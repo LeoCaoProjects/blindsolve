@@ -1,16 +1,24 @@
 import React from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import { FaceColor, LetterScheme } from "../../types/app";
+import { CubeViewPref, FaceColor, LetterScheme } from "../../types/app";
 import { Face } from "../../utils/cube";
-import { ALL_STICKERS, FACE_NAMES, stickerById } from "../../utils/scheme";
+import {
+  ALL_STICKERS,
+  FACE_NAMES,
+  stickerById,
+  stickerInView,
+  stickerFromView,
+} from "../../utils/scheme";
 import { IconButton } from "../common/IconButton";
 import { TEXT_INPUT_STYLE } from "../common/formStyles";
+import { useDefaultView } from "../../contexts/AppDataContext";
 import { StickerSwatch } from "./StickerSwatch";
 
 interface StickerEditorProps {
   scheme: LetterScheme;
   colors: Record<Face, FaceColor>;
   selected: string;
+  view?: CubeViewPref;
   onChange: (id: string, token: string) => void;
   onSelect: (id: string) => void;
 }
@@ -19,13 +27,17 @@ export function StickerEditor({
   scheme,
   colors,
   selected,
+  view: draftView,
   onChange,
   onSelect,
 }: StickerEditorProps) {
+  const savedView = useDefaultView();
+  const view = draftView ?? savedView;
   const info = stickerById(selected);
+  const display = stickerInView(selected, view);
   const token = scheme[selected] ?? "";
   const order = ALL_STICKERS.filter((s) => s.type === info.type).map(
-    (s) => s.id,
+    (s) => stickerFromView(s.id, view).id,
   );
   const pos = order.indexOf(selected);
   const move = (d: number) =>
@@ -45,11 +57,12 @@ export function StickerEditor({
         <div className="min-w-0 flex-1">
           <p className="text-[13.5px] capitalize text-ink">{info.type}</p>
           <p
+            data-lettering-position={display.id}
             className="mt-0.5 text-[12px] text-ink-3"
-            title={`${info.piece} · ${FACE_NAMES[info.face]} sticker`}
+            title={`${display.piece}, ${FACE_NAMES[display.face]} sticker`}
           >
-            {FACE_NAMES[info.face]} face ·{" "}
-            <span className="font-mono">{info.piece}</span>
+            {FACE_NAMES[display.face]} face,{" "}
+            <span className="font-mono">{display.piece}</span>
           </p>
         </div>
         <div className="flex">
@@ -90,11 +103,8 @@ export function StickerEditor({
           <span className="text-ink-3">Unlabelled</span>
         ) : duplicates.length ? (
           <span className="text-ink-2">
-            <span
-              aria-hidden
-              className="mr-2 inline-block h-[5px] w-[5px] -translate-y-[2px] rounded-full bg-accent"
-            />
-            Also on {duplicates.map((d) => d.piece).join(", ")}
+            Also on{" "}
+            {duplicates.map((d) => stickerInView(d.id, view).piece).join(", ")}
           </span>
         ) : null}
       </div>

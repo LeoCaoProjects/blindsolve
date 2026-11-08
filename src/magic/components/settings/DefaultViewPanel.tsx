@@ -34,33 +34,34 @@ export function DefaultViewPanel({
   return (
     <div>
       <p className="text-[14px] text-ink">
-        {COLOR_NAMES[value.top]} top · {COLOR_NAMES[value.front]} front
+        {COLOR_NAMES[value.top]} top, {COLOR_NAMES[value.front]} front
       </p>
       <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-3">
-        How cubes face you. Scrambles always use white top, green front.
+        Choose your top and front colours.
       </p>
 
       <div className="mt-6 border-t border-line pt-5">
         <p className="text-[12.5px] text-ink-3">
-          Turn the cube to how you like to see it
+          Drag the cube to try another view.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <SecondaryButton
-            disabled={!rotated}
-            onClick={() => {
-              onChange(liveView);
-              onResetRotation();
-            }}
-            className="h-auto min-h-9 flex-wrap justify-start py-2"
-          >
-            Use this view
-            {rotated && (
-              <span className="ml-2 text-ink-3">
-                {COLOR_NAMES[liveView.top].toLowerCase()} top,{" "}
-                {COLOR_NAMES[liveView.front].toLowerCase()} front
-              </span>
-            )}
-          </SecondaryButton>
+          {rotated && (
+            <SecondaryButton
+              onClick={() => {
+                onChange(liveView);
+                onResetRotation();
+              }}
+              className="h-auto min-h-9 flex-wrap justify-start py-2"
+            >
+              Use displayed view
+              {rotated && (
+                <span className="ml-2 text-ink-3">
+                  {COLOR_NAMES[liveView.top].toLowerCase()} top,{" "}
+                  {COLOR_NAMES[liveView.front].toLowerCase()} front
+                </span>
+              )}
+            </SecondaryButton>
+          )}
           {rotated && (
             <QuietButton onClick={onResetRotation}>Reset</QuietButton>
           )}

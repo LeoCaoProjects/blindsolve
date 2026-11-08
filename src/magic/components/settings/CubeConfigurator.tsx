@@ -7,7 +7,7 @@ import {
   COLOR_NAMES,
   REFERENCE_COLORS,
   isSpeffz,
-  stickerById,
+  stickerInView,
 } from "../../utils/scheme";
 import { Segmented } from "../common/Segmented";
 import { SecondaryButton, QuietButton } from "../common/PrimaryButton";
@@ -16,7 +16,6 @@ import { CubeView, SchemeCube } from "../cube/SchemeCube";
 import { BufferPanel } from "./BufferPanel";
 import { DefaultViewPanel } from "./DefaultViewPanel";
 import { StickerEditor } from "./StickerEditor";
-import { StickerSwatch } from "./StickerSwatch";
 
 interface CubeConfiguratorProps {
   setup: BldSetup;
@@ -85,6 +84,7 @@ export function CubeConfigurator({
             view={view}
             mode={mode}
             selected={mode === "lettering" ? selected : null}
+            revealSelected={mode === "lettering"}
             edgeBuffer={setup.edgeBuffer}
             cornerBuffer={setup.cornerBuffer}
             showBuffers={mode !== "lettering"}
@@ -94,20 +94,36 @@ export function CubeConfigurator({
             label="Your cube"
           />
 
-          <p className="absolute bottom-3 left-4 flex gap-4 font-mono text-[11px] text-ink-3">
-            <span>
-              <span className="mr-1.5 inline-block h-[9px] w-[9px] translate-y-[1px] rounded-[2px] shadow-[inset_0_0_0_1.5px_rgba(0,0,0,0.7),0_0_0_1px_var(--ink)]" />
-              buffers {stickerById(setup.edgeBuffer)?.piece} ·{" "}
-              {stickerById(setup.cornerBuffer)?.piece}
-            </span>
-          </p>
+          <dl
+            aria-label="Configured buffers"
+            className="absolute bottom-3 left-4 flex gap-6 text-[11px]"
+          >
+            <div>
+              <dt className="text-ink-3">Edge buffer</dt>
+              <dd
+                data-buffer-position="edge"
+                className="mt-1 font-mono text-[13px] text-ink"
+              >
+                {stickerInView(setup.edgeBuffer, view).piece}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-ink-3">Corner buffer</dt>
+              <dd
+                data-buffer-position="corner"
+                className="mt-1 font-mono text-[13px] text-ink"
+              >
+                {stickerInView(setup.cornerBuffer, view).piece}
+              </dd>
+            </div>
+          </dl>
         </div>
       </div>
 
       <div className="p-6">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
-            key={mode + (mode === "lettering" ? (selected ?? "") : "")}
+            key={mode}
             initial={{ opacity: 0, x: reduced ? 0 : 3 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0 }}
@@ -146,8 +162,7 @@ export function CubeConfigurator({
                   onChange={() => onModeChange("cube-view")}
                 >
                   <span className="text-ink">
-                    {COLOR_NAMES[view.top]} top · {COLOR_NAMES[view.front]}{" "}
-                    front
+                    {COLOR_NAMES[view.top]} top, {COLOR_NAMES[view.front]} front
                   </span>
                 </SummaryRow>
               </div>
@@ -160,6 +175,7 @@ export function CubeConfigurator({
                     scheme={setup.scheme}
                     colors={colors}
                     selected={selected}
+                    view={view}
                     onSelect={onSelect}
                     onChange={(id, token) =>
                       onChange({ scheme: { ...setup.scheme, [id]: token } })
@@ -179,15 +195,25 @@ export function CubeConfigurator({
                   </div>
                   {!speffz && (
                     <label className="mt-5 block">
-                      <span className="text-[12px] text-ink-3">Name</span>
+                      <span className="text-[12px] text-ink-3">
+                        Lettering name
+                      </span>
                       <input
                         value={setup.schemeName}
                         onChange={(e) =>
                           onChange({ schemeName: e.target.value })
                         }
+                        aria-label="Lettering name"
+                        aria-describedby="lettering-name-help"
                         placeholder="Custom"
                         className={`${TEXT_INPUT_STYLE} mt-2`}
                       />
+                      <span
+                        id="lettering-name-help"
+                        className="mt-1.5 block text-[12px] text-ink-3"
+                      >
+                        Shown in backup previews
+                      </span>
                     </label>
                   )}
                 </div>
@@ -199,6 +225,7 @@ export function CubeConfigurator({
                 type="edge"
                 setup={setup}
                 colors={colors}
+                view={view}
                 onSet={(id) => onChange({ edgeBuffer: id })}
               />
             )}
@@ -207,6 +234,7 @@ export function CubeConfigurator({
                 type="corner"
                 setup={setup}
                 colors={colors}
+                view={view}
                 onSet={(id) => onChange({ cornerBuffer: id })}
               />
             )}
@@ -225,11 +253,14 @@ export function CubeConfigurator({
   );
 
   function BufferValue({ id, token }: { id: string; token?: string }) {
-    const info = stickerById(id);
     return (
-      <span className="flex items-center gap-2.5">
-        <StickerSwatch color={colors[info.face]} token={token} size={20} ring />
-        <span className="font-mono text-ink">{info.piece}</span>
+      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="font-mono text-ink">
+          {stickerInView(id, view).piece}
+        </span>
+        <span className="text-[12px] text-ink-3">
+          Letter {token || "unlabelled"}
+        </span>
       </span>
     );
   }
