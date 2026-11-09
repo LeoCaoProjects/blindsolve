@@ -156,7 +156,10 @@ test("blank and duplicate letters show errors and revert on blur or exit", async
   await expect(page.locator("#lettering-label-rule")).toHaveCount(0);
   await expect(status(page)).toHaveCount(0);
   await page.getByRole("link", { name: "Training", exact: true }).click();
-  await expect(page).toHaveURL(/training/);
+  await expect(page).toHaveURL(new URL("/", page.url()).href);
+  await expect(
+    page.getByRole("link", { name: "Training", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   expect((await data(page)).scheme).toEqual(initial.scheme);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
@@ -191,7 +194,10 @@ test("blank and duplicate letters show errors and revert on blur or exit", async
   await expect(input).toHaveAttribute("aria-invalid", "false");
   await input.fill(second);
   await page.getByRole("link", { name: "Training", exact: true }).click();
-  await expect(page).toHaveURL(/training/);
+  await expect(page).toHaveURL(new URL("/", page.url()).href);
+  await expect(
+    page.getByRole("link", { name: "Training", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
   expect((await data(page)).scheme).toEqual(initial.scheme);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await tab(page, "Lettering");

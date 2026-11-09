@@ -209,7 +209,10 @@ test("Settings owns shortcuts after visiting each practice route and saves compl
     .click();
   await page.getByRole("textbox", { name: "Letter", exact: true }).fill("CH");
   await page.getByRole("link", { name: "Flashcards", exact: true }).click();
-  await expect(page).toHaveURL(/flashcards/);
+  await expect(page).toHaveURL(new URL("/", page.url()).href);
+  await expect(
+    page.getByRole("link", { name: "Flashcards", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   expect(
     Object.values((await saved(page)).scheme.stickers).some(

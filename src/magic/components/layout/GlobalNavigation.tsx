@@ -7,7 +7,10 @@ import React, {
   useState,
 } from "react";
 import { KeyboardIcon } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import {
+  WorkspaceLink as Link,
+  useWorkspaceLocation,
+} from "../../navigation/workspaces";
 import { useAppData } from "../../contexts/AppDataContext";
 import { primaryNav, settingsNav } from "../../data/navigation";
 
@@ -31,7 +34,7 @@ export function GlobalNavigationShell({
 }: {
   children: React.ReactNode;
 }) {
-  const { pathname } = useLocation();
+  const { pathname } = useWorkspaceLocation();
   const current = useRef<Registration | null>(null);
   const [className, setClassName] = useState("");
   const register = useCallback<Register>((registration) => {
@@ -67,7 +70,7 @@ export function useGlobalNavigation(registration: Registration) {
 }
 
 function GlobalNavigation({ className, onShortcuts }: Registration) {
-  const { pathname } = useLocation();
+  const { pathname } = useWorkspaceLocation();
   const { navGuard } = useAppData();
   const items = [
     primaryNav[0],

@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useLocation } from "react-router-dom";
+import { useWorkspaceLocation } from "../navigation/workspaces";
 import { Trash2Icon } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import {
@@ -46,7 +46,7 @@ interface ScreenState {
  * Scope and the scheme's first-letter index belong to contextual navigation.
  */
 export function LetterPairs() {
-  const { pathname, key: routeKey } = useLocation();
+  const { pathname, key: routeKey } = useWorkspaceLocation();
   const init = useScreenInit() as ScreenState;
   const { pairs, savePair, deletePairGroup, setup } = useAppData();
   const [deletingFirst, setDeletingFirst] = useState<string | null>(null);

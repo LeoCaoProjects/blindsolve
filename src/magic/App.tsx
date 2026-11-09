@@ -6,13 +6,8 @@ import { SessionWorkspaceFrame } from "./components/workspace/SessionWorkspaceFr
 import { RouteMetadata } from "../seo/RouteMetadata";
 import React, { useEffect } from "react";
 import { MotionConfig } from "framer-motion";
-import {
-  BrowserRouter,
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { useWorkspaceLocation } from "./navigation/workspaces";
 import { AppDataProvider } from "./contexts/AppDataContext";
 import { Flashcards } from "./pages/Flashcards";
 import { LetterPairs } from "./pages/LetterPairs";
@@ -26,7 +21,7 @@ import { recordPage } from "./utils/feedbackContext";
 import { SessionWorkspaceProvider } from "./contexts/SessionWorkspaceContext";
 
 function RouteFrame({ children }: { children: React.ReactNode }) {
-  const { pathname } = useLocation();
+  const { pathname } = useWorkspaceLocation();
   const hasNavigation = hasGlobalNavigation(pathname);
   return (
     <div
@@ -37,8 +32,16 @@ function RouteFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
+function WorkspacePage({ stage }: { stage: PreviewStage }) {
+  const { pathname } = useWorkspaceLocation();
+  if (pathname === "/training") return <Training />;
+  if (pathname === "/pairs") return <LetterPairs />;
+  if (pathname === "/flashcards") return <Flashcards />;
+  return <Timer stage={stage} />;
+}
+
 function PageTracker() {
-  const { pathname } = useLocation();
+  const { pathname } = useWorkspaceLocation();
   useEffect(() => recordPage(pathname), [pathname]);
   return null;
 }
@@ -49,6 +52,17 @@ type PreviewStage =
 interface AppProps {
   /** Jump the Timer straight to a state for review. "live" is fully interactive. */
   stage?: PreviewStage;
+}
+
+function LegacyWorkspace({ workspace }: { workspace: string }) {
+  const { search, hash } = useWorkspaceLocation();
+  return (
+    <Navigate
+      to={{ pathname: "/", search, hash }}
+      replace
+      state={{ workspace }}
+    />
+  );
 }
 
 export function App({ stage = "live" }: AppProps) {
@@ -65,17 +79,26 @@ export function App({ stage = "live" }: AppProps) {
               <GlobalNavigationShell>
                 <RouteFrame>
                   <Routes>
-                    <Route path="/" element={<Timer stage={stage} />} />
+                    <Route path="/" element={<WorkspacePage stage={stage} />} />
                     <Route
                       path="/about"
                       element={<Navigate to="/" replace />}
                     />
-                    <Route path="/pairs" element={<LetterPairs />} />
-                    <Route path="/flashcards" element={<Flashcards />} />
-                    <Route path="/training" element={<Training />} />
+                    <Route
+                      path="/pairs"
+                      element={<LegacyWorkspace workspace="/pairs" />}
+                    />
+                    <Route
+                      path="/flashcards"
+                      element={<LegacyWorkspace workspace="/flashcards" />}
+                    />
+                    <Route
+                      path="/training"
+                      element={<LegacyWorkspace workspace="/training" />}
+                    />
                     <Route
                       path="/memo"
-                      element={<Navigate to="/training" replace />}
+                      element={<LegacyWorkspace workspace="/training" />}
                     />
                     <Route path="/settings" element={<Settings />} />
                     <Route

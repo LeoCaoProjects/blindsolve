@@ -1,4 +1,7 @@
-import { displayMemoPair, memoPairReference } from "../../domain/letterPairs/identity";
+import {
+  displayMemoPair,
+  memoPairReference,
+} from "../../domain/letterPairs/identity";
 import { useRef, useState, type ReactNode } from "react";
 import {
   AnimatePresence,
@@ -7,7 +10,7 @@ import {
   useReducedMotion,
 } from "framer-motion";
 import { ArrowRightIcon } from "lucide-react";
-import { Link } from "react-router-dom";
+import { WorkspaceLink as Link } from "../navigation/workspaces";
 import { useSessionWorkspace } from "../contexts/SessionWorkspaceContext";
 import { useHistoryCleanup } from "../hooks/useHistoryCleanup";
 import { ShortcutSheet } from "../components/common/ShortcutSheet";
@@ -34,7 +37,9 @@ export function Flashcards() {
     count: f.log.length,
     noun: "card",
     scope: "your Flashcard history",
-    latestLabel: latestLog ? displayMemoPair(memoPairReference(splitKey(latestLog.key))) : undefined,
+    latestLabel: latestLog
+      ? displayMemoPair(memoPairReference(splitKey(latestLog.key)))
+      : undefined,
     removeLatest: f.removeLatestLog,
     clearAll: f.clearLog,
     keysEnabled: f.phase === "question" || f.phase === "revealed",

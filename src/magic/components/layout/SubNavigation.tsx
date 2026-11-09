@@ -10,7 +10,7 @@ import React, {
 import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { ChevronDownIcon } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { useWorkspaceLocation } from "../../navigation/workspaces";
 import { Sheet } from "../common/Sheet";
 import { designRem } from "../../hooks/useDesignPixels";
 import {
@@ -74,7 +74,7 @@ export function SubNavFrame({
   layoutClassName?: string;
   subnavClassName?: string;
 }) {
-  const { pathname } = useLocation();
+  const { pathname } = useWorkspaceLocation();
   const desktop = useSyncExternalStore(subscribe, snapshot, () => true);
   const reduced = useReducedMotion();
   const page = pages[pathname];
