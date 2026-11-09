@@ -14,7 +14,7 @@ const PAGE_LABEL: Record<string, string> = {
   '/flashcards': 'Flashcards',
   '/training': 'Training',
   '/settings': 'Settings',
-  '/setup': 'Setup',
+  '/setup': 'Settings',
   '/signin': 'Sign in'
 };
 

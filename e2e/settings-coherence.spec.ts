@@ -109,6 +109,10 @@ test("preferences persist immediately, radios support arrows and cube edits auto
     memoOrder: "edges-first",
   });
   await page.getByRole("radio", { name: "Lettering", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Your cube", exact: true })
+    .locator('[data-sticker-id="U0"]')
+    .click();
   const token = page.getByRole("textbox", { name: "Letter", exact: true });
   await token.fill("CH");
   expect((await saved(page)).scheme).toEqual(data.scheme);
@@ -138,6 +142,10 @@ test("reset and destructive actions retain shared confirmations, cancellation an
   await page.goto("/settings");
   const before = await saved(page);
   await page.getByRole("radio", { name: "Lettering", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Your cube", exact: true })
+    .locator('[data-sticker-id="U0"]')
+    .click();
   await page.getByRole("textbox", { name: "Letter", exact: true }).fill("CH");
   await page.getByRole("button", { name: "Use Speffz", exact: true }).click();
   const reset = page.getByRole("alertdialog", {
@@ -195,6 +203,10 @@ test("Settings owns shortcuts after visiting each practice route and saves compl
   expect((await saved(page)).attempts).toHaveLength(0);
   expect((await saved(page)).solves).toHaveLength(0);
   await page.getByRole("radio", { name: "Lettering", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Your cube", exact: true })
+    .locator('[data-sticker-id="U0"]')
+    .click();
   await page.getByRole("textbox", { name: "Letter", exact: true }).fill("CH");
   await page.getByRole("link", { name: "Flashcards", exact: true }).click();
   await expect(page).toHaveURL(/flashcards/);

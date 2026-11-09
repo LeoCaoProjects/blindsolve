@@ -19,10 +19,12 @@ function Harness() {
   );
 }
 describe("lettering field completion", () => {
-  it("explains scope uniqueness before editing and normalizes case/whitespace before validating", () => {
+  it("keeps the field uncluttered and normalizes case/whitespace before validating", () => {
     render(<Harness />);
-    const input = screen.getByRole("textbox", { name: "Letter" }) as HTMLInputElement;
-    expect(screen.getByText("Each Corner label must be unique. Up to 3 characters.")).toBeTruthy();
+    const input = screen.getByRole("textbox", {
+      name: "Letter",
+    }) as HTMLInputElement;
+    expect(screen.queryByText(/label must be unique/)).toBeNull();
     expect(input.getAttribute("aria-invalid")).toBe("false");
     fireEvent.change(input, { target: { value: " b " } });
     expect(input.value).toBe("B");
@@ -39,7 +41,27 @@ describe("lettering field completion", () => {
     }) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "CH" } });
     fireEvent.change(input, { target: { value: "" } });
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(input.style.borderColor).toBe("var(--danger)");
+    expect(screen.getByText(/Enter a letter/).className).toContain(
+      "text-[var(--danger)]",
+    );
     fireEvent.blur(input);
+    expect(input.value).toBe("CH");
+    expect(input.getAttribute("aria-invalid")).toBe("false");
+  });
+  it("restores duplicate edits on blur and sticker change to the last valid value", () => {
+    render(<Harness />);
+    let input = screen.getByRole("textbox") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "CH" } });
+    fireEvent.change(input, { target: { value: "B" } });
+    fireEvent.blur(input);
+    expect(input.value).toBe("CH");
+    expect(input.getAttribute("aria-invalid")).toBe("false");
+    fireEvent.change(input, { target: { value: "B" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "Previous sticker" }));
+    input = screen.getByRole("textbox") as HTMLInputElement;
     expect(input.value).toBe("CH");
   });
   it("restores a blank letter when changing stickers and gives duplicate letters restrained error styling", () => {

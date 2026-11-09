@@ -276,7 +276,7 @@ test("contextual navigation remains usable at every requested viewport", async (
         if (path === "/settings")
           await expect(
             sheet.getByRole("link", { name: "Run first-use setup" }),
-          ).toHaveAttribute("href", "/setup");
+          ).toHaveCount(0);
         if (path === "/pairs")
           await sheet
             .getByRole("button", { name: /^X, / })
@@ -292,7 +292,7 @@ test("contextual navigation remains usable at every requested viewport", async (
   }
 });
 
-test("Settings sections and setup utility retain their real actions", async ({
+test("Settings sections work without the setup wizard and old setup links redirect safely", async ({
   page,
 }) => {
   for (const width of [1440, 390]) {
@@ -322,10 +322,21 @@ test("Settings sections and setup utility retain their real actions", async ({
       await page
         .getByRole("button", { name: "Settings sections", exact: true })
         .click();
-    await page
-      .getByRole("link", { name: "Run first-use setup", exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/setup$/);
+    await expect(
+      page.getByRole("link", { name: "Run first-use setup", exact: true }),
+    ).toHaveCount(0);
+    const before = await page.evaluate(
+      () => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data,
+    );
+    await page.goto("/setup");
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(
+      page.getByRole("heading", { name: "Cube & lettering", exact: true }),
+    ).toBeVisible();
+    const after = await page.evaluate(
+      () => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data,
+    );
+    expect(after).toEqual(before);
   }
 });
 

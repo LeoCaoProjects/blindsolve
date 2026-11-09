@@ -26,11 +26,17 @@ const data = (page: Page) =>
   page.evaluate(
     () => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data,
   );
-const tab = (page: Page, name: string) =>
-  page
+const tab = async (page: Page, name: string) => {
+  await page
     .getByRole("radiogroup", { name: "Cube mode", exact: true })
     .getByRole("radio", { name, exact: true })
     .click();
+  if (name === "Lettering")
+    await page
+      .getByRole("group", { name: "Your cube", exact: true })
+      .locator('[data-sticker-id="U0"]')
+      .click();
+};
 const status = (page: Page) =>
   page.getByRole("status", { name: "Setup save status" });
 const draft = (page: Page) =>
@@ -129,7 +135,7 @@ test("complete edits recover across reload, batch once and view-only changes do 
   await page.screenshot({ path: test.info().outputPath("quiet-autosave.png") });
 });
 
-test("blank letters revert on exit and duplicates stay unapplied until corrected", async ({
+test("blank and duplicate letters show errors and revert on blur or exit", async ({
   page,
 }) => {
   await seed(page);
@@ -139,8 +145,15 @@ test("blank letters revert on exit and duplicates stay unapplied until corrected
   const first = await input.inputValue();
   await input.fill("");
   await expect(page.locator("#lettering-field-help")).toHaveText(
-    "Previous label will be kept.",
+    "Enter a letter. The previous label will be kept if you leave it blank.",
   );
+  await expect(input).toHaveAttribute("aria-invalid", "true");
+  await expect(input).toHaveCSS("border-color", "rgb(240, 100, 98)");
+  await expect(page.locator("#lettering-field-help")).toHaveCSS(
+    "color",
+    "rgb(240, 100, 98)",
+  );
+  await expect(page.locator("#lettering-label-rule")).toHaveCount(0);
   await expect(status(page)).toHaveCount(0);
   await page.getByRole("link", { name: "Training", exact: true }).click();
   await expect(page).toHaveURL(/training/);
@@ -171,13 +184,27 @@ test("blank letters revert on exit and duplicates stay unapplied until corrected
   await page.waitForTimeout(5200);
   expect((await data(page)).scheme).toEqual(initial.scheme);
   await page.getByRole("button", { name: "Next sticker", exact: true }).click();
-  await input.fill(first);
-  // Leaving before the idle delay still applies the completed swap without a modal.
+  await page
+    .getByRole("button", { name: "Previous sticker", exact: true })
+    .click();
+  await expect(input).toHaveValue(first);
+  await expect(input).toHaveAttribute("aria-invalid", "false");
+  await input.fill(second);
   await page.getByRole("link", { name: "Training", exact: true }).click();
   await expect(page).toHaveURL(/training/);
-  const swapped = await data(page);
-  expect(swapped.schemeHistory).toHaveLength(1);
-  expect(swapped.scheme).not.toEqual(initial.scheme);
+  expect((await data(page)).scheme).toEqual(initial.scheme);
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await tab(page, "Lettering");
+  await expect(input).toHaveValue(first);
+  // A usable intermediate edit is the value restored, even before autosave's idle delay.
+  await input.fill("CH");
+  await input.fill(second);
+  await input.blur();
+  await expect(input).toHaveValue("CH");
+  await page.getByRole("link", { name: "Training", exact: true }).click();
+  await expect
+    .poll(async () => (await data(page)).schemeHistory?.length)
+    .toBe(1);
   expect(await draft(page)).toBeNull();
 });
 

@@ -195,12 +195,6 @@ export function Settings() {
                 </li>
               ))}
             </ul>
-            <Link
-              to="/setup"
-              className="mt-8 border-t border-line px-3 pt-4 text-[12px] text-ink-3 hover:text-ink-2"
-            >
-              Run first-use setup
-            </Link>
           </nav>
         )}
       </SubNavigation>
@@ -231,7 +225,7 @@ export function Settings() {
                   mode={mode}
                   onModeChange={(m) => {
                     setMode(m);
-                    if (m === "lettering" && !selected) setSelected("U0");
+                    if (m === "lettering") setSelected(null);
                   }}
                   selected={selected}
                   onSelect={setSelected}

@@ -69,6 +69,74 @@ async function choose(page: Page, label: string) {
 }
 const row = (page: Page, pair: string) =>
   page.getByRole("gridcell", { name: new RegExp(`^${pair},`) });
+
+for (const width of [1440, 390])
+  test(`only the first-letter list scrolls with a long vocabulary at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 620 });
+    const data = structuredClone(fixture);
+    for (const sticker of Object.values(data.scheme.stickers))
+      sticker.label = `${sticker.pieceType === "edge" ? "E" : "C"}${sticker.label}`;
+    await page.addInitScript((data) => {
+      if (!localStorage.getItem("cubeiq-bld-v2:guest"))
+        localStorage.setItem(
+          "cubeiq-bld-v2:guest",
+          JSON.stringify({ data, revision: 0, dirty: false, pending: {} }),
+        );
+    }, data);
+    await seed(page);
+    const trigger = page.getByRole("button", {
+      name: "Letter Pairs navigation",
+      exact: true,
+    });
+    if (width === 390) await trigger.click();
+    const scope =
+      width === 390
+        ? page.getByRole("dialog", {
+            name: "Letter Pairs navigation",
+            exact: true,
+          })
+        : page.locator("[data-subnav-column]");
+    await expect(scope).toHaveCSS("transform", "none");
+    const list = scope
+      .getByRole("navigation", { name: "First letter", exact: true })
+      .locator("ul");
+    await expect
+      .poll(() => list.evaluate((el) => el.scrollHeight - el.clientHeight))
+      .toBeGreaterThan(100);
+    const header = scope.getByRole("radio", { name: "Default", exact: true });
+    const footer = scope.getByRole("button", { name: /Delete.*pairs/ });
+    const headerY = (await header.boundingBox())!.y,
+      footerY = (await footer.boundingBox())!.y;
+    await list.hover();
+    await page.mouse.wheel(0, 700);
+    await expect
+      .poll(() => list.evaluate((el) => el.scrollTop))
+      .toBeGreaterThan(100);
+    expect((await header.boundingBox())!.y).toBeCloseTo(headerY, 1);
+    expect((await footer.boundingBox())!.y).toBeCloseTo(footerY, 1);
+    const scroll = await list.evaluate((el) => el.scrollTop);
+    await header.hover();
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(150);
+    expect(await list.evaluate((el) => el.scrollTop)).toBe(scroll);
+    expect((await header.boundingBox())!.y).toBeCloseTo(headerY, 1);
+    const last = list.getByRole("button").last();
+    await last.scrollIntoViewIfNeeded();
+    const label = (await last.getAttribute("aria-label"))!.split(",")[0];
+    await last.click();
+    await expect(
+      page.getByRole("grid", {
+        name: `Pairs starting ${label}`,
+        exact: true,
+      }),
+    ).toBeVisible();
+    if (width === 390) await expect(scope).toHaveCount(0);
+    await page.screenshot({
+      path: test.info().outputPath("first-letter-scroll.png"),
+    });
+  });
 async function editor(page: Page, pair = "AB") {
   await row(page, pair).click();
   const modal = page.getByRole("dialog", { name: `Pair ${pair}`, exact: true });

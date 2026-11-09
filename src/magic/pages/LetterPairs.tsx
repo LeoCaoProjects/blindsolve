@@ -26,7 +26,7 @@ import { PairEditor } from "../components/pairs/PairEditor";
 import { useAppData } from "../contexts/AppDataContext";
 import { useShortcutSheet } from "../hooks/useShortcutSheet";
 import { PairScope } from "../types/app";
-import { pairKey, resolveWords, tokenize } from "../utils/pairs";
+import { pairKey, resolveWords } from "../utils/pairs";
 import { DELETE_BUTTON_STYLE } from "../components/common/destructiveStyle";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { isTypingTarget } from "../utils/keyboard";
@@ -196,9 +196,8 @@ export function LetterPairs() {
     };
     reset();
     if (pathname.replace(/\/$/, "") !== "/pairs") return;
-    // A raw two-key stream is ambiguous when custom multi-character labels exist.
-    // Keep the standard shortcut only for the standard atomic one-character vocabulary.
-    if (axes.some((label) => [...label].length !== 1)) return;
+    // Each key selects one single-character label, even when custom labels exist.
+    // Multi-character labels remain click/arrow navigable; never parse a raw stream as them.
     const onLetter = (e: KeyboardEvent) => {
       if (
         e.defaultPrevented ||
@@ -218,7 +217,7 @@ export function LetterPairs() {
         const t = typed.current;
         window.clearTimeout(t.timer);
         t.buf += e.key.toUpperCase();
-        const parts = tokenize(t.buf, axes);
+        const parts = [...t.buf];
         const valid = parts.every((p) => axes.includes(p));
         if (valid && parts.length >= 2) {
           setJumpRequest((n) => n + 1);
@@ -273,13 +272,13 @@ export function LetterPairs() {
         }
       >
         {(close) => (
-          <div className="flex min-h-full flex-col">
+          <div className="flex h-full min-h-0 flex-1 flex-col">
             <PairScopeNavigation
               value={view}
               onChange={setView}
               onSelect={() => {}}
             />
-            <div className="mb-3 mt-4 border-t border-line" />
+            <div className="mb-3 mt-4 shrink-0 border-t border-line" />
             <FirstTokenRail
               tokens={axes}
               active={activeFirst}
@@ -292,7 +291,7 @@ export function LetterPairs() {
                 close();
               }}
             />
-            <div className="mt-auto border-t border-line pt-4 pb-1">
+            <div className="mt-auto shrink-0 border-t border-line pt-4 pb-1">
               <button
                 type="button"
                 onClick={() => {

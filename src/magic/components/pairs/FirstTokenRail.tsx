@@ -16,17 +16,34 @@ export function FirstTokenRail({
 }: FirstTokenRailProps) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const keyboardFocus = useRef(false);
+  const listRef = useRef<HTMLUListElement>(null);
   useEffect(() => {
-    refs.current[tokens.indexOf(active)]?.scrollIntoView({ block: "nearest" });
+    const item = refs.current[tokens.indexOf(active)],
+      list = listRef.current;
+    if (item && list) {
+      const itemRect = item.getBoundingClientRect(),
+        listRect = list.getBoundingClientRect();
+      if (itemRect.top < listRect.top)
+        list.scrollTop += itemRect.top - listRect.top;
+      else if (itemRect.bottom > listRect.bottom)
+        list.scrollTop += itemRect.bottom - listRect.bottom;
+    }
     if (keyboardFocus.current) {
       keyboardFocus.current = false;
       refs.current[tokens.indexOf(active)]?.focus({ preventScroll: true });
     }
   }, [active, tokens]);
   return (
-    <nav aria-label="First letter" data-pair-index>
-      <p className="mb-2 px-3 text-[11px] text-ink-3">First letter</p>
-      <ul className="grid grid-cols-2 gap-x-1 gap-y-0.5">
+    <nav
+      aria-label="First letter"
+      data-pair-index
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <p className="mb-2 shrink-0 px-3 text-[11px] text-ink-3">First letter</p>
+      <ul
+        ref={listRef}
+        className="scroll-quiet min-h-0 overflow-y-auto overscroll-contain grid grid-cols-2 gap-x-1 gap-y-0.5"
+      >
         {tokens.map((token, index) => (
           <li key={token}>
             <button
@@ -36,7 +53,7 @@ export function FirstTokenRail({
               }}
               tabIndex={token === active ? 0 : -1}
               aria-current={token === active ? "true" : undefined}
-              aria-label={`${token}, ${filled[token] ?? 0} of ${typeof total === "number" ? total : total[token] ?? 0} filled`}
+              aria-label={`${token}, ${filled[token] ?? 0} of ${typeof total === "number" ? total : (total[token] ?? 0)} filled`}
               onClick={() => onSelect(token)}
               onKeyDown={(event) => {
                 if (
@@ -65,7 +82,7 @@ export function FirstTokenRail({
                         tokens.length;
                 keyboardFocus.current = true;
                 onSelect(tokens[next]);
-                refs.current[next]?.focus();
+                refs.current[next]?.focus({ preventScroll: true });
               }}
               className={`flex h-8 w-full items-center justify-between gap-2 rounded-md px-3 text-left transition-colors duration-150 ${token === active ? "bg-selected text-ink" : "text-ink-2 hover:bg-hover hover:text-ink"}`}
             >

@@ -17,7 +17,6 @@ import { AppDataProvider } from "./contexts/AppDataContext";
 import { Flashcards } from "./pages/Flashcards";
 import { LetterPairs } from "./pages/LetterPairs";
 import { Settings } from "./pages/Settings";
-import { Setup } from "./pages/Setup";
 import { SignIn } from "./pages/SignIn";
 import { Timer } from "./pages/Timer";
 import { Training } from "./pages/Training";
@@ -79,7 +78,10 @@ export function App({ stage = "live" }: AppProps) {
                       element={<Navigate to="/training" replace />}
                     />
                     <Route path="/settings" element={<Settings />} />
-                    <Route path="/setup" element={<Setup />} />
+                    <Route
+                      path="/setup"
+                      element={<Navigate to="/settings" replace />}
+                    />
                     <Route path="/signin" element={<SignIn />} />
                     <Route path="/admin/feedback" element={<FeedbackInbox />} />
                     <Route
