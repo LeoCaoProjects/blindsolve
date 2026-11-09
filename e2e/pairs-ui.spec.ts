@@ -486,16 +486,17 @@ for (const width of [1440, 320])
       () => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data,
     );
     const remaining = Object.fromEntries(
-      Object.entries(snapshot.pairs).filter(
+      Object.entries(snapshot.logicalPairs!).filter(
         ([, p]) => (p as { firstToken: string }).firstToken !== "T",
       ),
     );
-    expect(saved.pairs).toEqual(remaining);
+    expect(saved.pairs).toEqual(snapshot.pairs);
+    expect(saved.logicalPairs).toEqual(remaining);
     const envelope = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!),
     );
-    const deletedKeys = Object.keys(snapshot.pairs).filter(
-      (key) => snapshot.pairs[key].firstToken === "T",
+    const deletedKeys = Object.keys(snapshot.logicalPairs!).filter(
+      (key) => snapshot.logicalPairs![key].firstToken === "T",
     );
     for (const key of deletedKeys)
       expect(envelope.tombstones[`pair:${key}`]).toBeTruthy();

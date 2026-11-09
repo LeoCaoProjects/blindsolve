@@ -1,11 +1,10 @@
 import {
   mnemonicRecordKey,
+  labelPairKey,
+  decodeLabelPairKey,
   MNEMONIC_SCOPES,
-  normalizeLabel,
   parseMnemonicRecordKey,
-  validLabel,
   type LogicalMnemonic,
-  type MnemonicScope,
 } from "./identity";
 
 export interface LogicalPairState {
@@ -17,8 +16,7 @@ type Entry = { shared: string[]; edges?: string[]; corners?: string[] };
 type Entries = Record<string, Entry>;
 const words = (values: string[] | undefined) =>
   values?.[0]?.trim() ? [values[0].trim()] : [];
-const uiKey = (first: string, second: string) =>
-  `${normalizeLabel(first)}|${normalizeLabel(second)}`;
+const uiKey = labelPairKey;
 
 /** This overlay never mutates or removes the original legacy records. */
 export function logicalEntries(
@@ -72,8 +70,8 @@ export function writeLogicalEntries<T extends LogicalPairState>(
     deletions = { ...state.logicalPairDeletions };
   let changed = false;
   for (const [input, requested] of Object.entries(edits)) {
-    const labels = input.split("|").map(normalizeLabel);
-    if (labels.length !== 2 || !labels.every(validLabel)) continue;
+    const labels = decodeLabelPairKey(input);
+    if (!labels) continue;
     const [first, second] = labels,
       before = current[uiKey(first, second)];
     if (!before && !requested) continue;

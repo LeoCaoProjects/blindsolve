@@ -1,3 +1,4 @@
+import { normalizeLabel } from "../../domain/letterPairs/identity";
 import {
   CubeViewPref as Orientation,
   FaceColor,
@@ -131,7 +132,7 @@ export function tokensOf(scheme: LetterScheme, type?: PieceType): string[] {
         : ALL_STICKERS;
   const seen: string[] = [];
   list.forEach((s) => {
-    const t = scheme[s.id];
+    const t = normalizeLabel(scheme[s.id] ?? "");
     if (t && !seen.includes(t)) seen.push(t);
   });
   return seen;

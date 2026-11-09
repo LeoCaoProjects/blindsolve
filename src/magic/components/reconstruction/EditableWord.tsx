@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { displayMemoPair } from '../../../domain/letterPairs/identity';
 
 interface EditableWordProps {
   pair: string;
@@ -19,7 +20,7 @@ export function EditableWord({ pair, value, isNew, onCommit }: EditableWordProps
     return (
       <input
         autoFocus
-        aria-label={`Word used for ${pair}`}
+        aria-label={`Word used for ${displayMemoPair(pair)}`}
         value={draft}
         size={Math.max(draft.length + 1, 6)}
         onChange={(e) => setDraft(e.target.value)}

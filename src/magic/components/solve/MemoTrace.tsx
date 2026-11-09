@@ -1,4 +1,5 @@
 import React from 'react';
+import { memoPairTokens } from '../../../domain/letterPairs/identity';
 
 type TraceSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -55,7 +56,9 @@ export function MemoTrace({
     <ol className={`flex ${nowrap ? 'flex-nowrap' : 'flex-wrap'} ${GAP[size]} ${className}`}>
       {pairs.map((pair, i) => {
         const start = i * 2;
-        const pending = breakAt !== null && !resolved && start + pair.length - 1 >= breakAt;
+        const tokens = memoPairTokens(pair);
+        const displayTokens = tokens.length ? tokens : [pair]; // Opaque historical display, never used as a lookup key.
+        const pending = breakAt !== null && !resolved && start + displayTokens.length - 1 >= breakAt;
         const active = activePair === pair;
         return (
           <li key={`${pair}-${i}`} className={`flex min-w-[2.6ch] flex-col ${nowrap ? 'shrink-0 whitespace-nowrap' : ''}`}>
@@ -64,7 +67,7 @@ export function MemoTrace({
               active ? 'text-accent' : 'text-ink'}`
               }>
               
-              {pair.split('').map((letter, j) => {
+              {displayTokens.map((letter, j) => {
                 const idx = start + j;
                 if (breakAt !== null && !resolved && idx >= breakAt) {
                   return idx === breakAt ?
@@ -79,7 +82,7 @@ export function MemoTrace({
                 }
                 const isBreak = breakAt === idx && resolved;
                 return (
-                  <span key={j} className="relative">
+                  <span key={j} className={`relative ${j > 0 && displayTokens.some((t) => t.length > 1) ? 'ml-[0.35em]' : ''}`}>
                     {isBreak &&
                     <>
                         <span aria-hidden className="absolute -left-[0.2em] top-[-12%] h-[124%] w-px bg-accent" />

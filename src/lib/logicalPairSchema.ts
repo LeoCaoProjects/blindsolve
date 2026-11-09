@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   mnemonicRecordKey,
+  parseMnemonicRecordKey,
   normalizeLabel,
   validLabel,
 } from "../domain/letterPairs/identity";
@@ -40,5 +41,13 @@ export const logicalPairFields = {
       "Logical mnemonic key does not match its labels and scope",
     )
     .optional(),
-  logicalPairDeletions: z.record(z.string(), date).optional(),
+  logicalPairDeletions: z
+    .record(z.string(), date)
+    .refine(
+      (records) =>
+        Object.keys(records).length <= 100000 &&
+        Object.keys(records).every((key) => !!parseMnemonicRecordKey(key)),
+      "Invalid logical deletion identity",
+    )
+    .optional(),
 };

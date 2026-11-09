@@ -77,7 +77,7 @@ export function PairCube({
         animateOrientation={animateOrientation && established}
         highlightIds={ids}
         highlightPrimaryCount={primaryCount}
-        label={`Where ${tokens.join("")} sits on the cube${type ? "" : ", edges and corners"}`}
+        label={`Where ${tokens.join(tokens.some((t) => t.length > 1) ? " " : "")} sits on the cube${type ? "" : ", edges and corners"}`}
       />
 
       <AnimatePresence>

@@ -4,6 +4,7 @@ import { useAppData } from "../../contexts/AppDataContext";
 import { chunkPairs, toTimerDb } from "../../utils/pairs";
 import { SolveMemo } from "../../types/solve";
 import { SolveMemoView } from "../solve/SolveMemoView";
+import { memoPairReference } from "../../../domain/letterPairs/identity";
 
 /** Render the existing live Training targets through Timer's reconstruction. */
 export function useTrainingMemo(session: TrainingSession) {
@@ -17,7 +18,7 @@ export function useTrainingMemo(session: TrainingSession) {
   };
   for (const group of session.groups) {
     memo[group.piece] = chunkPairs(group.tokens).map((tokens) => ({
-      pair: tokens.join(""),
+      pair: memoPairReference(tokens),
       word:
         tokens.length === 2
           ? (session.wordFor(tokens[0], tokens[1], group.piece) ?? "")

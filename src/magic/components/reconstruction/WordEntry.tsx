@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { SuggestPopover } from "../common/SuggestWords";
+import { displayMemoPair } from "../../../domain/letterPairs/identity";
 
 interface WordEntryProps {
   pair: string;
@@ -36,12 +37,12 @@ export function WordEntry({
         <span
           className={`font-mono leading-none tracking-[0.14em] text-ink ${lg ? "text-[64px]" : "text-[44px]"}`}
         >
-          {pair}
+          {displayMemoPair(pair)}
         </span>
         <input
           ref={inputRef}
           autoFocus
-          aria-label={`Word you used for ${pair}`}
+          aria-label={`Word you used for ${displayMemoPair(pair)}`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Enter word"

@@ -3,7 +3,7 @@ interface FirstTokenRailProps {
   tokens: string[];
   active: string;
   filled: Record<string, number>;
-  total: number;
+  total: number | Record<string, number>;
   onSelect: (token: string) => void;
 }
 /** Scheme order, compact enough to scan beside scope navigation. */
@@ -36,7 +36,7 @@ export function FirstTokenRail({
               }}
               tabIndex={token === active ? 0 : -1}
               aria-current={token === active ? "true" : undefined}
-              aria-label={`${token}, ${filled[token] ?? 0} of ${total} filled`}
+              aria-label={`${token}, ${filled[token] ?? 0} of ${typeof total === "number" ? total : total[token] ?? 0} filled`}
               onClick={() => onSelect(token)}
               onKeyDown={(event) => {
                 if (

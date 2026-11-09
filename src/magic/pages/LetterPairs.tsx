@@ -31,6 +31,7 @@ import { DELETE_BUTTON_STYLE } from "../components/common/destructiveStyle";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { isTypingTarget } from "../utils/keyboard";
 import { tokensOf } from "../utils/scheme";
+import { activePairVocabulary } from "../utils/activePairs";
 import { useScreenInit } from "../useScreenInit.js";
 
 interface ScreenState {
@@ -62,6 +63,10 @@ export function LetterPairs() {
     }),
     [setup.scheme],
   );
+  const { possible } = useMemo(
+    () => activePairVocabulary(setup.scheme),
+    [setup.scheme],
+  );
 
   const [first, setFirst] = useState<string>(() =>
     init.focus && axes.includes(init.focus[0]) ? init.focus[0] : axes[0],
@@ -78,7 +83,7 @@ export function LetterPairs() {
   const typed = useRef<{ buf: string; timer?: number }>({ buf: "" });
 
   const activeFirst = axes.includes(first) ? first : axes[0];
-  const total = axes.length - 1;
+  const total = axes.filter((second) => possible(activeFirst, second)).length;
 
   const rowFor = useCallback(
     (a: string, b: string): PairRow => {
@@ -88,12 +93,14 @@ export function LetterPairs() {
         second: b,
         words: resolveWords(entry, "shared").words,
         overrides: (["edges", "corners"] as const).flatMap((piece) =>
-          entry?.[piece]?.length ? [{ piece, word: entry[piece]![0] }] : [],
+          possible(a, b, piece) && entry?.[piece]?.length
+            ? [{ piece, word: entry[piece]![0] }]
+            : [],
         ),
-        impossible: a === b,
+        impossible: !possible(a, b),
       };
     },
-    [pairs],
+    [pairs, possible],
   );
 
   const rows = useMemo(
@@ -106,12 +113,17 @@ export function LetterPairs() {
     axes.forEach((a) => {
       out[a] = axes.filter(
         (b) =>
-          a !== b &&
+          possible(a, b) &&
           resolveWords(pairs[pairKey(a, b)], "shared").words.length > 0,
       ).length;
     });
     return out;
-  }, [axes, pairs]);
+  }, [axes, pairs, possible]);
+
+  useLayoutEffect(() => {
+    if (!axes.includes(first)) setFirst(axes[0]);
+    if (editing && !possible(activeFirst, editing)) setEditing(null);
+  }, [axes, first, editing, activeFirst, possible]);
 
   const deleteSelectedPairs = () => {
     if (!deletingFirst) return;
@@ -184,6 +196,9 @@ export function LetterPairs() {
     };
     reset();
     if (pathname.replace(/\/$/, "") !== "/pairs") return;
+    // A raw two-key stream is ambiguous when custom multi-character labels exist.
+    // Keep the standard shortcut only for the standard atomic one-character vocabulary.
+    if (axes.some((label) => [...label].length !== 1)) return;
     const onLetter = (e: KeyboardEvent) => {
       if (
         e.defaultPrevented ||
@@ -269,7 +284,9 @@ export function LetterPairs() {
               tokens={axes}
               active={activeFirst}
               filled={filled}
-              total={total}
+              total={Object.fromEntries(
+                axes.map((a) => [a, axes.filter((b) => possible(a, b)).length]),
+              )}
               onSelect={(token) => {
                 selectFirst(token);
                 close();
@@ -327,7 +344,7 @@ export function LetterPairs() {
       </main>
 
       <AnimatePresence>
-        {editing && editing !== activeFirst && (
+        {editing && possible(activeFirst, editing) && (
           <PairEditor
             key={`${activeFirst}|${editing}`}
             first={activeFirst}

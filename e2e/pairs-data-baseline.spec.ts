@@ -67,8 +67,10 @@ async function reloadAndCheck(
     expect(resolveWords(decoded, scope).words[0]).toBe(word);
   const after = await persisted(page);
   expect(after.data.pairs).toEqual(before.data.pairs);
+  expect(after.data.logicalPairs).toEqual(before.data.logicalPairs);
   expect(after.pending).toEqual(before.pending);
-  expect(Object.keys(after.data.pairs)).toHaveLength(2);
+  expect(Object.keys(after.data.pairs)).toHaveLength(0);
+  expect(Object.keys(after.data.logicalPairs).length).toBeGreaterThan(0);
 }
 async function removeOverride(page: Page, value: "Edges" | "Corners") {
   await cell(page).click();
@@ -146,10 +148,9 @@ test("Shared plus Corner alone retains inherited Edge and does not create an Edg
     Corners: "Castle",
   });
   const data = (await persisted(page)).data as AppData;
-  const edge = Object.values(data.pairs).find(
-    (p) => data.scheme.stickers[p.firstStickerId].pieceType === "edge",
-  );
-  expect(edge.vocabulary.override).toBeUndefined();
+  expect(
+    Object.values(data.logicalPairs!).some((p) => p.scope === "edges"),
+  ).toBe(false);
   await cell(page).click();
   await expect(
     page

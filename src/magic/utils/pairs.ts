@@ -1,8 +1,15 @@
 import { LetterPairDb } from "../types/solve";
 import { PairDb, PairEntry, PairScope } from "../types/app";
 
-export const pairKey = (a: string, b: string) => `${a}|${b}`;
-export const splitKey = (key: string) => key.split("|") as [string, string];
+import {
+  labelPairKey,
+  decodeLabelPairKey,
+  normalizeLabel,
+  memoPairTokens,
+} from "../../domain/letterPairs/identity";
+export const pairKey = labelPairKey;
+export const splitKey = (key: string): [string, string] =>
+  decodeLabelPairKey(key) ?? ["", ""];
 
 export interface Resolved {
   words: string[];
@@ -35,43 +42,40 @@ export function anyWords(entry: PairEntry | undefined): string[] {
   );
 }
 
-/** Greedy longest-match tokenisation; keeps multi-character tokens intact. */
+/** Explicit boundaries keep custom labels atomic. Ambiguous compact sequences are never guessed. */
 export function tokenize(raw: string, tokens: string[]): string[] {
-  const sorted = [...tokens].sort((a, b) => b.length - a.length);
-  const greedy = (source: string) => {
-    const result: string[] = [];
-    let offset = 0;
-    const compact = source.toUpperCase().replace(/\s/g, "");
-    while (offset < compact.length) {
-      const match = sorted.find((t) =>
-        compact.startsWith(t.toUpperCase(), offset),
-      );
-      if (match) {
-        result.push(match);
-        offset += match.length;
-      } else {
-        result.push(compact[offset]);
-        offset += 1;
+  const vocabulary = [...new Set(tokens.map(normalizeLabel))].filter(Boolean);
+  const set = new Set(vocabulary);
+  const segment = (source: string): string[] => {
+    if (!source) return [];
+    if (set.has(source) && source.length > 1) return [source];
+    if (source.length > 4096) return [""];
+    const ways: string[][][] = Array.from(
+      { length: source.length + 1 },
+      () => [],
+    );
+    ways[source.length] = [[]];
+    for (let i = source.length - 1; i >= 0; i--) {
+      for (const token of vocabulary) {
+        if (!source.startsWith(token, i)) continue;
+        for (const rest of ways[i + token.length]) {
+          ways[i].push([token, ...rest]);
+          if (ways[i].length >= 2) break;
+        }
+        if (ways[i].length >= 2) break;
       }
     }
-    return result;
+    return ways[0].length === 1
+      ? ways[0][0]
+      : ways[0].length > 1
+        ? [""]
+        : [...source];
   };
-  // A deliberate dot/pipe/comma is an unambiguous token boundary for custom schemes.
-  if (/[·|,/]/.test(raw)) return raw.split(/[·|,/]/).flatMap(greedy);
-  const out: string[] = [];
-  let i = 0;
-  const s = raw.toUpperCase();
-  while (i < s.length) {
-    const match = sorted.find((t) => s.startsWith(t, i));
-    if (match) {
-      out.push(match);
-      i += match.length;
-    } else {
-      out.push(s[i]);
-      i += 1;
-    }
-  }
-  return out;
+  return raw
+    .toUpperCase()
+    .split(/[\s·|,/]+/)
+    .filter(Boolean)
+    .flatMap(segment);
 }
 
 export function chunkPairs<T>(list: T[]): T[][] {
@@ -80,29 +84,56 @@ export function chunkPairs<T>(list: T[]): T[][] {
   return out;
 }
 
-/** Flat Speffz-style view consumed by the Timer's reconstruction flow. */
+/** Boundary-safe lookup keys, with legacy aliases only for unambiguous single-character pairs. */
 export function toTimerDb(db: PairDb): LetterPairDb {
   const out: LetterPairDb = {};
   Object.entries(db).forEach(([key, entry]) => {
     const [a, b] = splitKey(key);
-    const pair = a + b;
-    const fallback = primaryWords(entry.shared);
-    if (fallback.length) out[pair] = fallback;
-    (["edges", "corners"] as const).forEach((piece) => {
-      const words = resolveWords(entry, piece).words;
-      if (words.length) out[`${piece}:${pair}`] = words;
-    });
+    if (!a || !b) return;
+    const keys = [
+      pairKey(a, b),
+      ...(a.length === 1 && b.length === 1 ? [a + b] : []),
+    ];
+    for (const pair of keys) {
+      const fallback = primaryWords(entry.shared);
+      if (fallback.length) out[pair] = fallback;
+      for (const piece of ["edges", "corners"] as const) {
+        const words = resolveWords(entry, piece).words;
+        if (words.length) out[`${piece}:${pair}`] = words;
+      }
+    }
   });
   return out;
 }
-
-/** Piece-aware Timer/reconstruction lookup with legacy flat-key fallback. */
+export function timerDefaultWords(db: LetterPairDb, tokens: readonly string[]) {
+  if (tokens.length !== 2) return [];
+  const [a, b] = tokens.map(normalizeLabel);
+  return primaryWords(
+    db[pairKey(a, b)] ??
+      (a.length === 1 && b.length === 1 ? db[a + b] : undefined) ??
+      [],
+  );
+}
 export function timerWords(
   db: LetterPairDb,
-  pair: string,
+  pair: string | readonly string[],
   piece: "edges" | "corners",
 ) {
-  return primaryWords(db[`${piece}:${pair}`] ?? db[pair] ?? []);
+  const labels =
+    typeof pair === "string"
+      ? (decodeLabelPairKey(pair) ?? memoPairTokens(pair))
+      : pair;
+  if (labels.length !== 2) return [];
+  const [a, b] = labels.map(normalizeLabel);
+  const key = pairKey(a, b);
+  return primaryWords(
+    db[`${piece}:${key}`] ??
+      db[key] ??
+      (a.length === 1 && b.length === 1
+        ? (db[`${piece}:${a + b}`] ?? db[a + b])
+        : undefined) ??
+      [],
+  );
 }
 
 /** Compatibility lists contain only the one active word. Ignore obsolete extra values. */

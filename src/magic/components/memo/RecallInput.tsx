@@ -32,6 +32,7 @@ export const RecallInput = forwardRef<HTMLInputElement, RecallInputProps>(
     ref,
   ) {
     const parts = tokenize(value, tokens);
+    const customLabels = tokens.some((token) => token.length > 1);
     const display = chunkPairs(parts)
       .map((p) => (p.some((t) => t.length > 1) ? p.join("·") : p.join("")))
       .join("  ");
@@ -44,9 +45,14 @@ export const RecallInput = forwardRef<HTMLInputElement, RecallInputProps>(
         spellCheck={false}
         autoComplete="off"
         autoCapitalize="characters"
-        value={display}
+        value={customLabels ? value.toUpperCase() : display}
+        placeholder={customLabels ? "Separate labels with spaces" : undefined}
         onChange={(e) =>
-          onChange(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))
+          onChange(
+            customLabels
+              ? e.target.value.toUpperCase()
+              : e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""),
+          )
         }
         onKeyDown={(e) => {
           if (e.key === "Enter") {

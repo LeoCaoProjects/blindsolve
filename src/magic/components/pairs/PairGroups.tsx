@@ -39,6 +39,14 @@ export function PairGroups({
     isVisiblePair(row, view) ? [{ row, index }] : [],
   );
   const groups: (typeof entries)[] = [];
+  const pairWidth = Math.max(
+    44,
+    ...rows.map(
+      (row) =>
+        (first.length + row.second.length) * 8.4 +
+        (first.length > 1 || row.second.length > 1 ? 5 : 0),
+    ),
+  );
   for (let index = 0; index < entries.length; index += GROUP)
     groups.push(entries.slice(index, index + GROUP));
   const activeIndex = entries.some((entry) => entry.index === focus)
@@ -86,7 +94,8 @@ export function PairGroups({
                 aria-label={`${first}${row.second}, ${view === "default" ? (row.words[0] ?? "empty") : row.overrides.map((item) => `${item.piece === "edges" ? "Edge" : "Corner"}: ${item.word}`).join(", ")}`}
                 onFocus={() => onFocus(index)}
                 onClick={() => onOpen(index)}
-                className="group grid min-h-11 w-full cursor-pointer grid-cols-[44px_minmax(0,1fr)] items-center gap-3 rounded-[4px] px-3 py-2 text-left transition-colors duration-150 hover:bg-hover focus-visible:bg-selected focus-visible:outline-offset-[-2px]"
+                style={{ gridTemplateColumns: `${pairWidth}px minmax(0,1fr)` }}
+                className="group grid min-h-11 w-full cursor-pointer items-center gap-3 rounded-[4px] px-3 py-2 text-left transition-colors duration-150 hover:bg-hover focus-visible:bg-selected focus-visible:outline-offset-[-2px]"
               >
                 <PairTokens
                   first={first}

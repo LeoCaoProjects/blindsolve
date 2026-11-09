@@ -80,7 +80,8 @@ describe("logical pair vocabulary survives the full persistence paths", () => {
       ]) {
         expect(vocabulary(restored)).toEqual(entry);
         expect(effective(restored)).toEqual(values);
-        expect(Object.keys(restored.pairs)).toHaveLength(2);
+        expect(Object.keys(restored.pairs)).toHaveLength(0);
+        expect(Object.keys(restored.logicalPairs ?? {})).toHaveLength(Object.values(entry).filter((words) => words.length).length);
         expect(diffSyncChanges(data, restored)).toEqual([]);
       }
     });
@@ -183,16 +184,14 @@ describe("logical pair vocabulary survives the full persistence paths", () => {
       edges: ["Arrow"],
       corners: ["Castle"],
     });
-    Object.values(before.pairs).forEach((pair) => {
-      pair.firstToken = "previous-scheme-token";
-    });
+    // Inactive historical logical values are cleared by an explicit global action too.
     const after = replacePairEntries(before, {});
     expect(after.pairs).toEqual({});
     expect(after.solves).toBe(before.solves);
     expect(after.attempts).toBe(before.attempts);
     expect(after.scheme).toBe(before.scheme);
     const changes = diffSyncChanges(before, after);
-    expect(changes).toHaveLength(Object.keys(before.pairs).length);
+    expect(changes).toHaveLength(3);
     expect(
       changes.every((change) => change.kind === "pair" && change.deleted),
     ).toBe(true);
@@ -204,34 +203,25 @@ describe("logical pair vocabulary survives the full persistence paths", () => {
         "A|B": { shared: ["Apple"], edges: ["Arrow"], corners: ["Castle"] },
         "A|C": { shared: ["Ace"] },
         "B|C": { shared: ["Boat"], corners: ["Box"] },
-        "C|D": { shared: ["Card"] },
+        "AA|D": { shared: ["Card"] },
       },
       stamp(1),
     );
-    Object.values(before.pairs)
-      .filter((p) => p.firstToken === "C")
-      .forEach((p) => {
-        p.firstToken = "AA";
-      });
     const after = deleteFirstLetterPairs(before, "A");
-    expect(Object.values(after.pairs).map((p) => p.firstToken)).not.toContain(
+    expect(Object.values(after.logicalPairs ?? {}).map((p) => p.firstToken)).not.toContain(
       "A",
     );
-    expect(Object.values(after.pairs).some((p) => p.firstToken === "AA")).toBe(
+    expect(Object.values(after.logicalPairs ?? {}).some((p) => p.firstToken === "AA")).toBe(
       true,
     );
     expect(pairsFromStore(after)["B|C"]).toEqual(pairsFromStore(before)["B|C"]);
-    expect({ ...after, pairs: undefined }).toEqual({
-      ...before,
-      pairs: undefined,
+    expect({ ...after, logicalPairs: undefined, logicalPairDeletions: undefined }).toEqual({
+      ...before, logicalPairs: undefined, logicalPairDeletions: undefined,
     });
     expect(after.solves).toBe(before.solves);
     expect(after.attempts).toBe(before.attempts);
     const changes = diffSyncChanges(before, after, stamp(9));
-    const deleted = Object.entries(before.pairs)
-      .filter(([, p]) => p.firstToken === "A")
-      .map(([key]) => key)
-      .sort();
+    const deleted = Object.keys(after.logicalPairDeletions ?? {}).sort();
     expect(changes.map((c) => c.recordId).sort()).toEqual(deleted);
     expect(changes.every((c) => c.kind === "pair" && c.deleted)).toBe(true);
     const local: LocalEnvelope = {

@@ -1,3 +1,4 @@
+import { displayMemoPair, memoPairReference } from "../../domain/letterPairs/identity";
 import { useRef, useState, type ReactNode } from "react";
 import {
   AnimatePresence,
@@ -33,7 +34,7 @@ export function Flashcards() {
     count: f.log.length,
     noun: "card",
     scope: "your Flashcard history",
-    latestLabel: latestLog ? splitKey(latestLog.key).join("") : undefined,
+    latestLabel: latestLog ? displayMemoPair(memoPairReference(splitKey(latestLog.key))) : undefined,
     removeLatest: f.removeLatestLog,
     clearAll: f.clearLog,
     keysEnabled: f.phase === "question" || f.phase === "revealed",

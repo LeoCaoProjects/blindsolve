@@ -21,6 +21,7 @@ import { sessionStats, storedTimerTimes } from "../utils/time";
 import type { ReconResult } from "./useReconstruction";
 import { TimerResult, isRunning, useTimer } from "./useTimer";
 import { randomStateScramble } from "../utils/randomStateScramble";
+import { memoPairReference } from "../../domain/letterPairs/identity";
 import {
   timerCategory,
   timerPieces,
@@ -96,7 +97,7 @@ export function useTimerSession({
           const pair = (tokens: string[]) =>
             Array.from(
               { length: Math.ceil(tokens.length / 2) },
-              (_, i) => (tokens[i * 2] ?? "") + (tokens[i * 2 + 1] ?? ""),
+              (_, i) => memoPairReference(tokens.slice(i * 2, i * 2 + 2)),
             );
           const sampleFor = (piece: "corners" | "edges") => {
             if (!pieces.includes(piece)) return { pairs: [] };
