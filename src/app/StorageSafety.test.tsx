@@ -136,6 +136,29 @@ afterEach(() => {
 });
 
 describe("local persistence failures", () => {
+  it("opens workspaces with unfinished archived lettering without a storage warning or a reset", async () => {
+    const data = emptyData();
+    data.onboarded = true;
+    data.solves = [solve()];
+    const archive = structuredClone(data.scheme);
+    archive.stickers["U:UB"].label = "";
+    data.schemeHistory = [
+      { scheme: archive, updatedAt: new Date(0).toISOString() },
+    ];
+    saveLocal(null, { data, revision: 0, dirty: false });
+    mount();
+    await auth(null);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByTestId("status")).toHaveTextContent(
+      "ready|guest|local|1|0",
+    );
+    fireEvent.click(screen.getByText("Training", { exact: true }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(loadLocal().data.solves).toHaveLength(1);
+    expect(
+      loadLocal().data.schemeHistory?.[0].scheme.stickers["U:UB"].label,
+    ).toBe("");
+  });
   for (const action of ["Timer", "Training", "Import"]) {
     it(`keeps previous bytes and retains unsaved ${action} work until recovery`, async () => {
       saveLocal(null, {
@@ -251,8 +274,11 @@ describe("local persistence failures", () => {
   });
 
   it("recovers from unavailable reads without overwriting previous data", async () => {
+    const original = emptyData();
+    original.scheme.name = "My lettering";
+    original.defaultCubeView = { top: "white", front: "orange" };
     saveLocal(null, {
-      data: { ...emptyData(), solves: [solve()] },
+      data: { ...original, solves: [solve()] },
       revision: 0,
       dirty: false,
     });
@@ -268,6 +294,8 @@ describe("local persistence failures", () => {
     fireEvent.click(screen.getByText("Retry saving"));
     expect(loadLocal().data.solves).toHaveLength(1);
     expect(loadLocal().data.attempts).toHaveLength(1);
+    expect(loadLocal().data.scheme.name).toBe("My lettering");
+    expect(loadLocal().data.defaultCubeView).toEqual({ top: "white", front: "orange" });
     expect(screen.queryByRole("alert")).toBeNull();
   });
 

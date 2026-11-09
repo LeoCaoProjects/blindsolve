@@ -60,7 +60,7 @@ const mode = (page: Page, name: string) =>
 const selected = (page: Page) => cube(page).locator('[data-selected="true"]');
 
 for (const front of ["green", "blue"] as const)
-  test(`lettering selection snaps first, then rotates to expose physical stickers with ${front} front`, async ({
+  test(`lettering selection rotates to expose physical stickers with ${front} front`, async ({
     page,
   }) => {
     await seed(page, front);
@@ -71,9 +71,13 @@ for (const front of ["green", "blue"] as const)
       "data-lettering-position",
       stickerInView("U0", { top: "white", front }).id,
     );
-    expect(
-      await page.evaluate(() => (window as any).__settingsRotations.length),
-    ).toBe(0);
+    const entryCount = await page.evaluate(
+      () => (window as any).__settingsRotations.length,
+    );
+    const entryTarget = await cube(page)
+      .locator(":scope > div")
+      .first()
+      .evaluate((el) => (el as HTMLElement).style.transform);
     // Blue-front U0 occupies the third view-relative top slot; pass the last
     // top sticker before the next side sticker actually needs a camera turn.
     for (let i = 0; i < (front === "blue" ? 2 : 1); i++) {
@@ -88,7 +92,7 @@ for (const front of ["green", "blue"] as const)
       .poll(() =>
         page.evaluate(() => (window as any).__settingsRotations.length),
       )
-      .toBeGreaterThan(0);
+      .toBeGreaterThan(entryCount);
     const physical = (await selected(page).getAttribute("data-sticker-id"))!;
     expect(physical).not.toBe("U0");
     const target = await cube(page)
@@ -130,8 +134,11 @@ for (const front of ["green", "blue"] as const)
     await mode(page, "Lettering");
     await page.waitForTimeout(300);
     expect(
-      await page.evaluate(() => (window as any).__settingsRotations.length),
-    ).toBe(0);
+      await cube(page)
+        .locator(":scope > div")
+        .first()
+        .evaluate((el) => (el as HTMLElement).style.transform),
+    ).toBe(entryTarget);
   });
 
 test("orientation updates displayed positions and quick choices without relabelling physical stickers", async ({
@@ -173,7 +180,15 @@ test("orientation updates displayed positions and quick choices without relabell
     "U5",
   );
   await expect(page.locator("[data-current-buffer]")).toHaveText("UL");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          localStorage.getItem("blindsolve-settings-draft-v1:guest"),
+        ),
+      { timeout: 10000 },
+    )
+    .toBeNull();
   await page.reload();
   const after = await stored(page);
   expect(after.scheme.edgeBuffer).toBe("U:UR");
@@ -183,13 +198,13 @@ test("orientation updates displayed positions and quick choices without relabell
   await expect(page.locator('[data-buffer-position="edge"]')).toHaveText("UL");
 });
 
-test("lettering name identifies backups and applying a manually rotated view is reachable", async ({
+test("lettering name identifies backups and Cube View uses explicit colour controls", async ({
   page,
 }) => {
   await seed(page);
   await page.goto("/settings");
   await mode(page, "Lettering");
-  await page.getByRole("textbox", { name: "Token", exact: true }).fill("CH");
+  await page.getByRole("textbox", { name: "Letter", exact: true }).fill("CH");
   const name = page.getByRole("textbox", {
     name: "Lettering name",
     exact: true,
@@ -198,7 +213,15 @@ test("lettering name identifies backups and applying a manually rotated view is 
     page.getByText("Shown in backup previews", { exact: true }),
   ).toBeVisible();
   await name.fill("Travel lettering");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          localStorage.getItem("blindsolve-settings-draft-v1:guest"),
+        ),
+      { timeout: 10000 },
+    )
+    .toBeNull();
   expect((await stored(page)).scheme.name).toBe("Travel lettering");
   await page
     .getByRole("button", { name: "Preview a sample backup", exact: true })
@@ -209,19 +232,119 @@ test("lettering name identifies backups and applying a manually rotated view is 
   ).toContainText("Travel lettering");
   await page.keyboard.press("Escape");
   await mode(page, "Cube view");
-  const use = page.getByRole("button", { name: /^Use displayed view/ });
-  await expect(use).toHaveCount(0);
-  await cube(page).focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(use).toBeEnabled();
-  await use.click();
-  await expect(use).toHaveCount(0);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: /^Use displayed view/ }),
+  ).toHaveCount(0);
+  await expect(page.getByText(/Drag the cube/)).toHaveCount(0);
+  await page
+    .getByRole("radiogroup", { name: "Front face", exact: true })
+    .getByRole("radio", { name: "Orange", exact: true })
+    .click();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          localStorage.getItem("blindsolve-settings-draft-v1:guest"),
+        ),
+      { timeout: 10000 },
+    )
+    .toBeNull();
   expect((await stored(page)).defaultCubeView).toEqual({
     top: "white",
     front: "orange",
   });
   await page.screenshot({ path: test.info().outputPath("cube-view.png") });
+});
+
+test("Lettering transitions animate both ways, other tabs retain the view, and Cube View cannot drag", async ({
+  page,
+}) => {
+  await seed(page);
+  await page.goto("/settings");
+  const camera = cube(page).locator(":scope > div").first();
+  const angle = () =>
+    camera.evaluate((el) => (el as HTMLElement).style.transform);
+  const rotations = () =>
+    page.evaluate(() => (window as any).__settingsRotations.length);
+  const defaultAngle = await angle();
+  await mode(page, "Lettering");
+  await page
+    .getByRole("button", { name: "Previous sticker", exact: true })
+    .click();
+  const target = await angle();
+  expect(target).not.toBe(defaultAngle);
+  await page.waitForTimeout(300);
+  for (const tab of ["Overview", "Edge buffer", "Corner buffer", "Cube view"]) {
+    const before = await rotations();
+    await mode(page, tab);
+    await expect(
+      page
+        .getByRole("radiogroup", { name: "Cube mode" })
+        .getByRole("radio", { name: tab, exact: true }),
+    ).toHaveAttribute("aria-checked", "true");
+    await expect.poll(rotations).toBeGreaterThan(before);
+    expect(await angle()).toBe(defaultAngle);
+    await page.waitForTimeout(300);
+    const returned = await rotations();
+    await mode(page, "Lettering");
+    await expect.poll(rotations).toBeGreaterThan(returned);
+    expect(await angle()).toBe(target);
+    await page.waitForTimeout(300);
+  }
+  await mode(page, "Cube view");
+  await page.waitForTimeout(300);
+  const before = await rotations();
+  await page
+    .getByRole("radiogroup", { name: "Front face", exact: true })
+    .getByRole("radio", { name: "Blue", exact: true })
+    .click();
+  await expect.poll(rotations).toBeGreaterThan(before);
+  await page.waitForTimeout(300);
+  const configured = await angle(),
+    settled = await rotations();
+  for (const tab of ["Overview", "Edge buffer", "Corner buffer", "Cube view"]) {
+    await mode(page, tab);
+    expect(await angle()).toBe(configured);
+  }
+  expect(await rotations()).toBe(settled);
+  const box = (await cube(page).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    box.x + box.width / 2 + 80,
+    box.y + box.height / 2 + 30,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+  expect(await angle()).toBe(configured);
+  await expect(cube(page)).toHaveCSS("cursor", "default");
+  await expect(
+    page.getByRole("button", { name: /Use displayed view/ }),
+  ).toHaveCount(0);
+  // Ordinary tabs retain manual previews; Cube View returns to its configured camera.
+  await mode(page, "Overview");
+  await cube(page).focus();
+  await page.keyboard.press("ArrowRight");
+  const preview = await angle();
+  expect(preview).not.toBe(configured);
+  for (const tab of ["Edge buffer", "Corner buffer"]) {
+    await mode(page, tab);
+    expect(await angle()).toBe(preview);
+  }
+  await page.waitForTimeout(300);
+  const beforeReset = await rotations();
+  await mode(page, "Cube view");
+  await expect.poll(rotations).toBeGreaterThan(beforeReset);
+  expect(await angle()).toBe(configured);
+  const reset = page.getByRole("button", { name: "Reset view", exact: true });
+  await expect(reset).toBeVisible();
+  await expect(reset).toHaveCSS("border-top-style", "solid");
+  await reset.click();
+  await expect(cube(page)).toHaveAttribute("data-cube-view", "white/green");
+  await expect(reset).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "Unsaved changes" }),
+  ).toHaveCount(0);
 });
 
 test("Cube and Lettering remains usable on mobile with alternate orientation", async ({
@@ -235,10 +358,18 @@ test("Cube and Lettering remains usable on mobile with alternate orientation", a
     path: test.info().outputPath("mobile-overview.png"),
   });
   await mode(page, "Lettering");
-  const input = page.getByRole("textbox", { name: "Token", exact: true });
+  const input = page.getByRole("textbox", { name: "Letter", exact: true });
   await expect(input).toBeVisible();
   await input.fill("CH");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          localStorage.getItem("blindsolve-settings-draft-v1:guest"),
+        ),
+      { timeout: 10000 },
+    )
+    .toBeNull();
   expect(
     Object.values((await stored(page)).scheme.stickers).some(
       (s: any) => s.label === "CH",

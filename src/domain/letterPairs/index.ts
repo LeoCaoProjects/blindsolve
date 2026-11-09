@@ -1,3 +1,5 @@
+export { normalizeLabel, validLabel, mnemonicRecordKey, parseMnemonicRecordKey, MNEMONIC_SCOPES } from "./identity";
+export type { MnemonicScope } from "./identity";
 export interface LetterPair {
   id: string;
   firstStickerId: string;

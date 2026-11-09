@@ -6,31 +6,15 @@ import {
   COLOR_NAMES,
   validFronts,
 } from "../../utils/scheme";
-import { FACE_COLOR, STANDARD_VIEW, sameView } from "../../utils/view";
-import type { CubeView } from "../cube/SchemeCube";
-import { SecondaryButton, QuietButton } from "../common/PrimaryButton";
+import { STANDARD_VIEW, sameView } from "../../utils/view";
+import { SecondaryButton } from "../common/PrimaryButton";
 
 interface DefaultViewPanelProps {
   value: CubeViewPref;
-  /** What the cube currently shows, including any manual rotation */
-  live: CubeView;
   onChange: (v: CubeViewPref) => void;
-  onResetRotation: () => void;
 }
 
-export function DefaultViewPanel({
-  value,
-  live,
-  onChange,
-  onResetRotation,
-}: DefaultViewPanelProps) {
-  const liveView: CubeViewPref = {
-    top: FACE_COLOR[live.up],
-    front: FACE_COLOR[live.front],
-  };
-  const liveValid = validFronts(liveView.top).includes(liveView.front);
-  const rotated = liveValid && !sameView(liveView, value);
-
+export function DefaultViewPanel({ value, onChange }: DefaultViewPanelProps) {
   return (
     <div>
       <p className="text-[14px] text-ink">
@@ -39,34 +23,6 @@ export function DefaultViewPanel({
       <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-3">
         Choose your top and front colours.
       </p>
-
-      <div className="mt-6 border-t border-line pt-5">
-        <p className="text-[12.5px] text-ink-3">
-          Drag the cube to try another view.
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {rotated && (
-            <SecondaryButton
-              onClick={() => {
-                onChange(liveView);
-                onResetRotation();
-              }}
-              className="h-auto min-h-9 flex-wrap justify-start py-2"
-            >
-              Use displayed view
-              {rotated && (
-                <span className="ml-2 text-ink-3">
-                  {COLOR_NAMES[liveView.top].toLowerCase()} top,{" "}
-                  {COLOR_NAMES[liveView.front].toLowerCase()} front
-                </span>
-              )}
-            </SecondaryButton>
-          )}
-          {rotated && (
-            <QuietButton onClick={onResetRotation}>Reset</QuietButton>
-          )}
-        </div>
-      </div>
 
       <div className="mt-7">
         <h4 className="text-[12px] text-ink-3">Top</h4>
@@ -94,12 +50,13 @@ export function DefaultViewPanel({
       </div>
 
       {!sameView(value, STANDARD_VIEW) && (
-        <QuietButton
+        <SecondaryButton
           onClick={() => onChange(STANDARD_VIEW)}
-          className="mt-6 h-auto min-h-9 text-left"
+          className="mt-6"
+          title="White top, green front"
         >
-          Back to white top, green front
-        </QuietButton>
+          Reset view
+        </SecondaryButton>
       )}
     </div>
   );

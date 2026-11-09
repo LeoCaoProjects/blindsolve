@@ -64,7 +64,7 @@ async function section(page: Page, name: string) {
   );
 }
 
-test("preferences persist immediately, radios support arrows and cube edits remain deferred", async ({
+test("preferences persist immediately, radios support arrows and cube edits autosave", async ({
   page,
 }) => {
   await page.goto("/settings");
@@ -109,13 +109,21 @@ test("preferences persist immediately, radios support arrows and cube edits rema
     memoOrder: "edges-first",
   });
   await page.getByRole("radio", { name: "Lettering", exact: true }).click();
-  const token = page.getByRole("textbox", { name: "Token", exact: true });
+  const token = page.getByRole("textbox", { name: "Letter", exact: true });
   await token.fill("CH");
   expect((await saved(page)).scheme).toEqual(data.scheme);
   await expect(
     page.getByRole("region", { name: "Unsaved changes", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  ).toHaveCount(0);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          localStorage.getItem("blindsolve-settings-draft-v1:guest"),
+        ),
+      { timeout: 10000 },
+    )
+    .toBeNull();
   await page.reload();
   expect(
     Object.values((await saved(page)).scheme.stickers).some(
@@ -130,7 +138,7 @@ test("reset and destructive actions retain shared confirmations, cancellation an
   await page.goto("/settings");
   const before = await saved(page);
   await page.getByRole("radio", { name: "Lettering", exact: true }).click();
-  await page.getByRole("textbox", { name: "Token", exact: true }).fill("CH");
+  await page.getByRole("textbox", { name: "Letter", exact: true }).fill("CH");
   await page.getByRole("button", { name: "Use Speffz", exact: true }).click();
   const reset = page.getByRole("alertdialog", {
     name: "Replace your lettering with Speffz?",
@@ -142,12 +150,12 @@ test("reset and destructive actions retain shared confirmations, cancellation an
   await page.keyboard.press("Escape");
   await expect(reset).toHaveCount(0);
   await expect(
-    page.getByRole("textbox", { name: "Token", exact: true }),
+    page.getByRole("textbox", { name: "Letter", exact: true }),
   ).toHaveValue("CH");
   await page.getByRole("button", { name: "Use Speffz", exact: true }).click();
   await reset.getByRole("button", { name: "Use Speffz", exact: true }).click();
   await expect(
-    page.getByRole("textbox", { name: "Token", exact: true }),
+    page.getByRole("textbox", { name: "Letter", exact: true }),
   ).toHaveValue("A");
   await section(page, "Data");
   await page.getByRole("button", { name: "Clear all…", exact: true }).click();
@@ -171,7 +179,7 @@ test("reset and destructive actions retain shared confirmations, cancellation an
   ).toBeDisabled();
 });
 
-test("Settings owns shortcuts after visiting each practice route and preserves guarded navigation", async ({
+test("Settings owns shortcuts after visiting each practice route and saves completed edits on navigation", async ({
   page,
 }) => {
   await page.goto("/");
@@ -187,16 +195,15 @@ test("Settings owns shortcuts after visiting each practice route and preserves g
   expect((await saved(page)).attempts).toHaveLength(0);
   expect((await saved(page)).solves).toHaveLength(0);
   await page.getByRole("radio", { name: "Lettering", exact: true }).click();
-  await page.getByRole("textbox", { name: "Token", exact: true }).fill("CH");
+  await page.getByRole("textbox", { name: "Letter", exact: true }).fill("CH");
   await page.getByRole("link", { name: "Flashcards", exact: true }).click();
-  const guard = page.getByRole("alertdialog", {
-    name: "Save setup changes?",
-    exact: true,
-  });
-  await expect(guard).toBeVisible();
-  await guard.getByRole("button", { name: "Stay", exact: true }).click();
-  await expect(guard).toHaveCount(0);
-  await page.getByRole("button", { name: "Discard", exact: true }).click();
+  await expect(page).toHaveURL(/flashcards/);
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  expect(
+    Object.values((await saved(page)).scheme.stickers).some(
+      (s: any) => s.label === "CH",
+    ),
+  ).toBe(true);
   for (const name of ["Timer", "Training", "Letter Pairs", "Flashcards"]) {
     await page.getByRole("link", { name, exact: true }).click();
     await page.getByRole("link", { name: "Settings", exact: true }).click();

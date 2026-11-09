@@ -26,6 +26,44 @@ const pair = (word: string, time = "2026-09-25T00:00:00Z"): LetterPair => ({
 });
 describe("workspace integrity", () => {
   beforeEach(() => localStorage.clear());
+  it.each(["", "duplicate"])(
+    "retains unfinished archived lettering (%s) without rejecting the current workspace",
+    (label) => {
+      const data = emptyData();
+      const archived = structuredClone(data.scheme);
+      archived.stickers["U:UB"].label =
+        label === "duplicate" ? archived.stickers["U:UR"].label : label;
+      data.schemeHistory = [
+        { scheme: archived, updatedAt: new Date(0).toISOString() },
+      ];
+      const envelope = { data, dirty: false, revision: 7 };
+      saveLocal(null, envelope);
+      const raw = localStorage.getItem("cubeiq-bld-v2:guest");
+      const restored = loadLocal();
+      expect(restored.data.schemeHistory?.[0].scheme).toEqual(archived);
+      expect(restored.data.scheme).toEqual(data.scheme);
+      expect(restored.revision).toBe(7);
+      expect(localStorage.getItem("cubeiq-bld-v2:guest")).toBe(raw);
+      expect(
+        parseBackup(JSON.stringify({ version: 3, data })).schemeHistory?.[0]
+          .scheme,
+      ).toEqual(archived);
+    },
+  );
+  it("still rejects unfinished active schemes and missing physical stickers in archives", () => {
+    const data = emptyData();
+    data.scheme.stickers["U:UB"].label = data.scheme.stickers["U:UR"].label;
+    expect(() => parseData(data)).toThrow("unique token");
+    data.scheme.stickers["U:UB"].label = "";
+    expect(() => parseData(data)).toThrow();
+    data.scheme = emptyData().scheme;
+    const archived = structuredClone(data.scheme);
+    delete archived.stickers["U:UB"];
+    data.schemeHistory = [
+      { scheme: archived, updatedAt: new Date(0).toISOString() },
+    ];
+    expect(() => parseData(data)).toThrow("48 physical stickers");
+  });
   it("isolates device and account storage", () => {
     const d = emptyData();
     d.onboarded = true;

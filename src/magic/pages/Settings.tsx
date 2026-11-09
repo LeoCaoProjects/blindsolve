@@ -1,10 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import {
-  PrimaryButton,
-  QuietButton,
   SecondaryButton,
   SECONDARY_BUTTON_STYLE,
 } from "../components/common/PrimaryButton";
@@ -30,9 +28,8 @@ import {
 } from "../contexts/AppDataContext";
 import { settingsSections } from "../data/navigation";
 import { useShortcutSheet } from "../hooks/useShortcutSheet";
-import { BldSetup, CubeMode, CubeViewPref } from "../types/app";
-import { sameView } from "../utils/view";
-import { EASE_OUT } from "../utils/keyboard";
+import { BldSetup, CubeMode } from "../types/app";
+import { useSettingsAutosave } from "../hooks/useSettingsAutosave";
 import { isSpeffz, speffzScheme } from "../utils/scheme";
 import { useScreenInit } from "../useScreenInit.js";
 import { useStore } from "../../app/Store";
@@ -47,12 +44,8 @@ interface ScreenState {
   section?: string;
   mode?: CubeMode;
   selected?: string;
-  dirty?: boolean;
-  saveFails?: boolean;
   speffzConfirm?: boolean;
-  leaveConfirm?: boolean;
   import?: "valid" | "invalid";
-  draftView?: "orange";
   signin?: "merge";
   feedback?: FeedbackCategory;
   feedbackFails?: boolean;
@@ -63,48 +56,22 @@ export function Settings() {
   const init = useScreenInit() as ScreenState;
   const app = useAppData();
   const store = useStore();
-  const navigate = useNavigate();
   const sheet = useShortcutSheet();
   const reduced = useReducedMotion();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const [draft, setDraft] = useState<BldSetup>(() =>
-    init.dirty
-      ? {
-          ...app.setup,
-          edgeBuffer: "D1",
-          edgeMethod: "m2",
-          scheme: { ...app.setup.scheme, U0: "A", D2: "Z" },
-        }
-      : app.setup,
-  );
-  const [draftView, setDraftView] = useState<CubeViewPref>(() =>
-    init.draftView === "orange"
-      ? { top: "white", front: "orange" }
-      : app.prefs.defaultView,
-  );
+  const autosave = useSettingsAutosave();
+  const { draft, setDraft, draftView, setDraftView } = autosave;
   const [mode, setMode] = useState<CubeMode>(init.mode ?? "view");
   const [selected, setSelected] = useState<string | null>(
     init.selected ?? null,
   );
   const [active, setActive] = useState(init.section ?? "cube");
   const [speffzConfirm, setSpeffzConfirm] = useState(!!init.speffzConfirm);
-  const [pendingNav, setPendingNav] = useState<string | null>(
-    init.leaveConfirm ? "/flashcards" : null,
-  );
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "failed">(
-    "idle",
-  );
-  const saveInFlight = useRef(false);
-  const failNext = useRef(!!init.saveFails);
   const [feedbackOpen, setFeedbackOpen] = useState(!!init.feedback);
 
-  const ownerKey = store.user?.id ?? "guest";
-  const dirty =
-    store.ready &&
-    (JSON.stringify(draft) !== JSON.stringify(app.setup) ||
-      !sameView(draftView, app.prefs.defaultView));
-  const patch = (p: Partial<BldSetup>) => setDraft((d) => ({ ...d, ...p }));
+  const patch = (p: Partial<BldSetup> | ((setup: BldSetup) => BldSetup)) =>
+    setDraft((d) => (typeof p === "function" ? p(d) : { ...d, ...p }));
   const changeEdgeMethod = (edgeMethod: BldSetup["edgeMethod"]) => {
     if (edgeMethod === draft.edgeMethod) return;
     const edgeBuffer = magicStickerForPhysical(
@@ -115,26 +82,9 @@ export function Settings() {
     patch({ edgeMethod, edgeBuffer });
   };
 
-  // Guard navigation away from unsaved setup.
-  useEffect(() => {
-    app.setNavGuard(
-      dirty ? (path: string) => (setPendingNav(path), false) : null,
-    );
-    return () => app.setNavGuard(null);
-  }, [dirty]);
-
-  // Reset the editable draft only after the new guest/account workspace is hydrated.
-  useEffect(() => {
-    if (!store.ready) return;
-    setDraft(app.setup);
-    setDraftView(app.prefs.defaultView);
-    setSaveState("idle");
-    setPendingNav(null);
-  }, [ownerKey, store.ready]);
-
   useEffect(() => {
     if (init.section) document.getElementById(init.section)?.scrollIntoView();
-  }, []);
+  }, [store.ready, autosave.hydrated]);
 
   // Track the section in view. The last section wins at the bottom of the page, since a short
   // final section (Support) can never scroll up to the activation line. A nav click holds its
@@ -189,7 +139,7 @@ export function Settings() {
       root.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, []);
+  }, [store.ready, autosave.hydrated]);
 
   const goToSection = (id: string) => {
     clickLock.current = id;
@@ -205,46 +155,9 @@ export function Settings() {
       ?.scrollIntoView({ behavior: reduced ? "auto" : "smooth" });
   };
 
-  const save = useCallback(() => {
-    if (saveInFlight.current) return;
-    saveInFlight.current = true;
-    setSaveState("saving");
-    if (failNext.current) {
-      failNext.current = false;
-      saveInFlight.current = false;
-      setSaveState("failed");
-      return;
-    }
-    app.saveSetup(draft);
-    app.setPrefs({ defaultView: draftView });
-    saveInFlight.current = false;
-    setSaveState("idle");
-  }, [app, draft, draftView]);
-
-  const discard = () => {
-    setDraft(app.setup);
-    setDraftView(app.prefs.defaultView);
-    setSaveState("idle");
-  };
-
   const applySpeffz = () => {
     patch({ scheme: speffzScheme(), schemeName: "Speffz" });
     setSpeffzConfirm(false);
-  };
-
-  const leave = (andSave: boolean) => {
-    const path = pendingNav;
-    if (!path) return;
-    if (andSave) {
-      app.saveSetup(draft);
-      app.setPrefs({ defaultView: draftView });
-    } else {
-      setDraft(app.setup);
-      setDraftView(app.prefs.defaultView);
-    }
-    app.setNavGuard(null);
-    setPendingNav(null);
-    navigate(path);
   };
 
   return (
@@ -292,7 +205,7 @@ export function Settings() {
         )}
       </SubNavigation>
 
-      {!store.ready ? (
+      {!store.ready || !autosave.hydrated ? (
         <main
           className="flex min-h-0 flex-1 items-center justify-center px-5"
           aria-busy="true"
@@ -311,6 +224,7 @@ export function Settings() {
               <SettingsSection id="cube" title="Cube & lettering">
                 <CubeConfigurator
                   setup={draft}
+                  savedScheme={app.setup.scheme}
                   onChange={patch}
                   view={draftView}
                   onViewChange={setDraftView}
@@ -325,6 +239,31 @@ export function Settings() {
                     isSpeffz(draft.scheme) ? undefined : setSpeffzConfirm(true)
                   }
                 />
+                {autosave.status && (
+                  <div className="mt-3 flex flex-wrap items-center gap-3 text-[12.5px] text-ink-3">
+                    <p role="status" aria-label="Setup save status">
+                      {autosave.status}
+                    </p>
+                    {autosave.needsRetry && (
+                      <SecondaryButton onClick={autosave.retry}>
+                        Retry
+                      </SecondaryButton>
+                    )}
+                    {autosave.conflict && (
+                      <>
+                        <SecondaryButton
+                          onClick={autosave.useDraft}
+                          disabled={!!autosave.invalid}
+                        >
+                          Keep my changes
+                        </SecondaryButton>
+                        <SecondaryButton onClick={autosave.useSaved}>
+                          Use saved setup
+                        </SecondaryButton>
+                      </>
+                    )}
+                  </div>
+                )}
               </SettingsSection>
 
               <SettingsSection id="methods" title="Methods">
@@ -445,51 +384,6 @@ export function Settings() {
               </SettingsSection>
             </div>
           </div>
-
-          <AnimatePresence>
-            {dirty && (
-              <motion.div
-                initial={{ y: reduced ? 0 : 8, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: reduced ? 0 : 8, opacity: 0 }}
-                transition={{ duration: reduced ? 0 : 0.16, ease: EASE_OUT }}
-                className="sticky bottom-0 z-20 border-t border-line bg-raised"
-                role="region"
-                aria-label="Unsaved changes"
-              >
-                <div
-                  className={`${SETTINGS_CONTENT} flex flex-wrap items-center justify-between gap-3 py-3`}
-                >
-                  <span
-                    className="flex items-center gap-2.5 text-[13px] text-ink-2"
-                    role="status"
-                  >
-                    <span
-                      aria-hidden
-                      className={`h-[6px] w-[6px] rounded-full ${saveState === "failed" ? "bg-accent" : "bg-ink-2"}`}
-                    />
-                    {saveState === "failed"
-                      ? "Couldn’t save — nothing was lost"
-                      : "Unsaved changes"}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <QuietButton onClick={discard}>Discard</QuietButton>
-                    <PrimaryButton
-                      onClick={save}
-                      hint=""
-                      disabled={saveState === "saving"}
-                    >
-                      {saveState === "saving"
-                        ? "Saving"
-                        : saveState === "failed"
-                          ? "Retry"
-                          : "Save"}
-                    </PrimaryButton>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       )}
 
@@ -499,16 +393,6 @@ export function Settings() {
         body="Your custom tokens will be overwritten. Letter pairs are kept."
         onCancel={() => setSpeffzConfirm(false)}
         confirm={{ label: "Use Speffz", onClick: applySpeffz }}
-      />
-
-      <ConfirmDialog
-        open={pendingNav !== null}
-        title="Save setup changes?"
-        body="You changed your lettering or buffers."
-        onCancel={() => setPendingNav(null)}
-        cancelLabel="Stay"
-        secondary={{ label: "Discard", onClick: () => leave(false) }}
-        confirm={{ label: "Save and leave", onClick: () => leave(true) }}
       />
 
       <FeedbackSheet

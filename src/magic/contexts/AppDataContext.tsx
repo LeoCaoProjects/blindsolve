@@ -59,7 +59,7 @@ interface AppDataValue {
   renameSession: (id: string, name: string) => void;
   deleteSession: (id: string) => void;
   setup: BldSetup;
-  saveSetup: (setup: BldSetup) => void;
+  saveSetup: (setup: BldSetup, view?: CubeViewPref) => boolean;
   prefs: Prefs;
   setPrefs: (p: Partial<Prefs>) => void;
   account: Account;
@@ -327,8 +327,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [store],
   );
   const saveSetup = useCallback(
-    (draft: BldSetup) =>
+    (draft: BldSetup, view?: CubeViewPref) =>
       store.update((current) => {
+        const previousSetup = setupFromStore(current);
         const stickers = Object.fromEntries(
           Object.entries(current.scheme.stickers).map(([id, sticker]) => [
             id,
@@ -338,23 +339,42 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         Object.entries(MAGIC_TO_PHYSICAL).forEach(([slot, id]) => {
           if (stickers[id]) stickers[id].label = draft.scheme[slot];
         });
+        const scheme: typeof current.scheme = {
+          ...current.scheme,
+          name: draft.schemeName,
+          stickers,
+          edgeBuffer:
+            MAGIC_TO_PHYSICAL[draft.edgeBuffer] ?? current.scheme.edgeBuffer,
+          cornerBuffer:
+            MAGIC_TO_PHYSICAL[draft.cornerBuffer] ??
+            current.scheme.cornerBuffer,
+          edgeMethod:
+            draft.edgeMethod === previousSetup.edgeMethod
+              ? current.scheme.edgeMethod
+              : draft.edgeMethod === "op"
+                ? "old-pochmann"
+                : draft.edgeMethod,
+          cornerMethod:
+            draft.cornerMethod === previousSetup.cornerMethod
+              ? current.scheme.cornerMethod
+              : draft.cornerMethod === "op"
+                ? "old-pochmann"
+                : draft.cornerMethod,
+        };
+        const schemeChanged =
+          JSON.stringify(scheme) !== JSON.stringify(current.scheme);
+        const viewChanged =
+          !!view &&
+          (view.top !== current.defaultCubeView?.top ||
+            view.front !== current.defaultCubeView?.front);
+        if (!schemeChanged && !viewChanged && current.onboarded) return current;
+        const now = new Date().toISOString();
         return {
           ...current,
-          scheme: {
-            ...current.scheme,
-            name: draft.schemeName,
-            stickers,
-            edgeBuffer:
-              MAGIC_TO_PHYSICAL[draft.edgeBuffer] ?? current.scheme.edgeBuffer,
-            cornerBuffer:
-              MAGIC_TO_PHYSICAL[draft.cornerBuffer] ??
-              current.scheme.cornerBuffer,
-            edgeMethod:
-              draft.edgeMethod === "op" ? "old-pochmann" : draft.edgeMethod,
-            cornerMethod:
-              draft.cornerMethod === "op" ? "old-pochmann" : draft.cornerMethod,
-          },
-          schemeUpdatedAt: new Date().toISOString(),
+          ...(schemeChanged ? { scheme, schemeUpdatedAt: now } : {}),
+          ...(viewChanged
+            ? { defaultCubeView: view, preferencesUpdatedAt: now }
+            : {}),
           onboarded: true,
         };
       }),
@@ -473,9 +493,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const value: AppDataValue = {
     pairs,
     savePair: writeEntry,
-    setDefaultWord: (key, word) => store.update(current => writeDefaultWords(current, {[key]:word})),
+    setDefaultWord: (key, word) =>
+      store.update((current) => writeDefaultWords(current, { [key]: word })),
     timerDb: toTimerDb(pairs),
-    setDefaultWords: (words) => store.update(current => writeDefaultWords(current, words)),
+    setDefaultWords: (words) =>
+      store.update((current) => writeDefaultWords(current, words)),
     solves,
     setSolves,
     timerMode: data.activeTimerMode ?? "3bld",
@@ -526,7 +548,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     },
     retrySync: store.retry,
     syncMessage: store.message,
-    deletePairGroup: (firstToken) => store.update((current) => deleteFirstLetterPairs(current, firstToken)),
+    deletePairGroup: (firstToken) =>
+      store.update((current) => deleteFirstLetterPairs(current, firstToken)),
     replacePairs: (action) => {
       const db = typeof action === "function" ? action(pairs) : action;
       store.update((current) => replacePairEntries(current, db));

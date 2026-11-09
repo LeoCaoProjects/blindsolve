@@ -255,9 +255,19 @@ const solveSchema = z
     (s) => s.totalMs === s.memoMs + s.executionMs,
     "Invalid timing split",
   );
+// Earlier manual saves could archive an unfinished lettering edit. It remains
+// useful recovery evidence, but must not be validated as the active scheme.
+const archivedSchemeSchema = schemeSchema.extend({
+  stickers: z.record(
+    z.string(),
+    schemeSchema.shape.stickers.valueType.extend({
+      label: z.string().max(12),
+    }),
+  ),
+});
 const dataSchema = z.object({
   schemeHistory: z
-    .array(z.object({ scheme: schemeSchema, updatedAt: iso }))
+    .array(z.object({ scheme: archivedSchemeSchema, updatedAt: iso }))
     .max(100)
     .optional(),
   scheme: schemeSchema,
@@ -406,7 +416,12 @@ export function parseData(value: unknown): AppData {
       throw new Error("Backup contains duplicate pair identities.");
     pairs[key] = pair;
   }
-  const repairMetadata = (old: LetteringScheme) => {
+  const repairMetadata = (old: LetteringScheme, archived = false) => {
+    if (
+      Object.keys(old.stickers).length !== 48 ||
+      Object.keys(defaults.stickers).some((id) => !old.stickers[id])
+    )
+      throw new Error("A saved scheme must include all 48 physical stickers.");
     const repaired = {
       ...old,
       stickers: Object.fromEntries(
@@ -416,7 +431,20 @@ export function parseData(value: unknown): AppData {
         ]),
       ),
     };
-    const error = validateScheme(repaired);
+    const error = validateScheme(
+      archived
+        ? {
+            ...repaired,
+            // Validate structure, buffers and orientation without rewriting archived tokens.
+            stickers: Object.fromEntries(
+              Object.entries(repaired.stickers).map(([id, s]) => [
+                id,
+                { ...s, label: defaults.stickers[id].label },
+              ]),
+            ),
+          }
+        : repaired,
+    );
     if (error) throw new Error(error);
     return repaired;
   };
@@ -432,7 +460,7 @@ export function parseData(value: unknown): AppData {
     })),
     schemeHistory: parsed.schemeHistory?.map((s) => ({
       ...s,
-      scheme: repairMetadata(s.scheme),
+      scheme: repairMetadata(s.scheme, true),
     })),
   };
 }

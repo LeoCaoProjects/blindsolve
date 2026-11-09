@@ -86,6 +86,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     clearGuestAfterSync = useRef(false);
   const flushRef = useRef<() => Promise<void>>(async () => {});
   const storageReadable = useRef(true);
+  const storageReadReason = useRef("");
   // A failed atomic setItem must not discard new work on an account transition.
   // These copies live only in this tab; the persistent warning/unload guard says so.
   const unsaved = useRef(new Map<string | null, LocalEnvelope>());
@@ -107,7 +108,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setStorageIssue(
         storageReadable.current
           ? "Changes are only in this tab: browser storage is full or unavailable. Keep this tab open, export a backup, then retry saving."
-          : "Saved data could not be read. The original copy is preserved. Export this tab’s data before closing; do not clear browser storage.",
+          : `Saved data could not be read${storageReadReason.current ? ` (${storageReadReason.current})` : ""}. The original copy is preserved. Export this tab’s data before closing; do not clear browser storage.`,
       );
       return false;
     }
@@ -281,11 +282,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ? reconcilePeer(local, stored)
           : stored;
       } catch (e) {
+        const error = e as Error & {
+          issues?: Array<{ path?: PropertyKey[]; message: string }>;
+        };
+        const issue = error.issues?.[0];
+        storageReadReason.current = (
+          issue ? `${issue.path?.join(".")}: ${issue.message}` : error.message
+        ).slice(0, 240);
         storageReadable.current = false;
         unreadableOwners.current.add(owner.current);
         unsaved.current.set(owner.current, local);
         setStorageIssue(
-          "Saved data could not be read. The original copy is preserved. Do not clear browser storage.",
+          `Saved data could not be read (${storageReadReason.current}). The original copy is preserved. Do not clear browser storage.`,
         );
         notify(
           `Saved data could not be read: ${(e as Error).message}. The original storage has been preserved.`,
@@ -516,7 +524,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!storageReadable.current) {
       try {
         const stored = loadLocal(owner.current);
-        current.current = reconcilePeer(current.current, stored);
+        // The temporary fallback is not an authoritative saved setup. On equal
+        // legacy timestamps keep the recovered scheme/preferences, while merging
+        // genuinely newer edits and history retained in this tab.
+        current.current = reconcilePeer(stored, current.current);
         setData(current.current.data);
         storageReadable.current = true;
         unreadableOwners.current.delete(owner.current);
