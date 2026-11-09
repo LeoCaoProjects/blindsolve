@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { CubeViewPref, FaceColor, LetterScheme } from "../../types/app";
 import { Face } from "../../utils/cube";
@@ -13,9 +13,11 @@ import { IconButton } from "../common/IconButton";
 import { TEXT_INPUT_STYLE } from "../common/formStyles";
 import { useDefaultView } from "../../contexts/AppDataContext";
 import { StickerSwatch } from "./StickerSwatch";
+import { normalizeLabel } from "../../../domain/letterPairs/identity";
 
 interface StickerEditorProps {
   scheme: LetterScheme;
+  savedScheme?: LetterScheme;
   colors: Record<Face, FaceColor>;
   selected: string;
   view?: CubeViewPref;
@@ -25,6 +27,7 @@ interface StickerEditorProps {
 
 export function StickerEditor({
   scheme,
+  savedScheme = scheme,
   colors,
   selected,
   view: draftView,
@@ -36,6 +39,9 @@ export function StickerEditor({
   const info = stickerById(selected);
   const display = stickerInView(selected, view);
   const token = scheme[selected] ?? "";
+  const previousLetters = useRef<Record<string, string>>({});
+  const latest = useRef({ scheme, savedScheme, onChange });
+  latest.current = { scheme, savedScheme, onChange };
   const order = ALL_STICKERS.filter((s) => s.type === info.type).map(
     (s) => stickerFromView(s.id, view).id,
   );
@@ -47,8 +53,35 @@ export function StickerEditor({
       s.type === info.type &&
       s.id !== selected &&
       token &&
-      scheme[s.id] === token,
+      normalizeLabel(scheme[s.id] ?? "") === normalizeLabel(token),
   );
+  const validToken = (value: string) => !!value && /^[^\s,·|/]+$/.test(value);
+  const otherProblem = ALL_STICKERS.find(
+    (s) =>
+      s.id !== selected &&
+      (!validToken(scheme[s.id] ?? "") ||
+        ALL_STICKERS.some(
+          (other) =>
+            other.id !== s.id &&
+            other.type === s.type &&
+            normalizeLabel(scheme[other.id] ?? "") ===
+              normalizeLabel(scheme[s.id] ?? ""),
+        )),
+  );
+  const problem =
+    token && !validToken(token)
+      ? "Use letters or numbers without separators."
+      : duplicates.length
+        ? `Already used on ${stickerInView(duplicates[0].id, view).piece}. Choose another label.`
+        : null;
+  if (token && !problem) previousLetters.current[selected] = token;
+  const restoreBlank = (id: string) => {
+    const current = latest.current;
+    if (current.scheme[id]?.trim()) return;
+    const previous = previousLetters.current[id] || current.savedScheme[id];
+    if (previous) current.onChange(id, previous);
+  };
+  useEffect(() => () => restoreBlank(selected), [selected]);
 
   return (
     <div>
@@ -75,16 +108,29 @@ export function StickerEditor({
         </div>
       </div>
 
+      <label
+        htmlFor="lettering-label"
+        className="mt-6 block text-[12px] text-ink-2"
+      >
+        Letter
+      </label>
+      <p id="lettering-label-rule" className="mt-1 text-[12px] text-ink-3">
+        Each {info.type === "edge" ? "Edge" : "Corner"} label must be unique. Up
+        to 3 characters.
+      </p>
       <input
+        id="lettering-label"
         key={selected}
         autoFocus
-        aria-label="Token"
+        aria-invalid={!!problem}
+        aria-describedby="lettering-label-rule lettering-field-help"
         value={token}
         maxLength={3}
         spellCheck={false}
         onFocus={(e) => e.currentTarget.select()}
+        onBlur={() => restoreBlank(selected)}
         onChange={(e) =>
-          onChange(selected, e.target.value.toUpperCase().replace(/\s/g, ""))
+          onChange(selected, normalizeLabel(e.target.value).slice(0, 3))
         }
         onKeyDown={(e) => {
           if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
@@ -95,18 +141,27 @@ export function StickerEditor({
             move(-1);
           }
         }}
-        className={`${TEXT_INPUT_STYLE} mt-6 max-w-[160px] font-mono !text-[22px] tracking-[0.1em]`}
+        style={problem ? { borderColor: "var(--danger)" } : undefined}
+        className={`${TEXT_INPUT_STYLE} mt-2 max-w-[160px] font-mono !text-[22px] tracking-[0.1em]`}
       />
 
-      <div className="mt-2.5 min-h-[20px] text-[12.5px]">
-        {!token ? (
-          <span className="text-ink-3">Unlabelled</span>
-        ) : duplicates.length ? (
-          <span className="text-ink-2">
-            Also on{" "}
-            {duplicates.map((d) => stickerInView(d.id, view).piece).join(", ")}
-          </span>
-        ) : null}
+      <div
+        id="lettering-field-help"
+        className={`mt-2.5 h-[40px] text-[12.5px] ${problem ? "text-[var(--danger)]" : "text-ink-3"}`}
+      >
+        {problem ??
+          (!token ? (
+            "Previous label will be kept."
+          ) : otherProblem ? (
+            <button
+              type="button"
+              className="text-left underline underline-offset-2 hover:text-ink"
+              onClick={() => onSelect(otherProblem.id)}
+            >
+              Check {stickerInView(otherProblem.id, view).piece} (
+              {FACE_NAMES[stickerInView(otherProblem.id, view).face]} face).
+            </button>
+          ) : null)}
       </div>
     </div>
   );

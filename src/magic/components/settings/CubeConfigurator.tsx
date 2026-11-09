@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { BldSetup, CubeMode, CubeViewPref } from "../../types/app";
 import { useElementWidth } from "../../hooks/useElementWidth";
@@ -12,14 +12,17 @@ import {
 import { Segmented } from "../common/Segmented";
 import { SecondaryButton, QuietButton } from "../common/PrimaryButton";
 import { TEXT_INPUT_STYLE } from "../common/formStyles";
-import { CubeView, SchemeCube } from "../cube/SchemeCube";
+import { SchemeCube } from "../cube/SchemeCube";
 import { BufferPanel } from "./BufferPanel";
 import { DefaultViewPanel } from "./DefaultViewPanel";
 import { StickerEditor } from "./StickerEditor";
 
 interface CubeConfiguratorProps {
   setup: BldSetup;
-  onChange: (patch: Partial<BldSetup>) => void;
+  onChange: (
+    patch: Partial<BldSetup> | ((setup: BldSetup) => BldSetup),
+  ) => void;
+  savedScheme: BldSetup["scheme"];
   view: CubeViewPref;
   onViewChange: (v: CubeViewPref) => void;
   mode: CubeMode;
@@ -39,6 +42,7 @@ const MODES: { value: CubeMode; label: string }[] = [
 
 export function CubeConfigurator({
   setup,
+  savedScheme,
   onChange,
   view,
   onViewChange,
@@ -50,8 +54,6 @@ export function CubeConfigurator({
 }: CubeConfiguratorProps) {
   const colors = REFERENCE_COLORS;
   const reduced = useReducedMotion();
-  const [live, setLive] = useState<CubeView>({ up: "U", front: "F" });
-  const [resetSignal, setResetSignal] = useState(0);
   const [stageRef, stageWidth] = useElementWidth<HTMLDivElement>(560);
   const cubeSize = Math.max(120, Math.min(380, stageWidth - 48));
   const speffz = isSpeffz(setup.scheme);
@@ -85,12 +87,13 @@ export function CubeConfigurator({
             mode={mode}
             selected={mode === "lettering" ? selected : null}
             revealSelected={mode === "lettering"}
+            animateOrientation
+            allowRotation={mode !== "cube-view"}
+            freeRotation
             edgeBuffer={setup.edgeBuffer}
             cornerBuffer={setup.cornerBuffer}
             showBuffers={mode !== "lettering"}
             onPick={pick}
-            onViewChange={setLive}
-            resetSignal={resetSignal}
             label="Your cube"
           />
 
@@ -173,12 +176,16 @@ export function CubeConfigurator({
                 {selected ? (
                   <StickerEditor
                     scheme={setup.scheme}
+                    savedScheme={savedScheme}
                     colors={colors}
                     selected={selected}
                     view={view}
                     onSelect={onSelect}
                     onChange={(id, token) =>
-                      onChange({ scheme: { ...setup.scheme, [id]: token } })
+                      onChange((current) => ({
+                        ...current,
+                        scheme: { ...current.scheme, [id]: token },
+                      }))
                     }
                   />
                 ) : (
@@ -200,6 +207,7 @@ export function CubeConfigurator({
                       </span>
                       <input
                         value={setup.schemeName}
+                        maxLength={1000}
                         onChange={(e) =>
                           onChange({ schemeName: e.target.value })
                         }
@@ -239,12 +247,7 @@ export function CubeConfigurator({
               />
             )}
             {mode === "cube-view" && (
-              <DefaultViewPanel
-                value={view}
-                live={live}
-                onChange={onViewChange}
-                onResetRotation={() => setResetSignal((n) => n + 1)}
-              />
+              <DefaultViewPanel value={view} onChange={onViewChange} />
             )}
           </motion.div>
         </AnimatePresence>

@@ -48,8 +48,10 @@ interface SchemeCubeProps {
   resetSignal?: number;
   /** Camera angle to animate to (e.g. to show the stickers of a flashcard) */
   rotation?: { x: number; y: number };
-  /** Opt-in for in-place card changes; workspace/settings cameras stay instant. */
+  /** Opt-in for in-place target/view changes; route entry remains unchanged. */
   animateOrientation?: boolean;
+  allowRotation?: boolean;
+  freeRotation?: boolean;
   /** Reveal a physical selection using the shared target camera. */
   revealSelected?: boolean;
   label?: string;
@@ -89,6 +91,8 @@ export function SchemeCube({
   resetSignal = 0,
   rotation,
   animateOrientation = false,
+  allowRotation = true,
+  freeRotation = false,
   revealSelected = false,
   label = "Cube",
   className = "",
@@ -117,8 +121,21 @@ export function SchemeCube({
   const gap = Math.max(2, Math.round(S * 0.032));
   const radius = Math.max(1.5, S * 0.022);
 
+  const orientationFor = (faces: Face[]) => {
+    const target = bestRotation(faces, camera, currentRot.current).rot;
+    // Free Settings rotation can accumulate full vertical turns as well as yaw.
+    // Keep automatic orientation changes on the nearest equivalent turn.
+    return freeRotation
+      ? {
+          ...target,
+          x:
+            target.x +
+            360 * Math.round((currentRot.current.x - target.x) / 360),
+        }
+      : target;
+  };
   useLayoutEffect(
-    () => setRot(rotation ?? DEFAULT_ROT),
+    () => setRot(rotation ?? orientationFor([])),
     [resetSignal, camera.top, camera.front],
   );
   useLayoutEffect(() => {
@@ -126,15 +143,22 @@ export function SchemeCube({
   }, [rotation?.x, rotation?.y]);
 
   useLayoutEffect(() => {
+    // The view-only settings tab previews the configured camera, even after a
+    // manual rotation elsewhere. Other tabs keep their manual preview angle.
+    if (mode === "cube-view" && !allowRotation)
+      setRot(rotation ?? orientationFor([]));
+  }, [mode, allowRotation]);
+
+  useLayoutEffect(() => {
     if (!revealSelected || !selected) {
-      if (lastSelectionView.current) setRot(rotation ?? DEFAULT_ROT);
+      if (lastSelectionView.current) setRot(rotation ?? orientationFor([]));
       lastSelectionView.current = null;
       setSelectionMotion(false);
       return;
     }
     const key = `${camera.top}/${camera.front}`;
     setSelectionMotion(lastSelectionView.current === key);
-    setRot(bestRotation([selected[0] as Face], camera, currentRot.current).rot);
+    setRot(orientationFor([selected[0] as Face]));
     lastSelectionView.current = key;
   }, [revealSelected, selected, camera.top, camera.front]);
 
@@ -143,6 +167,11 @@ export function SchemeCube({
   }, [rot.x, rot.y, camera.top, camera.front]);
 
   useEffect(() => {
+    if (!allowRotation) {
+      dragRef.current = null;
+      setDragging(false);
+      return;
+    }
     const move = (e: PointerEvent) => {
       const d = dragRef.current;
       if (!d) return;
@@ -152,10 +181,19 @@ export function SchemeCube({
       d.moved = true;
       movedRef.current = true;
       setDragging(true);
-      setRot({
-        x: Math.max(-88, Math.min(88, d.rx - dy * 0.45)),
-        y: d.ry + dx * 0.45,
-      });
+      const x = freeRotation
+        ? d.rx - dy * 0.45
+        : Math.max(-88, Math.min(88, d.rx - dy * 0.45));
+      const direction =
+        freeRotation && Math.cos((((d.rx + x) / 2) * Math.PI) / 180) < 0
+          ? -1
+          : 1;
+      const y = d.ry + dx * 0.45 * direction;
+      setRot({ x, y });
+      // Integrate from the last pointer position. Crossing a pole must not
+      // reverse the entire drag accumulated since pointerdown.
+      if (freeRotation)
+        Object.assign(d, { x: e.clientX, y: e.clientY, rx: x, ry: y });
     };
     const up = () => {
       if (dragRef.current?.moved && mode === "cube-view") {
@@ -171,10 +209,10 @@ export function SchemeCube({
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };
-  }, [mode]);
+  }, [mode, allowRotation, freeRotation]);
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (e.button !== 0) return;
+    if (!allowRotation || e.button !== 0) return;
     e.stopPropagation();
     movedRef.current = false;
     dragRef.current = {
@@ -187,20 +225,36 @@ export function SchemeCube({
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.target !== e.currentTarget) return;
+    if (!allowRotation || e.target !== e.currentTarget) return;
     const snapping = mode === "cube-view";
     const step = snapping ? 90 : 15;
-    if (e.key === "ArrowLeft") setRot((r) => ({ ...r, y: r.y - step }));
-    else if (e.key === "ArrowRight") setRot((r) => ({ ...r, y: r.y + step }));
+    const horizontalStep = (r: { x: number }) =>
+      step * (freeRotation && Math.cos((r.x * Math.PI) / 180) < 0 ? -1 : 1);
+    if (e.key === "ArrowLeft")
+      setRot((r) => ({ ...r, y: r.y - horizontalStep(r) }));
+    else if (e.key === "ArrowRight")
+      setRot((r) => ({ ...r, y: r.y + horizontalStep(r) }));
     else if (e.key === "ArrowUp")
       setRot((r) => ({
         ...r,
-        x: snapping ? (r.x < -30 ? -27 : 88) : Math.min(88, r.x + step),
+        x: freeRotation
+          ? r.x + step
+          : snapping
+            ? r.x < -30
+              ? -27
+              : 88
+            : Math.min(88, r.x + step),
       }));
     else if (e.key === "ArrowDown")
       setRot((r) => ({
         ...r,
-        x: snapping ? (r.x > 30 ? -27 : -88) : Math.max(-88, r.x - step),
+        x: freeRotation
+          ? r.x - step
+          : snapping
+            ? r.x > 30
+              ? -27
+              : -88
+            : Math.max(-88, r.x - step),
       }));
     else return;
     e.preventDefault();
@@ -216,11 +270,11 @@ export function SchemeCube({
       role="group"
       aria-label={label}
       data-cube-view={`${camera.top}/${camera.front}`}
-      tabIndex={0}
+      tabIndex={allowRotation ? 0 : undefined}
       onPointerDown={onPointerDown}
-      onDoubleClick={() => setRot(DEFAULT_ROT)}
+      onDoubleClick={allowRotation ? () => setRot(DEFAULT_ROT) : undefined}
       onKeyDown={onKeyDown}
-      className={`relative shrink-0 touch-none select-none ${dragging ? "cursor-grabbing" : "cursor-grab"} ${className}`}
+      className={`relative shrink-0 select-none ${allowRotation ? (dragging ? "touch-none cursor-grabbing" : "touch-none cursor-grab") : "touch-pan-y cursor-default"} ${className}`}
       style={cubeGeometry(
         { width: size, height: size, perspective: size * 3.4 },
         rootUnits,
