@@ -45,7 +45,9 @@ test("rail and mobile dock navigate all real routes and follow browser history",
     ]) {
       const link = nav.getByRole("link", { name: label, exact: true });
       await link.click();
-      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(page).toHaveURL(
+        new URL(path === "/settings" ? path : "/", page.url()).href,
+      );
       await expect(link).toHaveAttribute("aria-current", "page");
       expect(
         await page.evaluate(
@@ -136,7 +138,10 @@ test('rail and dock preserve the existing Settings leave guard', async ({ page }
     await confirm.getByRole('button', { name: 'Stay', exact: true }).click();
     await page.getByRole('link', { name: 'Training', exact: true }).click();
     await confirm.getByRole('button', { name: 'Discard', exact: true }).click();
-    await expect(page).toHaveURL(/\/training$/);
+    await expect(page).toHaveURL(new URL("/", page.url()).href);
+    await expect(
+      page.getByRole("link", { name: "Training", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
   }
 });
 

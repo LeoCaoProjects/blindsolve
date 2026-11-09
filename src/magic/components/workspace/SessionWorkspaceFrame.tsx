@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useWorkspaceLocation } from "../../navigation/workspaces";
 import { CaseSensitiveIcon } from "lucide-react";
 import { useSessionWorkspace } from "../../contexts/SessionWorkspaceContext";
 import { clamp, useElementSize } from "../../hooks/useElementSize";
@@ -24,7 +24,7 @@ export function SessionWorkspaceFrame({
 }: {
   children: React.ReactNode;
 }) {
-  const { pathname } = useLocation();
+  const { pathname } = useWorkspaceLocation();
   const flashcards = pathname === "/flashcards";
   const shared = pathname === "/" || pathname === "/training" || flashcards;
   const training = pathname === "/training";

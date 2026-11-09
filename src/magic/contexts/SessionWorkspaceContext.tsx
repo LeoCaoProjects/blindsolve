@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useWorkspaceLocation } from "../navigation/workspaces";
 import { TrainMode } from "../data/trainingModes";
 import {
   TrainInit,
@@ -44,7 +44,7 @@ function OwnerWorkspace({
   children: React.ReactNode;
   stage: DemoStage;
 }) {
-  const { pathname } = useLocation();
+  const { pathname } = useWorkspaceLocation();
   const init = useScreenInit() as TrainInit & {
     sessions?: "open" | "confirm";
     stage?: DemoStage;
