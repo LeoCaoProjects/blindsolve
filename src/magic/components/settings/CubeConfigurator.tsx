@@ -59,6 +59,10 @@ export function CubeConfigurator({
   const speffz = isSpeffz(setup.scheme);
 
   const pick = (id: string) => {
+    if (mode === "view") {
+      onModeChange("lettering");
+      onSelect(id);
+    }
     if (mode === "lettering") onSelect(id);
     if (mode === "edge-buffer") onChange({ edgeBuffer: id });
     if (mode === "corner-buffer") onChange({ cornerBuffer: id });
@@ -94,6 +98,7 @@ export function CubeConfigurator({
             cornerBuffer={setup.cornerBuffer}
             showBuffers={mode !== "lettering"}
             onPick={pick}
+            pickInOverview
             label="Your cube"
           />
 

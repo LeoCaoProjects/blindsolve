@@ -44,6 +44,8 @@ interface SchemeCubeProps {
   /** How many leading highlightIds belong to the pair's first token (accent ring); the rest get the ink ring */
   highlightPrimaryCount?: number;
   onPick?: (id: string) => void;
+  /** Allow Settings Overview stickers to open their lettering editor. */
+  pickInOverview?: boolean;
   onViewChange?: (view: CubeView) => void;
   resetSignal?: number;
   /** Camera angle to animate to (e.g. to show the stickers of a flashcard) */
@@ -87,6 +89,7 @@ export function SchemeCube({
   highlightIds,
   highlightPrimaryCount = 1,
   onPick,
+  pickInOverview = false,
   onViewChange,
   resetSignal = 0,
   rotation,
@@ -105,6 +108,8 @@ export function SchemeCube({
   const currentRot = useRef(rot);
   currentRot.current = rot;
   const lastSelectionView = useRef<string | null>(null);
+  const pickedSelection = useRef<string | null>(null);
+  const lastBufferMode = useRef<typeof mode | null>(null);
   const [selectionMotion, setSelectionMotion] = useState(false);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{
@@ -151,16 +156,41 @@ export function SchemeCube({
 
   useLayoutEffect(() => {
     if (!revealSelected || !selected) {
+      pickedSelection.current = null;
       if (lastSelectionView.current) setRot(rotation ?? orientationFor([]));
       lastSelectionView.current = null;
       setSelectionMotion(false);
       return;
     }
     const key = `${camera.top}/${camera.front}`;
+    // A directly picked sticker is already visible. Keep the user's angle;
+    // only programmatic selection and view changes need camera alignment.
+    const directlyPicked = pickedSelection.current === selected;
+    pickedSelection.current = null;
     setSelectionMotion(lastSelectionView.current === key);
-    setRot(orientationFor([selected[0] as Face]));
+    if (!directlyPicked) setRot(orientationFor([selected[0] as Face]));
     lastSelectionView.current = key;
   }, [revealSelected, selected, camera.top, camera.front]);
+
+  useLayoutEffect(() => {
+    const entered = lastBufferMode.current !== mode;
+    lastBufferMode.current = mode;
+    if (!entered) return;
+    const buffer =
+      mode === "edge-buffer"
+        ? edgeBuffer
+        : mode === "corner-buffer"
+          ? cornerBuffer
+          : null;
+    // Reveal the current buffer piece on tab entry only. Changing a buffer or
+    // manually rotating within the tab must not move the camera again.
+    if (buffer)
+      setRot(
+        orientationFor(
+          [buffer, ...siblingsOf(buffer)].map((id) => id[0] as Face),
+        ),
+      );
+  }, [mode, edgeBuffer, cornerBuffer]);
 
   useEffect(() => {
     onViewChange?.(computeView(rot.x, rot.y, camera));
@@ -284,6 +314,9 @@ export function SchemeCube({
         className="absolute inset-0"
         style={{
           transformStyle: "preserve-3d",
+          // This transparent plane can otherwise intercept stickers behind its
+          // centre plane at some viewing angles. Only the actual faces take hits.
+          pointerEvents: "none",
           transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) ${viewTransform(camera)}`,
           transition:
             !dragging && !reduced && (animateOrientation || selectionMotion)
@@ -309,6 +342,7 @@ export function SchemeCube({
                 background: "var(--cube-body)",
                 borderRadius: S * 0.045,
                 backfaceVisibility: "hidden",
+                pointerEvents: "auto",
               },
               rootUnits,
             )}
@@ -341,6 +375,7 @@ export function SchemeCube({
               const id = `${face}${i}`;
               const token = scheme[id] ?? "";
               const pickable =
+                (mode === "view" && pickInOverview) ||
                 mode === "lettering" ||
                 (mode === "edge-buffer" && type === "edge") ||
                 (mode === "corner-buffer" && type === "corner");
@@ -442,7 +477,15 @@ export function SchemeCube({
                     aria-label={`Sticker ${token || "unlabelled"}${isBuffer ? ", buffer" : ""}`}
                     aria-pressed={isSelected}
                     onClick={() => {
-                      if (!movedRef.current) onPick(id);
+                      if (!movedRef.current) {
+                        if (
+                          (revealSelected ||
+                            (mode === "view" && pickInOverview)) &&
+                          selected !== id
+                        )
+                          pickedSelection.current = id;
+                        onPick(id);
+                      }
                     }}
                     className="flex items-center justify-center font-mono font-medium leading-none outline-none"
                     style={style}

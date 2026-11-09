@@ -15,10 +15,11 @@ interface SheetProps {
   width?: number;
   footer?: React.ReactNode;
   children: React.ReactNode;
+  scrollContent?: boolean;
 }
 
 /** Centred sheet — same scrim, surface and motion as the shortcut sheet. Scrolls inside, never past the viewport. */
-export function Sheet({ open, onClose, label, title, width = 420, footer, children }: SheetProps) {
+export function Sheet({ open, onClose, label, title, width = 420, footer, children, scrollContent = true }: SheetProps) {
   const dialogRef = useDialogFocus<HTMLDivElement>(open);
   useDialogSpaceClose(dialogRef, onClose, open);
   useEffect(() => {
@@ -65,7 +66,7 @@ export function Sheet({ open, onClose, label, title, width = 420, footer, childr
                 </IconButton>
               </header>
           }
-            <div className={`scroll-quiet min-h-0 flex-1 overflow-y-auto px-6 ${title ? 'pb-6' : 'py-6'}`}>{children}</div>
+            <div className={`min-h-0 flex-1 ${scrollContent ? 'scroll-quiet overflow-y-auto' : 'flex flex-col overflow-hidden'} px-6 ${title ? 'pb-6' : 'py-6'}`}>{children}</div>
             {footer && <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-4 py-3">{footer}</footer>}
           </motion.div>
         </motion.div>

@@ -40,7 +40,7 @@ Unavailable overrides are disabled in the editor but preserved internally. Count
 
 Timer, reconstruction, Memo Recall, Training and Flashcards use atomic label tokens and boundary-safe lookup. Ordinary word edits write Default and preserve explicit overrides. Completed solve snapshots retain historical labels and used words. Custom-label answers retain explicit spaces/separators; ambiguous compact input is rejected rather than guessed. Timer tracing and cycle-break mechanics remain physical and unchanged.
 
-Two-key jumping remains enabled when every active label is a single character. If any custom multi-character label is active, raw two-key jumping is disabled; users click labels/pairs and retain arrow navigation. There was no pair-search input to migrate. No buffered parser was added.
+Two-key jumping selects two single-character labels, including when custom labels are active. Typing S then H selects S+H, never the custom SH label. Multi-character labels use click/arrow navigation. There was no pair-search input to migrate. No buffered parser was added.
 
 Optional legacy cleanup should wait until deployment confidence, verified backups and upgraded clients. It is not required for correctness. Old clients do not understand new logical records and must refresh/upgrade before continuing to edit after rollout.
 

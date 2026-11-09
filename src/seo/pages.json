@@ -20,11 +20,6 @@
     "description": "Your cube, methods and timer settings.",
     "noindex": true
   },
-  "/setup": {
-    "heading": "Setup",
-    "description": "Set up your cube and lettering scheme.",
-    "noindex": true
-  },
   "/signin": {
     "heading": "Sign in to BlindSolve",
     "description": "Sign in to your BlindSolve account.",

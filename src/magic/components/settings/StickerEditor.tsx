@@ -68,20 +68,29 @@ export function StickerEditor({
               normalizeLabel(scheme[s.id] ?? ""),
         )),
   );
-  const problem =
-    token && !validToken(token)
+  const problem = !token
+    ? "Enter a letter. The previous label will be kept if you leave it blank."
+    : !validToken(token)
       ? "Use letters or numbers without separators."
       : duplicates.length
         ? `Already used on ${stickerInView(duplicates[0].id, view).piece}. Choose another label.`
         : null;
   if (token && !problem) previousLetters.current[selected] = token;
-  const restoreBlank = (id: string) => {
+  const restoreInvalid = (id: string) => {
     const current = latest.current;
-    if (current.scheme[id]?.trim()) return;
+    const value = current.scheme[id] ?? "";
+    const type = stickerById(id).type;
+    const duplicate = ALL_STICKERS.some(
+      (s) =>
+        s.id !== id &&
+        s.type === type &&
+        normalizeLabel(current.scheme[s.id] ?? "") === normalizeLabel(value),
+    );
+    if (validToken(value) && !duplicate) return;
     const previous = previousLetters.current[id] || current.savedScheme[id];
     if (previous) current.onChange(id, previous);
   };
-  useEffect(() => () => restoreBlank(selected), [selected]);
+  useEffect(() => () => restoreInvalid(selected), [selected]);
 
   return (
     <div>
@@ -114,21 +123,17 @@ export function StickerEditor({
       >
         Letter
       </label>
-      <p id="lettering-label-rule" className="mt-1 text-[12px] text-ink-3">
-        Each {info.type === "edge" ? "Edge" : "Corner"} label must be unique. Up
-        to 3 characters.
-      </p>
       <input
         id="lettering-label"
         key={selected}
         autoFocus
         aria-invalid={!!problem}
-        aria-describedby="lettering-label-rule lettering-field-help"
+        aria-describedby="lettering-field-help"
         value={token}
         maxLength={3}
         spellCheck={false}
         onFocus={(e) => e.currentTarget.select()}
-        onBlur={() => restoreBlank(selected)}
+        onBlur={() => restoreInvalid(selected)}
         onChange={(e) =>
           onChange(selected, normalizeLabel(e.target.value).slice(0, 3))
         }
@@ -150,9 +155,7 @@ export function StickerEditor({
         className={`mt-2.5 h-[40px] text-[12.5px] ${problem ? "text-[var(--danger)]" : "text-ink-3"}`}
       >
         {problem ??
-          (!token ? (
-            "Previous label will be kept."
-          ) : otherProblem ? (
+          (otherProblem ? (
             <button
               type="button"
               className="text-left underline underline-offset-2 hover:text-ink"

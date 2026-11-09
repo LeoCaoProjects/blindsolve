@@ -16,7 +16,6 @@ const routes = process.env.ZOOM_ROUTES?.split(",") ?? [
   "/pairs",
   "/flashcards",
   "/settings",
-  "/setup",
   "/signin",
 ];
 const levels = [1, 0.5, 0.8, 1.25, 1.5, 2, 1];

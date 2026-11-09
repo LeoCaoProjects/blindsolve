@@ -50,6 +50,10 @@ async function lettering(page: Page) {
     .getByRole("radiogroup", { name: "Cube mode", exact: true })
     .getByRole("radio", { name: "Lettering", exact: true })
     .click();
+  await page
+    .getByRole("group", { name: "Your cube", exact: true })
+    .locator('[data-sticker-id="U0"]')
+    .click();
   return page.getByRole("textbox", { name: "Letter", exact: true });
 }
 
@@ -76,8 +80,12 @@ test("guest relabel/edit/reload/revert preserves logical words and custom naviga
   await row(page, "SHB").focus();
   await page.keyboard.type("ab");
   await expect(
-    page.getByRole("grid", { name: "Pairs starting SH", exact: true }),
+    page.getByRole("grid", { name: "Pairs starting A", exact: true }),
   ).toBeVisible();
+  await expect(row(page, "AB")).toBeFocused();
+  await page.keyboard.type("sh");
+  await expect(row(page, "SH")).toBeFocused(); // S + H, not the custom SH label.
+  await rail(page, "SH").click();
   await row(page, "SHB").click();
   const popup = page.getByRole("dialog", { name: "Pair SHB", exact: true });
   await expect(

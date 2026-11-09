@@ -22,7 +22,7 @@ export function PairScopeNavigation({
   const reduced = useReducedMotion();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   return (
-    <nav aria-label="Vocabulary">
+    <nav aria-label="Vocabulary" className="shrink-0">
       <div
         role="radiogroup"
         aria-label="Vocabulary"

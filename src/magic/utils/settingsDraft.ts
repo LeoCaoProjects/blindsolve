@@ -55,10 +55,24 @@ export function readSettingsDraft(
     throw new Error(
       "The saved draft could not be read. Export a backup before clearing browser storage.",
     );
-  // Closing/reloading while a field was cleared also restores its previous letter.
-  for (const id of Object.keys(result.data.setup.scheme)) {
-    if (!result.data.setup.scheme[id].trim())
-      result.data.setup.scheme[id] = result.data.baseSetup.scheme[id];
+  // Recover abandoned invalid fields without changing unrelated valid edits.
+  // Repeat because restoring one label can expose a duplicate in another edit.
+  const { scheme } = result.data.setup;
+  const base = result.data.baseSetup.scheme;
+  for (let pass = 0; pass < ALL_STICKERS.length; pass++) {
+    const invalid = ALL_STICKERS.filter(
+      (s) =>
+        scheme[s.id] !== base[s.id] &&
+        (!scheme[s.id].trim() ||
+          ALL_STICKERS.some(
+            (other) =>
+              other.id !== s.id &&
+              other.type === s.type &&
+              normalizeLabel(scheme[other.id]) === normalizeLabel(scheme[s.id]),
+          )),
+    );
+    if (!invalid.length) break;
+    for (const { id } of invalid) scheme[id] = base[id];
   }
   return result.data;
 }

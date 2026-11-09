@@ -27,7 +27,6 @@ export const routes = process.env.ZOOM_ROUTES
         "/pairs",
         "/flashcards",
         "/signin",
-        "/setup",
       ];
 export const sizes = [
   [1440, 900],

@@ -25,10 +25,17 @@ export const SUB_NAV_EASE = [0.22, 1, 0.36, 1] as const;
 export const SUB_NAV_ITEM =
   "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-[13px] transition-colors duration-150 hover:bg-hover focus-visible:outline-offset-[-2px]";
 const SUB_NAV_TITLE = "text-[14px] font-bold text-ink";
-const pages: Record<string, { title: string; label: string }> = {
+const pages: Record<
+  string,
+  { title: string; label: string; scrollContent?: boolean }
+> = {
   "/training": { title: "Training", label: "Training controls" },
   "/settings": { title: "Settings", label: "Settings sections" },
-  "/pairs": { title: "Letter Pairs", label: "Letter Pairs navigation" },
+  "/pairs": {
+    title: "Letter Pairs",
+    label: "Letter Pairs navigation",
+    scrollContent: false,
+  },
 };
 const query = "(min-width: 1024px)";
 const subscribe = (notify: () => void) => {
@@ -50,7 +57,8 @@ const Context = createContext<{
   desktop: boolean;
   target: HTMLDivElement | null;
   subnavClassName?: string;
-}>({ desktop: false, target: null });
+  scrollContent: boolean;
+}>({ desktop: false, target: null, scrollContent: true });
 
 /** Persistent layout column; only the workspace translation animates on width changes. */
 export function SubNavFrame({
@@ -72,8 +80,13 @@ export function SubNavFrame({
   const page = pages[pathname];
   const [target, setTarget] = useState<HTMLDivElement | null>(null);
   const value = useMemo(
-    () => ({ desktop, target, subnavClassName }),
-    [desktop, target, subnavClassName],
+    () => ({
+      desktop,
+      target,
+      subnavClassName,
+      scrollContent: page?.scrollContent ?? true,
+    }),
+    [desktop, target, subnavClassName, page],
   );
   const workspace = useRef<HTMLDivElement>(null);
   const previousInset = useRef<number | null>(null);
@@ -142,7 +155,7 @@ export function SubNavFrame({
                   </h1>
                   <div
                     ref={setTarget}
-                    className="scroll-quiet min-h-0 flex-1 overflow-y-auto"
+                    className={`min-h-0 flex-1 ${page?.scrollContent === false ? "flex flex-col overflow-hidden" : "scroll-quiet overflow-y-auto"}`}
                   />
                 </motion.div>
               </aside>
@@ -174,7 +187,8 @@ export function SubNavigation({
   trigger: React.ReactNode;
   children: React.ReactNode | ((close: () => void) => React.ReactNode);
 }) {
-  const { desktop, target, subnavClassName } = useContext(Context);
+  const { desktop, target, subnavClassName, scrollContent } =
+    useContext(Context);
   if (desktop)
     return target
       ? createPortal(
@@ -188,6 +202,7 @@ export function SubNavigation({
       title={title}
       trigger={trigger}
       className={subnavClassName}
+      scrollContent={scrollContent}
     >
       {children}
     </MobileSubNavigation>
@@ -199,12 +214,14 @@ function MobileSubNavigation({
   title,
   trigger,
   children,
+  scrollContent,
 }: {
   className?: string;
   label: string;
   title: string;
   trigger: React.ReactNode;
   children: React.ReactNode | ((close: () => void) => React.ReactNode);
+  scrollContent: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
@@ -227,6 +244,7 @@ function MobileSubNavigation({
         label={label}
         title={<span className={SUB_NAV_TITLE}>{title}</span>}
         width={320}
+        scrollContent={scrollContent}
       >
         {typeof children === "function" ? children(close) : children}
       </Sheet>

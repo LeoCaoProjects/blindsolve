@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
-import { stickerInView } from "../src/magic/utils/scheme";
+import { stickerInView, siblingsOf } from "../src/magic/utils/scheme";
 import { faceDepth } from "../src/magic/utils/camera";
 import type { Face } from "../src/magic/utils/cube";
 
@@ -59,6 +59,143 @@ const mode = (page: Page, name: string) =>
     .click();
 const selected = (page: Page) => cube(page).locator('[data-selected="true"]');
 
+test("Overview sticker clicks open Lettering with that exact sticker without moving the camera", async ({
+  page,
+}) => {
+  await seed(page);
+  await page.goto("/settings");
+  for (const id of ["F1", "F0"]) {
+    await mode(page, "Overview");
+    await cube(page).focus();
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(300);
+    const angle = await cube(page)
+      .locator(":scope > div")
+      .first()
+      .evaluate((el) => (el as HTMLElement).style.transform);
+    const sticker = cube(page).locator(`[data-sticker-id="${id}"]`);
+    const label = await sticker.textContent();
+    await sticker.click();
+    await expect(
+      page
+        .getByRole("radiogroup", { name: "Cube mode" })
+        .getByRole("radio", { name: "Lettering", exact: true }),
+    ).toHaveAttribute("aria-checked", "true");
+    await expect(selected(page)).toHaveAttribute("data-sticker-id", id);
+    await expect(
+      page.getByRole("textbox", { name: "Letter", exact: true }),
+    ).toHaveValue(label!.trim());
+    expect(
+      await cube(page)
+        .locator(":scope > div")
+        .first()
+        .evaluate((el) => (el as HTMLElement).style.transform),
+    ).toBe(angle);
+  }
+});
+
+for (const piece of ["edge", "corner"] as const)
+  test(`${piece} buffer aligns on tab entry and keeps the manual angle while changing buffers`, async ({
+    page,
+  }) => {
+    await seed(page);
+    await page.goto("/settings");
+    const tab = piece === "edge" ? "Edge buffer" : "Corner buffer";
+    const transform = () =>
+      cube(page)
+        .locator(":scope > div")
+        .first()
+        .evaluate((el) => (el as HTMLElement).style.transform);
+    const assertBufferVisible = async () => {
+      const buffer = (await cube(page)
+        .locator(`[data-buffer="${piece}"]`)
+        .getAttribute("data-sticker-id"))!;
+      const [, x, y] = (await transform()).match(
+        /rotateX\((-?[\d.]+)deg\) rotateY\((-?[\d.]+)deg\)/,
+      )!;
+      for (const id of [buffer, ...siblingsOf(buffer)])
+        expect(
+          faceDepth(
+            id[0] as Face,
+            { x: Number(x), y: Number(y) },
+            { top: "white", front: "green" },
+          ),
+        ).toBeGreaterThan(0.2);
+    };
+    await mode(page, tab);
+    await assertBufferVisible();
+    await cube(page).focus();
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(300);
+    const manual = await transform();
+    const clicked = piece === "edge" ? "U1" : "U2";
+    await cube(page).locator(`[data-sticker-id="${clicked}"]`).click();
+    await expect(
+      cube(page).locator(`[data-buffer="${piece}"]`),
+    ).toHaveAttribute("data-sticker-id", clicked);
+    expect(await transform()).toBe(manual);
+    await page
+      .getByRole("button", {
+        name: piece === "edge" ? "DF" : "DFR",
+        exact: true,
+      })
+      .click();
+    expect(await transform()).toBe(manual);
+    await mode(page, "Overview");
+    expect(await transform()).toBe(manual);
+    await mode(page, tab);
+    expect(await transform()).not.toBe(manual);
+    await assertBufferVisible();
+  });
+
+test("clicking stickers and editing letters keeps the manually chosen cube angle", async ({
+  page,
+}) => {
+  await seed(page);
+  await page.goto("/settings");
+  const initialAngle = await cube(page)
+    .locator(":scope > div")
+    .first()
+    .evaluate((el) => (el as HTMLElement).style.transform);
+  await mode(page, "Lettering");
+  await expect(selected(page)).toHaveCount(0);
+  await expect(
+    page.getByRole("textbox", { name: "Letter", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Select a sticker", { exact: true }),
+  ).toBeVisible();
+  expect(
+    await cube(page)
+      .locator(":scope > div")
+      .first()
+      .evaluate((el) => (el as HTMLElement).style.transform),
+  ).toBe(initialAngle);
+  await cube(page).focus();
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(300);
+  const transform = () =>
+    cube(page)
+      .locator(":scope > div")
+      .first()
+      .evaluate((el) => (el as HTMLElement).style.transform);
+  const manual = await transform();
+  await cube(page).locator('[data-sticker-id="F0"]').click();
+  await expect(selected(page)).toHaveAttribute("data-sticker-id", "F0");
+  expect(await transform()).toBe(manual);
+  const field = page.getByRole("textbox", { name: "Letter", exact: true });
+  await field.click();
+  await field.fill("SH");
+  expect(await transform()).toBe(manual);
+  await cube(page).locator('[data-sticker-id="F0"]').click();
+  expect(await transform()).toBe(manual);
+  for (const id of ["U1", "R2", "F0"]) {
+    await cube(page).locator(`[data-sticker-id="${id}"]`).click();
+    await expect(selected(page)).toHaveAttribute("data-sticker-id", id);
+    expect(await transform()).toBe(manual);
+  }
+});
+
 for (const front of ["green", "blue"] as const)
   test(`lettering selection rotates to expose physical stickers with ${front} front`, async ({
     page,
@@ -66,6 +203,7 @@ for (const front of ["green", "blue"] as const)
     await seed(page, front);
     await page.goto("/settings");
     await mode(page, "Lettering");
+    await cube(page).locator('[data-sticker-id="U0"]').click();
     await expect(selected(page)).toHaveAttribute("data-sticker-id", "U0");
     await expect(page.locator("[data-lettering-position]")).toHaveAttribute(
       "data-lettering-position",
@@ -132,6 +270,7 @@ for (const front of ["green", "blue"] as const)
     await mode(page, "Overview");
     await page.evaluate(() => ((window as any).__settingsRotations = []));
     await mode(page, "Lettering");
+    await cube(page).locator('[data-sticker-id="U0"]').click();
     await page.waitForTimeout(300);
     expect(
       await cube(page)
@@ -204,6 +343,7 @@ test("lettering name identifies backups and Cube View uses explicit colour contr
   await seed(page);
   await page.goto("/settings");
   await mode(page, "Lettering");
+  await cube(page).locator('[data-sticker-id="U0"]').click();
   await page.getByRole("textbox", { name: "Letter", exact: true }).fill("CH");
   const name = page.getByRole("textbox", {
     name: "Lettering name",
@@ -256,7 +396,7 @@ test("lettering name identifies backups and Cube View uses explicit colour contr
   await page.screenshot({ path: test.info().outputPath("cube-view.png") });
 });
 
-test("Lettering transitions animate both ways, other tabs retain the view, and Cube View cannot drag", async ({
+test("Lettering entry preserves the view without selection, and Cube View cannot drag", async ({
   page,
 }) => {
   await seed(page);
@@ -266,30 +406,21 @@ test("Lettering transitions animate both ways, other tabs retain the view, and C
     camera.evaluate((el) => (el as HTMLElement).style.transform);
   const rotations = () =>
     page.evaluate(() => (window as any).__settingsRotations.length);
-  const defaultAngle = await angle();
-  await mode(page, "Lettering");
-  await page
-    .getByRole("button", { name: "Previous sticker", exact: true })
-    .click();
-  const target = await angle();
-  expect(target).not.toBe(defaultAngle);
-  await page.waitForTimeout(300);
   for (const tab of ["Overview", "Edge buffer", "Corner buffer", "Cube view"]) {
-    const before = await rotations();
     await mode(page, tab);
-    await expect(
-      page
-        .getByRole("radiogroup", { name: "Cube mode" })
-        .getByRole("radio", { name: tab, exact: true }),
-    ).toHaveAttribute("aria-checked", "true");
-    await expect.poll(rotations).toBeGreaterThan(before);
-    expect(await angle()).toBe(defaultAngle);
     await page.waitForTimeout(300);
+    const priorAngle = await angle();
     const returned = await rotations();
     await mode(page, "Lettering");
-    await expect.poll(rotations).toBeGreaterThan(returned);
-    expect(await angle()).toBe(target);
     await page.waitForTimeout(300);
+    expect(await angle()).toBe(priorAngle);
+    expect(await rotations()).toBe(returned);
+    await expect(selected(page)).toHaveCount(0);
+    await expect(
+      page.getByRole("textbox", { name: "Letter", exact: true }),
+    ).toHaveCount(0);
+    await cube(page).locator('[data-sticker-id="U0"]').click();
+    await expect(selected(page)).toHaveAttribute("data-sticker-id", "U0");
   }
   await mode(page, "Cube view");
   await page.waitForTimeout(300);
@@ -302,7 +433,7 @@ test("Lettering transitions animate both ways, other tabs retain the view, and C
   await page.waitForTimeout(300);
   const configured = await angle(),
     settled = await rotations();
-  for (const tab of ["Overview", "Edge buffer", "Corner buffer", "Cube view"]) {
+  for (const tab of ["Overview", "Cube view"]) {
     await mode(page, tab);
     expect(await angle()).toBe(configured);
   }
@@ -321,16 +452,12 @@ test("Lettering transitions animate both ways, other tabs retain the view, and C
   await expect(
     page.getByRole("button", { name: /Use displayed view/ }),
   ).toHaveCount(0);
-  // Ordinary tabs retain manual previews; Cube View returns to its configured camera.
+  // Cube View returns to its configured camera after a manual preview.
   await mode(page, "Overview");
   await cube(page).focus();
   await page.keyboard.press("ArrowRight");
   const preview = await angle();
   expect(preview).not.toBe(configured);
-  for (const tab of ["Edge buffer", "Corner buffer"]) {
-    await mode(page, tab);
-    expect(await angle()).toBe(preview);
-  }
   await page.waitForTimeout(300);
   const beforeReset = await rotations();
   await mode(page, "Cube view");
@@ -358,6 +485,7 @@ test("Cube and Lettering remains usable on mobile with alternate orientation", a
     path: test.info().outputPath("mobile-overview.png"),
   });
   await mode(page, "Lettering");
+  await cube(page).locator('[data-sticker-id="U0"]').click();
   const input = page.getByRole("textbox", { name: "Letter", exact: true });
   await expect(input).toBeVisible();
   await input.fill("CH");
