@@ -1,6 +1,10 @@
 import type { AppData } from "../../lib/repository";
 import type { LetterPair } from "../../domain/letterPairs";
-import { pairKey as physicalPairKey } from "../../domain/letterPairs";
+import { normalizeLabel, validLabel } from "../../domain/letterPairs";
+import {
+  logicalEntries,
+  writeLogicalEntries,
+} from "../../domain/letterPairs/logical";
 import type { PairDb, PairEntry } from "../types/app";
 import { primaryWords, pairKey, splitKey } from "./pairs";
 
@@ -8,12 +12,20 @@ function recordsByPair(data: AppData) {
   const grouped: Record<string, { edges?: LetterPair; corners?: LetterPair }> =
     {};
   for (const record of Object.values(data.pairs)) {
-    const key = pairKey(record.firstToken, record.secondToken);
-    const scope =
-      data.scheme.stickers[record.firstStickerId]?.pieceType === "edge"
-        ? "edges"
-        : "corners";
-    (grouped[key] ??= {})[scope] = record;
+    const first = normalizeLabel(record.firstToken),
+      second = normalizeLabel(record.secondToken);
+    if (!validLabel(first) || !validLabel(second)) continue;
+    const key = pairKey(first, second);
+    const type = data.scheme.stickers[record.firstStickerId]?.pieceType;
+    const secondType = data.scheme.stickers[record.secondStickerId]?.pieceType;
+    if (!type || type !== secondType) continue; // Unknown scope is retained, never guessed.
+    const scope = type === "edge" ? "edges" : "corners";
+    const group = (grouped[key] ??= {});
+    if (
+      !group[scope] ||
+      Date.parse(record.updatedAt) > Date.parse(group[scope]!.updatedAt)
+    )
+      group[scope] = record;
   }
   return grouped;
 }
@@ -29,7 +41,7 @@ const latestShared = (records: Array<LetterPair | undefined>) =>
 /** Hydration is read-only. Legacy values retain their existing interpretation;
  * their original Shared/override intent cannot be recovered from effective words.
  */
-export function pairsFromStore(data: AppData): PairDb {
+function legacyEntries(data: AppData): PairDb {
   return Object.fromEntries(
     Object.entries(recordsByPair(data)).map(([key, records]) => {
       const shared = latestShared([records.edges, records.corners]);
@@ -63,108 +75,17 @@ export function pairsFromStore(data: AppData): PairDb {
     }),
   );
 }
-function clean(entry: PairEntry | null | undefined): PairEntry | null {
-  if (!entry) return null;
-  const next: PairEntry = { shared: primaryWords(entry.shared) };
-  for (const scope of ["edges", "corners"] as const) {
-    const words = primaryWords(entry[scope] ?? []);
-    if (words.length) next[scope] = words;
-  }
-  return next.shared.length || next.edges?.length || next.corners?.length
-    ? next
-    : null;
+export function pairsFromStore(data: AppData): PairDb {
+  return logicalEntries(legacyEntries(data), data);
 }
 
-/** Update only explicitly edited pairs. Scope identity travels in the existing
- * pair payload; physical keys, UUIDs, ownership and sync transport stay intact.
- */
+/** New writes have only logical identity. Original physical records are immutable fallback data. */
 export function writePairEntries(
   data: AppData,
   edits: Record<string, PairEntry | null>,
   timestamp = new Date().toISOString(),
 ): AppData {
-  const decoded = pairsFromStore(data),
-    grouped = recordsByPair(data);
-  const next = { ...data.pairs };
-  let changed = false;
-  for (const [key, value] of Object.entries(edits)) {
-    const entry = clean(value),
-      before = clean(decoded[key]);
-    if (JSON.stringify(before) === JSON.stringify(entry)) continue;
-    const [first, second] = splitKey(key),
-      records = grouped[key] ?? {};
-    const previousShared = latestShared([records.edges, records.corners]);
-    const sharedChanged =
-      JSON.stringify(before?.shared ?? []) !==
-      JSON.stringify(entry?.shared ?? []);
-    const sharedUpdatedAt =
-      sharedChanged || !previousShared
-        ? timestamp
-        : previousShared.sharedUpdatedAt;
-    for (const [type, scope] of [
-      ["edge", "edges"],
-      ["corner", "corners"],
-    ] as const) {
-      const a = Object.values(data.scheme.stickers).find(
-        (s) => s.pieceType === type && s.label === first,
-      );
-      const b = Object.values(data.scheme.stickers).find(
-        (s) => s.pieceType === type && s.label === second,
-      );
-      if (!a || !b) continue;
-      const id = physicalPairKey(a.id, b.id),
-        old = next[id];
-      const words = entry?.[scope] ?? entry?.shared ?? [];
-      if (!entry || !words.length) {
-        if (old) {
-          delete next[id];
-          changed = true;
-        }
-        continue;
-      }
-      const overrideChanged =
-        JSON.stringify(before?.[scope] ?? []) !==
-        JSON.stringify(entry[scope] ?? []);
-      const overrideUpdatedAt =
-        overrideChanged || !old?.vocabulary
-          ? timestamp
-          : old.vocabulary.overrideUpdatedAt;
-      const vocabulary: NonNullable<LetterPair["vocabulary"]> = {
-        shared: entry.shared,
-        sharedUpdatedAt,
-        overrideUpdatedAt,
-        ...(entry[scope] ? { override: entry[scope] } : {}),
-      };
-      if (
-        old &&
-        JSON.stringify(old.vocabulary) === JSON.stringify(vocabulary) &&
-        old.primaryMnemonic === words[0]
-      )
-        continue;
-      next[id] = {
-        id: old?.id ?? crypto.randomUUID(),
-        firstStickerId: a.id,
-        secondStickerId: b.id,
-        firstToken: first,
-        secondToken: second,
-        primaryMnemonic: words[0],
-        updatedAt: timestamp,
-        vocabulary,
-      };
-      changed = true;
-    }
-  }
-  return changed
-    ? {
-        ...data,
-        pairs: next,
-        pairSharing: "separate",
-        preferencesUpdatedAt:
-          data.pairSharing === "separate"
-            ? data.preferencesUpdatedAt
-            : timestamp,
-      }
-    : data;
+  return writeLogicalEntries(data, legacyEntries(data), edits, timestamp);
 }
 
 /** Exact persisted first-token match, including records from older lettering schemes.
@@ -174,13 +95,13 @@ export function deleteFirstLetterPairs(
   data: AppData,
   firstToken: string,
 ): AppData {
-  const entries = Object.entries(data.pairs);
-  const remaining = entries.filter(
-    ([, pair]) => pair.firstToken !== firstToken,
+  const first = normalizeLabel(firstToken);
+  const edits = Object.fromEntries(
+    Object.keys(pairsFromStore(data))
+      .filter((key) => splitKey(key)[0] === first)
+      .map((key) => [key, null]),
   );
-  return remaining.length === entries.length
-    ? data
-    : { ...data, pairs: Object.fromEntries(remaining) };
+  return writePairEntries(data, edits);
 }
 
 export function replacePairEntries(
@@ -188,10 +109,7 @@ export function replacePairEntries(
   db: PairDb,
   timestamp?: string,
 ) {
-  // Clearing the database includes records from previous lettering schemes.
-  // Store diffing will enqueue pair deletions without touching other records.
-  if (!Object.keys(db).length)
-    return Object.keys(data.pairs).length ? { ...data, pairs: {} } : data;
+  // Clearing is logical too; legacy source rows stay preserved behind tombstones.
   const edits = Object.fromEntries(
     [
       ...new Set([...Object.keys(pairsFromStore(data)), ...Object.keys(db)]),

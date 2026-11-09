@@ -4,6 +4,7 @@ import { Piece } from "../../types/solve";
 import { MemoTrace } from "../solve/MemoTrace";
 import { EditableWord } from "./EditableWord";
 import { useAppData } from "../../contexts/AppDataContext";
+import { displayMemoPair } from "../../../domain/letterPairs/identity";
 
 interface ReviewMemoProps {
   r: Reconstruction;
@@ -87,7 +88,7 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
           {r.newPairs.map(({ pair, piece }, i) => (
             <span key={`${piece}:${pair}`}>
               <span className="font-mono tracking-[0.1em] text-ink-2">
-                {pair}
+              {displayMemoPair(pair)}
               </span>{" "}
               {r.wordFor(pair, piece)}
               {i < r.newPairs.length - 1 ? ", " : ""}
@@ -120,7 +121,7 @@ function ChangedRow({
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
-      <span className="font-mono tracking-[0.12em] text-ink">{pair}</span>
+      <span className="font-mono tracking-[0.12em] text-ink">{displayMemoPair(pair)}</span>
       <span className="text-ink-3">
         {stored} <span aria-hidden>→</span>
         <span className="sr-only">changed to</span>{" "}
@@ -128,7 +129,7 @@ function ChangedRow({
       </span>
       <div
         role="radiogroup"
-        aria-label={`Letter pair ${pair}`}
+        aria-label={`Letter pair ${displayMemoPair(pair)}`}
         className="ml-auto flex gap-1"
       >
         {options.map((o) => (

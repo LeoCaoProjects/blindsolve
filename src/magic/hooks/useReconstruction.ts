@@ -16,7 +16,11 @@ import {
   m2SecondTargetStickerId,
 } from "../../domain/bld/memoConventions";
 import { inferM2OrientationFromBuffer } from "../../domain/bld/orientation";
-import { pairKey, timerWords } from "../utils/pairs";
+import { pairKey, timerWords, timerDefaultWords } from "../utils/pairs";
+import {
+  memoPairReference,
+  memoPairTokens,
+} from "../../domain/letterPairs/identity";
 import { timerPieces } from "../utils/timerModes";
 
 export type ReconStep =
@@ -117,7 +121,11 @@ export function useReconstruction({ draft, db, onSave }: Options) {
       );
       const at = tokens.length;
       const withSlot = [...pairs];
-      if (tokens.length % 2) withSlot[withSlot.length - 1] += "·";
+      if (tokens.length % 2)
+        withSlot[withSlot.length - 1] = memoPairReference([
+          tokens[tokens.length - 1],
+          "·",
+        ]);
       else withSlot.push("··");
       return {
         pairs: withSlot,
@@ -185,7 +193,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
         for (let index = 0; index + 1 < tokens.length; index += 2) {
           const first = tokens[index],
             second = tokens[index + 1],
-            pair = first + second;
+            pair = memoPairReference([first, second]);
           const key = pair;
           if (
             timerWords(db, pair, piece).length ||
@@ -257,11 +265,13 @@ export function useReconstruction({ draft, db, onSave }: Options) {
   );
   const isNew = useCallback(
     (pair: string, piece: Piece) =>
-      !snapshot[pair]?.length && !!words[refKey(pair, piece)]?.trim(),
+      !timerDefaultWords(snapshot, memoPairTokens(pair)).length &&
+      !!words[refKey(pair, piece)]?.trim(),
     [snapshot, words],
   );
   const storedFor = useCallback(
-    (pair: string, _piece: Piece) => snapshot[pair]?.[0] ?? null,
+    (pair: string, _piece: Piece) =>
+      timerDefaultWords(snapshot, memoPairTokens(pair))[0] ?? null,
     [snapshot],
   );
   const allPairs = useMemo(
@@ -272,16 +282,18 @@ export function useReconstruction({ draft, db, onSave }: Options) {
             ...completedSample.corners.map((pair, index) => ({
               piece: "corners" as const,
               pair,
-              tokens: presented?.corners.targets
-                .slice(index * 2, index * 2 + 2)
-                .map((t) => t.token) ?? [pair[0], pair.slice(1)],
+              tokens:
+                presented?.corners.targets
+                  .slice(index * 2, index * 2 + 2)
+                  .map((t) => t.token) ?? memoPairTokens(pair),
             })),
             ...completedSample.edges.map((pair, index) => ({
               piece: "edges" as const,
               pair,
-              tokens: presented?.edges.targets
-                .slice(index * 2, index * 2 + 2)
-                .map((t) => t.token) ?? [pair[0], pair.slice(1)],
+              tokens:
+                presented?.edges.targets
+                  .slice(index * 2, index * 2 + 2)
+                  .map((t) => t.token) ?? memoPairTokens(pair),
             })),
           ]
             .filter(({ pair }) => !pair.includes("·"))
@@ -294,7 +306,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     () =>
       allPairs.filter(({ pair, piece }) => {
         const used = words[refKey(pair, piece)]?.trim(),
-          stored = snapshot[pair] ?? [];
+          stored = timerDefaultWords(snapshot, memoPairTokens(pair));
         return (
           editedPiece[pair] === piece &&
           !!used &&
@@ -322,7 +334,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
       const key = refKey(pair, piece),
         used = words[key]?.trim();
       if (!used || editedPiece[pair] !== piece) return;
-      const existing = snapshot[pair] ?? [];
+      const existing = timerDefaultWords(snapshot, tokens);
       if (tokens.length !== 2) return;
       const defaultKey = pairKey(tokens[0], tokens[1]);
       if (!existing.length) updates[defaultKey] = used;
@@ -435,6 +447,6 @@ export type Reconstruction = ReturnType<typeof useReconstruction>;
 function pairTokens(tokens: string[]) {
   const result: string[] = [];
   for (let index = 0; index < tokens.length; index += 2)
-    result.push(tokens.slice(index, index + 2).join(""));
+    result.push(memoPairReference(tokens.slice(index, index + 2)));
   return result;
 }

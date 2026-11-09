@@ -683,6 +683,6 @@ function seededInputs(init: TrainInit, groups: TrainGroup[]): string[] {
         [tokens[2], tokens[3]] = [tokens[3], tokens[2]];
       if (gi === groups.length - 1 && tokens.length > 2) tokens.pop();
     }
-    return tokens.join("");
+    return tokens.join(tokens.some((token) => token.length > 1) ? " " : "");
   });
 }

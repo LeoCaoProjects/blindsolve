@@ -71,7 +71,7 @@ export function PairEditor({
         />
       );
     const words = draft[scope] ?? [],
-      primary = words[0] ?? "";
+      primary = availableOverrides.includes(scope) ? words[0] ?? "" : "";
     return (
       <>
         <div className="relative h-11">
@@ -79,7 +79,7 @@ export function PairEditor({
             aria-label={scopeLabel(scope)}
             disabled={!availableOverrides.includes(scope)}
             value={primary}
-            placeholder="Optional"
+            placeholder={availableOverrides.includes(scope) ? "Optional" : "Not used by this lettering"}
             onChange={(event) => setWords(scope, [event.target.value])}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.nativeEvent.isComposing) {

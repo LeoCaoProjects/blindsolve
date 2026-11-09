@@ -16,6 +16,7 @@ import React, {
 } from "react";
 import { useStore } from "../../app/Store";
 import { createSpeffzScheme } from "../../domain/bld/speffz";
+import { memoPairReference } from "../../domain/letterPairs/identity";
 import type { SolveRecord } from "../../lib/repository";
 import type {
   Account,
@@ -159,16 +160,15 @@ export function solveFromStore(s: SolveRecord, index: number): Solve {
           first = p.firstExecutionToken ?? p.firstToken,
           second = p.secondExecutionToken ?? p.secondToken ?? "";
         return {
-          pair: `${sectionHasExecution ? first : rawFirst}${
-            sectionHasExecution ? second : rawSecond
-          }`,
+          pair: memoPairReference([sectionHasExecution ? first : rawFirst,
+            sectionHasExecution ? second : rawSecond].filter(Boolean)),
           word: p.mnemonic,
         };
       });
     }
     const tokens = kind === "corners" ? s.cornerMemo : s.edgeMemo;
     return Array.from({ length: Math.ceil(tokens.length / 2) }, (_, i) => ({
-      pair: (tokens[i * 2] ?? "") + (tokens[i * 2 + 1] ?? ""),
+          pair: memoPairReference(tokens.slice(i * 2, i * 2 + 2)),
       word: "",
     }));
   };
@@ -248,7 +248,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const pairs = useMemo(
     () => pairsFromStore(data),
-    [data.pairs, data.scheme, data.pairSharing],
+    [data.pairs, data.logicalPairs, data.logicalPairDeletions, data.scheme, data.pairSharing],
   );
   const setup = useMemo(() => setupFromStore(data), [data.scheme]);
   const sessions = useMemo(

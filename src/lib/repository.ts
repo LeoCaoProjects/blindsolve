@@ -4,6 +4,14 @@ import type { LetteringScheme } from "../domain/bld/types";
 import type { LetterPair } from "../domain/letterPairs";
 import { pairKey, normalizeMnemonic } from "../domain/letterPairs";
 import { supabase } from "./supabase";
+import { logicalPairFields, logicalMnemonicSchema } from "./logicalPairSchema";
+import { parseMnemonicRecordKey } from "../domain/letterPairs/identity";
+import { normalizeLabel } from "../domain/letterPairs/identity";
+import {
+  logicalDeletionOverlay,
+  mergeLogicalState,
+  type LogicalPairState,
+} from "../domain/letterPairs/logical";
 
 export interface SolveRecord {
   id: string;
@@ -66,7 +74,7 @@ export interface PracticeAttempt {
   tokenSnapshot?: { corners: string[]; edges: string[] };
   memoOrder?: "corners-first" | "edges-first";
 }
-export interface AppData {
+export interface AppData extends LogicalPairState {
   schemeHistory?: Array<{ scheme: LetteringScheme; updatedAt: string }>;
   scheme: LetteringScheme;
   pairs: Record<string, LetterPair>;
@@ -143,31 +151,30 @@ const text = z.string().max(1000),
 const iso = z
   .string()
   .refine((v) => Number.isFinite(Date.parse(v)), "Invalid date");
-const pairSchema = z
-  .object({
-    id: z.string().uuid(),
-    firstStickerId: text,
-    secondStickerId: text,
-    firstToken: text,
-    secondToken: text,
-    primaryMnemonic: text,
-    updatedAt: iso,
-    vocabulary: z
-      .object({
-        shared: z
-          .array(text)
-          .max(100)
-          .transform((words) => words.slice(0, 1)),
-        sharedUpdatedAt: iso,
-        overrideUpdatedAt: iso,
-        override: z
-          .array(text)
-          .max(100)
-          .transform((words) => words.slice(0, 1))
-          .optional(),
-      })
-      .optional(),
-  });
+const pairSchema = z.object({
+  id: z.string().uuid(),
+  firstStickerId: text,
+  secondStickerId: text,
+  firstToken: text.default(""),
+  secondToken: text.default(""),
+  primaryMnemonic: text,
+  updatedAt: iso,
+  vocabulary: z
+    .object({
+      shared: z
+        .array(text)
+        .max(100)
+        .transform((words) => words.slice(0, 1)),
+      sharedUpdatedAt: iso,
+      overrideUpdatedAt: iso,
+      override: z
+        .array(text)
+        .max(100)
+        .transform((words) => words.slice(0, 1))
+        .optional(),
+    })
+    .optional(),
+});
 const schemeSchema = z.object({
   id: text,
   name: text,
@@ -266,6 +273,7 @@ const archivedSchemeSchema = schemeSchema.extend({
   ),
 });
 const dataSchema = z.object({
+  ...logicalPairFields,
   schemeHistory: z
     .array(z.object({ scheme: archivedSchemeSchema, updatedAt: iso }))
     .max(100)
@@ -274,7 +282,7 @@ const dataSchema = z.object({
   pairs: z
     .record(z.string(), pairSchema)
     .refine(
-      (pairs) => Object.keys(pairs).length <= 2304,
+      (pairs) => Object.keys(pairs).length <= 100000,
       "Backup contains too many letter pairs",
     ),
   solves: z.array(solveSchema).max(100000),
@@ -401,19 +409,19 @@ export function parseData(value: unknown): AppData {
   const stickers = Object.fromEntries(
     Object.entries(defaults.stickers).map(([id, s]) => [
       id,
-      { ...s, label: parsed.scheme.stickers[id]?.label ?? s.label },
+      {
+        ...s,
+        label: normalizeLabel(parsed.scheme.stickers[id]?.label ?? s.label),
+      },
     ]),
   );
   const scheme = { ...parsed.scheme, stickers };
   const error = validateScheme(scheme);
   if (error) throw new Error(error);
   const pairs: Record<string, LetterPair> = {};
-  for (const pair of Object.values(parsed.pairs)) {
-    if (!stickers[pair.firstStickerId] || !stickers[pair.secondStickerId])
-      throw new Error("Backup contains an unknown sticker ID.");
-    const key = pairKey(pair.firstStickerId, pair.secondStickerId);
-    if (pairs[key])
-      throw new Error("Backup contains duplicate pair identities.");
+  for (const [key, pair] of Object.entries(parsed.pairs)) {
+    // Preserve old transport keys and ambiguous provenance verbatim. Current
+    // lettering must never re-key or reinterpret a legacy mnemonic record.
     pairs[key] = pair;
   }
   const repairMetadata = (old: LetteringScheme, archived = false) => {
@@ -639,6 +647,44 @@ export function diffSyncChanges(
       new Map(Object.entries(before.pairs)),
       new Map(Object.entries(after.pairs)),
     );
+  // The optional logical namespace is additive: never rewrite legacy physical rows.
+  const logicalChanges = new Map<string, SyncChange>();
+  for (const [recordId, value] of Object.entries(after.logicalPairs ?? {}))
+    if (
+      JSON.stringify(before.logicalPairs?.[recordId]) !== JSON.stringify(value)
+    )
+      logicalChanges.set(recordId, {
+        kind: "pair",
+        recordId,
+        payload: logicalMnemonicSchema.parse(value),
+        deleted: false,
+        updatedAt,
+      });
+  for (const recordId of Object.keys(before.logicalPairs ?? {}))
+    if (!after.logicalPairs?.[recordId])
+      logicalChanges.set(recordId, {
+        kind: "pair",
+        recordId,
+        payload: null,
+        deleted: true,
+        updatedAt,
+      });
+  for (const [recordId, stamp] of Object.entries(
+    after.logicalPairDeletions ?? {},
+  ))
+    if (
+      before.logicalPairDeletions?.[recordId] !== stamp &&
+      (!after.logicalPairs?.[recordId] ||
+        Date.parse(stamp) >= Date.parse(after.logicalPairs[recordId].updatedAt))
+    )
+      logicalChanges.set(recordId, {
+        kind: "pair",
+        recordId,
+        payload: null,
+        deleted: true,
+        updatedAt: stamp,
+      });
+  changes.push(...logicalChanges.values());
   if (before.solves !== after.solves)
     diffMap(
       "solve",
@@ -683,6 +729,25 @@ export function seedSyncChanges(
       deleted: false,
       updatedAt,
     });
+  const logical = logicalDeletionOverlay(data, {});
+  for (const [recordId, payload] of Object.entries(logical.logicalPairs ?? {}))
+    changes.push({
+      kind: "pair",
+      recordId,
+      payload: logicalMnemonicSchema.parse(payload),
+      deleted: false,
+      updatedAt,
+    });
+  for (const [recordId, stamp] of Object.entries(
+    logical.logicalPairDeletions ?? {},
+  ))
+    changes.push({
+      kind: "pair",
+      recordId,
+      payload: null,
+      deleted: true,
+      updatedAt: stamp,
+    });
   for (const payload of data.solves)
     changes.push({
       kind: "solve",
@@ -709,6 +774,15 @@ function dataFromSyncRecords(rows: SyncRecordRow[]) {
   )?.payload;
   if (settings && typeof settings === "object") Object.assign(data, settings);
   for (const row of rows) {
+    if (row.kind === "pair" && parseMnemonicRecordKey(row.record_id)) {
+      if (row.deleted)
+        (data.logicalPairDeletions ??= {})[row.record_id] = row.updated_at;
+      else
+        (data.logicalPairs ??= {})[row.record_id] = logicalMnemonicSchema.parse(
+          row.payload,
+        );
+      continue;
+    }
     if (row.deleted || !row.payload) continue;
     if (row.kind === "pair")
       data.pairs[row.record_id] = row.payload as LetterPair;
@@ -724,6 +798,15 @@ function dataFromSyncRecords(rows: SyncRecordRow[]) {
 /** Preserve explicit deletion evidence across snapshots, retries, tabs and reloads. */
 export function deletionIndex(envelope: LocalEnvelope): Record<string, string> {
   const index = { ...envelope.tombstones };
+  for (const [key, stamp] of Object.entries(
+    envelope.data.logicalPairDeletions ?? {},
+  ))
+    if (
+      parseMnemonicRecordKey(key) &&
+      (!index[`pair:${key}`] ||
+        Date.parse(stamp) > Date.parse(index[`pair:${key}`]))
+    )
+      index[`pair:${key}`] = stamp;
   for (const solve of envelope.data.solves)
     if (solve.deleted)
       index[`solve:${solve.id}`] = solve.updatedAt ?? solve.createdAt;
@@ -749,6 +832,7 @@ export function applyTombstones(
   });
   return {
     ...data,
+    ...logicalDeletionOverlay(data, tombstones),
     solves: solves.length === data.solves.length ? data.solves : solves,
     attempts:
       attempts.length === data.attempts.length ? data.attempts : attempts,
@@ -824,7 +908,11 @@ export function reconcileSync(
     const split = key.indexOf(":");
     const kind = key.slice(0, split) as SyncRecordKind;
     const recordId = key.slice(split + 1);
-    if (kind === "pair" && data.pairs[recordId]) continue;
+    if (
+      kind === "pair" &&
+      (data.pairs[recordId] || data.logicalPairs?.[recordId])
+    )
+      continue;
     if (!cloudAcknowledgement && pending[key]?.deleted) continue;
     delete pending[key];
     if (!remoteDeleted[key])
@@ -900,6 +988,36 @@ export function mergeData(
       pairs[key] = p;
       continue;
     }
+    if (
+      normalizeLabel(old.firstToken) !== normalizeLabel(p.firstToken) ||
+      normalizeLabel(old.secondToken) !== normalizeLabel(p.secondToken)
+    ) {
+      // An older client reused a physical key for a different logical pair.
+      // Retain the displaced bytes as legacy evidence; never reinterpret labels
+      // or overwrite the other pair's word. Keep the incoming transport row in
+      // place so synchronization does not fight that old physical key forever.
+      const labels = [
+        normalizeLabel(old.firstToken),
+        normalizeLabel(old.secondToken),
+      ];
+      const base = JSON.stringify([
+        "legacy-v1",
+        old.id,
+        ...(labels.every((label) => label.length <= 12)
+          ? labels
+          : [old.updatedAt]),
+      ]);
+      let archive = base,
+        suffix = 0;
+      while (
+        pairs[archive] &&
+        JSON.stringify(pairs[archive]) !== JSON.stringify(old)
+      )
+        archive = `${base}:${++suffix}`;
+      pairs[archive] = old;
+      pairs[key] = p;
+      continue;
+    }
     const newer = Date.parse(p.updatedAt) > Date.parse(old.updatedAt) ? p : old;
     const other = newer === p ? old : p;
     const differs =
@@ -962,6 +1080,7 @@ export function mergeData(
   return {
     conflicts,
     data: {
+      ...mergeLogicalState(local, incoming),
       schemeHistory: [
         ...new Map(
           [
@@ -1214,7 +1333,12 @@ export async function saveCloudChanges(
         record_id: change.recordId,
         payload:
           change.kind === "pair" && !change.deleted
-            ? pairSchema.parse(change.payload)
+            ? change.payload &&
+              typeof change.payload === "object" &&
+              "identity" in change.payload &&
+              change.payload.identity === "logical-v1"
+              ? logicalMnemonicSchema.parse(change.payload)
+              : pairSchema.parse(change.payload)
             : change.payload,
         deleted: change.deleted,
         updated_at: change.updatedAt,
