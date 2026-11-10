@@ -50,6 +50,7 @@ export function ReconStepBody({
             focused={step.options[r.optionFocus]}
             selected={step.options[r.optionFocus]}
             onPick={r.focusBreak}
+            onConfirm={r.pickBreak}
           />
         )}
       </div>

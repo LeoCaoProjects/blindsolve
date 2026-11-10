@@ -54,6 +54,7 @@ interface SchemeCubeProps {
   /** How many leading highlightIds belong to the pair's first token (accent ring); the rest get the ink ring */
   highlightPrimaryCount?: number;
   onPick?: (id: string) => void;
+  onConfirm?: (id: string) => void;
   /** Optional physical slots allowed by the current reconstruction step. */
   pickableIds?: string[];
   /** Allow Settings Overview stickers to open their lettering editor. */
@@ -104,6 +105,7 @@ export function SchemeCube({
   highlightIds,
   highlightPrimaryCount = 1,
   onPick,
+  onConfirm,
   pickableIds,
   pickInOverview = false,
   onViewChange,
@@ -521,6 +523,14 @@ export function SchemeCube({
                     }
                     aria-label={`Sticker ${token || "unlabelled"}${isBuffer ? ", buffer" : ""}`}
                     aria-pressed={isSelected}
+                    onDoubleClick={
+                      onConfirm
+                        ? (event) => {
+                            event.stopPropagation();
+                            if (!movedRef.current) onConfirm(id);
+                          }
+                        : undefined
+                    }
                     onClick={() => {
                       if (!movedRef.current) {
                         if (

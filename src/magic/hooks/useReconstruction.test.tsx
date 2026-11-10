@@ -99,7 +99,6 @@ it("keeps piece-specific solve words while ordinary edits save only Default", as
   expect(result.current.wordFor(pair, "corners")).toBe("Castle");
   act(() => {
     result.current.setWord(pair, "edges", "Plum");
-    result.current.decide(pair, "edges", "replace");
   });
   expect(result.current.wordFor(pair, "corners")).toBe("Castle");
   act(() => result.current.finish());
@@ -115,7 +114,7 @@ it("keeps piece-specific solve words while ordinary edits save only Default", as
   ).toBe("Plum");
 });
 
-it("selects a cycle-break option without committing until Continue", async () => {
+it("selects cycle breaks, commits once, and restores earlier choices with Back", async () => {
   const scheme = createSpeffzScheme();
   scheme.edgeMethod = "m2";
   scheme.edgeBuffer = "D:DF";
@@ -151,4 +150,34 @@ it("selects a cycle-break option without committing until Continue", async () =>
   expect(result.current.breaks[step.piece]).toBeUndefined();
   act(() => result.current.primary());
   expect(result.current.breaks[step.piece]).toBe(choice);
+  expect(result.current.canBack).toBe(true);
+  act(() => result.current.back());
+  expect(result.current.step).toEqual(step);
+  expect(result.current.optionFocus).toBe(step.options.length - 1);
+  expect(result.current.breaks[step.piece]).toBeUndefined();
+  expect(result.current.canBack).toBe(false);
+  // Replacing the choice must discard the old continuation, even on repeated events.
+  act(() => {
+    result.current.pickBreak(step.options[0]);
+    result.current.pickBreak(step.options[0]);
+  });
+  act(() => result.current.back());
+  expect(result.current.step).toEqual(step);
+  expect(result.current.canBack).toBe(false);
+
+  // Undo across pieces and the transition into word entry, not just one break.
+  const confirmed = [];
+  for (let i = 0; i < 20 && result.current.step.kind === "break"; i++) {
+    const current = result.current.step;
+    confirmed.push(current);
+    act(() => result.current.pickBreak(current.options.at(-1)!));
+  }
+  expect(result.current.step.kind).toBe("word");
+  expect(confirmed.length).toBeGreaterThan(1);
+  for (const previous of confirmed.reverse()) {
+    act(() => result.current.back());
+    expect(result.current.step).toEqual(previous);
+    expect(result.current.optionFocus).toBe(previous.options.length - 1);
+  }
+  expect(result.current.canBack).toBe(false);
 });

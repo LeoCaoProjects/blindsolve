@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { traceMemo } from "../../domain/bld/trace";
 import type { TraceSection } from "../../domain/bld/types";
 import {
@@ -35,6 +35,12 @@ export interface ReconResult {
   cycleBreaks: { corners: string[]; edges: string[] };
 }
 
+interface BreakCheckpoint {
+  choices: { corners: string[]; edges: string[] };
+  breaks: Partial<Record<Piece, string>>;
+  optionFocus: number;
+}
+
 interface Options {
   draft: SolveDraft;
   db: LetterPairDb;
@@ -58,6 +64,10 @@ export function useReconstruction({ draft, db, onSave }: Options) {
   const [editedPiece, setEditedPiece] = useState<Record<string, Piece>>({});
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [optionFocus, setOptionFocus] = useState(0);
+  const [breakHistory, setBreakHistory] = useState<BreakCheckpoint[]>([]);
+  const committedBreak = useRef<string | null>(null);
+  const restoringBreak = useRef(false);
+  const choiceKey = JSON.stringify(choices);
 
   const traced = useMemo(
     () =>
@@ -210,18 +220,31 @@ export function useReconstruction({ draft, db, onSave }: Options) {
   }, [db, draft.engine, pending, pieceOrder, presented, presentedBreakId]);
   const step = steps[Math.min(index, steps.length - 1)];
 
-  useEffect(
-    () => setOptionFocus(0),
-    [index, pending?.piece, pending?.section.targets.length],
-  );
+  useEffect(() => {
+    if (restoringBreak.current) {
+      restoringBreak.current = false;
+      return;
+    }
+    setOptionFocus(0);
+  }, [index, choiceKey, pending?.piece, pending?.section.targets.length]);
   const next = useCallback(
     () => setIndex((value) => Math.min(value + 1, steps.length - 1)),
     [steps.length],
   );
-  const back = useCallback(
-    () => setIndex((value) => Math.max(0, value - 1)),
-    [],
-  );
+  const back = useCallback(() => {
+    if (index > 0) {
+      setIndex(index - 1);
+      return;
+    }
+    const previous = breakHistory.at(-1);
+    if (!previous) return;
+    restoringBreak.current = true;
+    committedBreak.current = null;
+    setBreakHistory(breakHistory.slice(0, -1));
+    setChoices(previous.choices);
+    setBreaks(previous.breaks);
+    setOptionFocus(previous.optionFocus);
+  }, [index, breakHistory]);
 
   const focusBreak = useCallback(
     (token: string) => {
@@ -240,7 +263,16 @@ export function useReconstruction({ draft, db, onSave }: Options) {
           draft.engine!.scheme.stickers[presentedBreakId(candidate)].label ===
           token,
       );
-      if (!id) return;
+      if (!id || committedBreak.current === choiceKey) return;
+      committedBreak.current = choiceKey;
+      setBreakHistory((history) => [
+        ...history,
+        {
+          choices,
+          breaks,
+          optionFocus: pending.section.validCycleBreaks.indexOf(id),
+        },
+      ]);
       setBreaks((current) => ({ ...current, [pending.piece]: token }));
       setChoices((current) => ({
         ...current,
@@ -248,7 +280,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
       }));
       setIndex(0);
     },
-    [draft.engine, pending, presentedBreakId],
+    [draft.engine, pending, presentedBreakId, choiceKey, choices, breaks],
   );
 
   const refKey = (pair: string, piece: Piece) => `${piece}:${pair}`;
@@ -377,7 +409,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
           (word) => word.trim().toLowerCase() === used.toLowerCase(),
         )
       ) {
-        const decision = decisions[key] ?? "keep";
+        const decision = decisions[key] ?? "replace";
         if (decision === "replace") updates[defaultKey] = used;
       }
     });
@@ -473,6 +505,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     decide,
     next,
     back,
+    canBack: index > 0 || breakHistory.length > 0,
     finish,
     primary,
     isResolved: () => !pending,

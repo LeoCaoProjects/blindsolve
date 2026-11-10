@@ -5,6 +5,7 @@ interface CycleBreakOptionsProps {
   focused?: string | null;
   selected?: string | null;
   onPick: (letter: string) => void;
+  onConfirm?: (letter: string) => void;
   size?: "md" | "lg";
   className?: string;
 }
@@ -14,6 +15,7 @@ export function CycleBreakOptions({
   focused,
   selected,
   onPick,
+  onConfirm,
   size = "md",
   className = "",
 }: CycleBreakOptionsProps) {
@@ -33,6 +35,7 @@ export function CycleBreakOptions({
             role="radio"
             aria-checked={isSelected}
             onClick={() => onPick(letter)}
+            onDoubleClick={() => onConfirm?.(letter)}
             className={`flex items-center justify-center rounded-[4px] border font-mono transition-colors duration-150 ease-out ${
               size === "lg" ? "h-12 w-12 text-[19px]" : "h-10 w-10 text-[15px]"
             } ${

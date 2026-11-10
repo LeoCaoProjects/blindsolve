@@ -49,7 +49,7 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
               pair={pair}
               stored={r.storedFor(pair, piece) ?? ""}
               used={r.wordFor(pair, piece)}
-              value={r.decisions[`${piece}:${pair}`] ?? "keep"}
+              value={r.decisions[`${piece}:${pair}`] ?? "replace"}
               onChange={(d) => r.decide(pair, piece, d)}
             />
           ))}
@@ -90,13 +90,13 @@ function ChangedRow({
       <DecisionMenu
         label={`Default word for ${displayMemoPair(pair)}`}
         value={value}
-        safe="keep"
+        safe="replace"
         onChange={onChange}
         options={[
           { value: "keep", short: "Keep Default", label: `Keep ${stored}` },
           {
             value: "replace",
-            short: "Save Default",
+            short: "Save as Default",
             label: `Save ${used} as Default`,
           },
         ]}

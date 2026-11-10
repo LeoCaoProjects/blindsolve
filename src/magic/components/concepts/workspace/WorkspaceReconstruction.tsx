@@ -99,6 +99,10 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
                 const target = targets.find((target) => target.id === id);
                 if (target) r.focusBreak(target.value);
               }}
+              onConfirm={(id) => {
+                const target = targets.find((target) => target.id === id);
+                if (target) r.pickBreak(target.value);
+              }}
               label="Cube at the start of memo"
             />
           </div>
@@ -133,7 +137,7 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
             ) : undefined
           }
         >
-          {r.index > 0 && (
+          {r.canBack && (
             <QuietButton
               onClick={r.back}
               className="border border-line-strong text-ink-2"
