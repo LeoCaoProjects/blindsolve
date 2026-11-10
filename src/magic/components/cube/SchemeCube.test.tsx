@@ -149,6 +149,7 @@ it("marks only the recognition source, keeping partner colours unmarked", () => 
   expect(container.querySelectorAll("[data-recognition-aura]")).toHaveLength(1);
   expect(source.style.boxShadow).toContain("#fff");
   expect(partner.style.boxShadow).toBe("");
-  expect(partner.style.opacity).toBe("1");
+  expect(partner.style.opacity).toBe("0.6");
+  expect(source.style.opacity).toBe("1");
   expect(source.textContent).toBe("");
 });

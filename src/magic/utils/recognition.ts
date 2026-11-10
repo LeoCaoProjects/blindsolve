@@ -1,3 +1,6 @@
+import { bestRotation, faceDepth, type Rot, FRONT_ROT } from "./camera";
+import type { CubeViewPref } from "../types/app";
+import type { Face } from "./cube";
 import type { Challenge, TrainFilter } from "./bld";
 import { homeSticker } from "./bld";
 import { ALL_STICKERS } from "./scheme";
@@ -52,4 +55,28 @@ export function recognitionPieceStickers(source: string) {
           [...s.piece].sort().join("") === [...slot.piece].sort().join(""),
       ).map((s) => s.id)
     : [];
+}
+
+/** Give the read sticker the broadest view while retaining every partner colour. */
+export function recognitionRotation(
+  source: string,
+  view: CubeViewPref,
+  from: Rot = FRONT_ROT,
+): Rot {
+  const faces = recognitionPieceStickers(source).map((id) => id[0] as Face);
+  const base = bestRotation(faces, view, from).rot;
+  let best = base;
+  let score = faceDepth(source[0] as Face, best, view);
+  for (const pitch of [20, 35, 50, 65])
+    for (const yaw of [-18, 0, 18]) {
+      const candidate = { x: Math.sign(base.x) * pitch, y: base.y + yaw };
+      if (!faces.every((face) => faceDepth(face, candidate, view) > 0.2))
+        continue;
+      const depth = faceDepth(source[0] as Face, candidate, view);
+      if (depth > score) {
+        best = candidate;
+        score = depth;
+      }
+    }
+  return best;
 }

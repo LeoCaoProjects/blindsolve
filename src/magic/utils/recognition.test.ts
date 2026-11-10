@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { challengeFromScramble, homeSticker, makeChallenge } from "./bld";
-import { recognitionSteps, recognitionPieceStickers } from "./recognition";
+import {
+  recognitionSteps,
+  recognitionPieceStickers,
+  recognitionRotation,
+} from "./recognition";
 import { ALL_STICKERS, speffzScheme } from "./scheme";
 import { bestRotation, faceDepth } from "./camera";
 import type { Face } from "./cube";
@@ -85,4 +89,24 @@ describe("recognition observations", () => {
           expect(faceDepth(f, rot, view)).toBeGreaterThan(0.2);
       }
   });
+});
+
+it("faces the read colour toward the camera without hiding partner colours", () => {
+  for (const view of [
+    { top: "white", front: "green" },
+    { top: "blue", front: "yellow" },
+  ] as const)
+    for (const sticker of ALL_STICKERS) {
+      const rotation = recognitionRotation(sticker.id, view);
+      const sourceDepth = faceDepth(sticker.face, rotation, view);
+      const faces = recognitionPieceStickers(sticker.id).map(
+        (id) => id[0] as Face,
+      );
+      expect(sourceDepth).toBeGreaterThan(0.7);
+      for (const face of faces) {
+        expect(faceDepth(face, rotation, view)).toBeGreaterThan(0.2);
+        if (face !== sticker.face)
+          expect(faceDepth(face, rotation, view)).toBeLessThan(sourceDepth);
+      }
+    }
 });

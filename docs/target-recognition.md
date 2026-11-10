@@ -134,3 +134,18 @@ disables the pulse and translational typing effects.
 
 Validation: 11 focused unit tests in SchemeCube/useRecognitionSession, both
 desktop/mobile browser tests, and typecheck passed. No persistence changes.
+
+## Target clarity, result focus and mode order
+
+The camera now favours the source colour while keeping every partner face visible.
+The source stays fully bright with a thicker contrasting outline and stronger
+perimeter glow; partner stickers use softer colour emphasis and unrelated stickers
+dim further. Camera tests cover every physical sticker in standard/custom views.
+The shared result action row explicitly focuses Close, so Enter dismisses the
+result and preserves the saved attempt. Delete remains available by deliberate
+selection. The mode order is Execution Sprint, Guided Solve, Target Recognition,
+Trace Sprint, Memo Recall.
+
+Validation: 16 focused unit tests passed; 4 selected browser tests passed across
+recognition desktop/mobile and Execution/Guided popup keyboard behavior. Both
+recognition tests were rerun after the final camera update. Typecheck passed.

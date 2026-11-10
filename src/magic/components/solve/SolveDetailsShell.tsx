@@ -108,6 +108,7 @@ export function SolveDetailsActions({
           </QuietButton>
         )}
         <QuietButton
+          dialogAutoFocus
           onClick={onClose}
           className={`border border-line-strong text-ink-2 ${actionClassName}`}
         >
