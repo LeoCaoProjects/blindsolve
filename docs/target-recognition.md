@@ -164,3 +164,15 @@ presentation was left unchanged. Twelve browser checks passed: all five Training
 help sheets, Timer/Flashcards reference sheets, desktop/mobile recognition results,
 Execution/Guided popup keyboard guards, and Timer popup editable controls.
 Typecheck passed.
+
+## Trace accuracy rows and stable recognition scope
+
+Trace Sprint history now uses the same stored correct/total target formatter as
+Recognition and Recall. Existing DNF behavior and summary-only persistence remain.
+Recognition's preparation message has a reserved line below the description,
+so loading/ready transitions cannot recenter the idle timer. Recognition's idle
+position animation is disabled; other Training modes retain their existing motion.
+
+Three focused browser tests passed: Trace history `13/20 targets`, plus per-frame
+timer/description anchor checks across Both/Edges/Corners on desktop and mobile.
+Typecheck passed.

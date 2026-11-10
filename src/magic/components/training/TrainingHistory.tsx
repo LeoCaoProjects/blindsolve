@@ -63,7 +63,9 @@ export function TrainingHistory({ t }: { t: TrainingSession }) {
                 {!a.correct ? "DNF" : formatTime(a.ms)}
               </span>
               <span className="font-mono text-[11px] text-ink-3 tnum">
-                {t.mode === "recall" || t.mode === "recognition"
+                {t.mode === "recall" ||
+                t.mode === "recognition" ||
+                t.mode === "trace"
                   ? attemptTargetAccuracy(a)
                   : t.mode === "guided" || t.mode === "exec"
                     ? `${a.pairs ?? 0} pairs`
