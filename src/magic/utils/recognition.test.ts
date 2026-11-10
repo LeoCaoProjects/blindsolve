@@ -92,10 +92,29 @@ describe("recognition observations", () => {
 });
 
 it("faces the read colour toward the camera without hiding partner colours", () => {
-  for (const view of [
-    { top: "white", front: "green" },
-    { top: "blue", front: "yellow" },
-  ] as const)
+  const colours = [
+    "white",
+    "yellow",
+    "green",
+    "blue",
+    "red",
+    "orange",
+  ] as const;
+  const opposite = {
+    white: "yellow",
+    yellow: "white",
+    green: "blue",
+    blue: "green",
+    red: "orange",
+    orange: "red",
+  };
+  const views = colours.flatMap((top) =>
+    colours
+      .filter((front) => front !== top && front !== opposite[top])
+      .map((front) => ({ top, front })),
+  );
+  expect(views).toHaveLength(24);
+  for (const view of views)
     for (const sticker of ALL_STICKERS) {
       const rotation = recognitionRotation(sticker.id, view);
       const sourceDepth = faceDepth(sticker.face, rotation, view);

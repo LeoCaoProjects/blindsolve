@@ -7,6 +7,7 @@ const FOCUSABLE =
 export function useDialogFocus<T extends HTMLElement>(
   open = true,
   quietRestore = false,
+  restoreToWorkspace = false,
 ) {
   const rootRef = useRef<T>(null);
   const wasOpen = useRef(false);
@@ -29,7 +30,9 @@ export function useDialogFocus<T extends HTMLElement>(
     const frame = window.requestAnimationFrame(() => {
       const root = rootRef.current;
       if (!root || root.contains(document.activeElement)) return;
-      root.querySelector<HTMLElement>("[data-dialog-autofocus]")?.focus();
+      if (root.matches("[data-dialog-autofocus]"))
+        root.focus({ preventScroll: true });
+      else root.querySelector<HTMLElement>("[data-dialog-autofocus]")?.focus();
       if (!root.contains(document.activeElement))
         root.querySelector<HTMLElement>(FOCUSABLE)?.focus();
     });
@@ -67,7 +70,12 @@ export function useDialogFocus<T extends HTMLElement>(
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", trap);
-      if (previous?.isConnected) {
+      const workspace = restoreToWorkspace
+        ? document.querySelector<HTMLElement>("[data-workspace-main]")
+        : null;
+      if (workspace) {
+        workspace.focus({ preventScroll: true });
+      } else if (previous?.isConnected) {
         if (quietRestore) {
           // Restore keyboard continuity without painting a fresh focus ring on
           // the workspace/control behind a completed deletion popup.
@@ -81,7 +89,7 @@ export function useDialogFocus<T extends HTMLElement>(
         previous.focus({ preventScroll: true });
       }
     };
-  }, [open, quietRestore]);
+  }, [open, quietRestore, restoreToWorkspace]);
 
   return rootRef;
 }

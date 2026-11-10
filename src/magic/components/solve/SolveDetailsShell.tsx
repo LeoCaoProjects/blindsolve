@@ -1,4 +1,5 @@
-import React, { useRef } from "react";
+import React from "react";
+import { useDialogFocus } from "../../hooks/useDialogFocus";
 import { useDialogSpaceClose } from "../../hooks/useDialogSpaceClose";
 import { motion } from "framer-motion";
 import { EASE_OUT } from "../../utils/keyboard";
@@ -28,7 +29,7 @@ export function SolveDetailsShell({
   deleteLabel: string;
   closeLabel?: string;
 }) {
-  const dialogRef = useRef<HTMLElement>(null);
+  const dialogRef = useDialogFocus<HTMLElement>(true, false, true);
   useDialogSpaceClose(dialogRef, onClose);
   return (
     <motion.div
@@ -48,6 +49,9 @@ export function SolveDetailsShell({
       <motion.section
         ref={dialogRef}
         role="dialog"
+        tabIndex={-1}
+        data-dialog-autofocus
+        style={{ outline: "none" }}
         aria-modal="true"
         aria-label={label}
         initial={{ x: 32, opacity: 0 }}
@@ -108,7 +112,6 @@ export function SolveDetailsActions({
           </QuietButton>
         )}
         <QuietButton
-          dialogAutoFocus
           onClick={onClose}
           className={`border border-line-strong text-ink-2 ${actionClassName}`}
         >

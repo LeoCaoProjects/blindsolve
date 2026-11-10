@@ -149,3 +149,18 @@ Trace Sprint, Memo Recall.
 Validation: 16 focused unit tests passed; 4 selected browser tests passed across
 recognition desktop/mobile and Execution/Guided popup keyboard behavior. Both
 recognition tests were rerun after the final camera update. Typecheck passed.
+
+## Neutral result focus and reference-sheet dismissal
+
+Result dialogs now focus their invisible container rather than a button. Enter and
+Space use the shared dismissal keybinds; explicit keyboard navigation still reaches
+controls normally. Closing result/help/keybind sheets returns keyboard ownership to
+the workspace, so the next held Space starts normally. ReferenceModal uses this
+across all Training modes and the Timer/Flashcards shortcut sheets.
+
+Validation: 14 focused unit tests passed, including every physical edge/corner in
+all 24 cube orientations. Both/all three required colours remain visible, so cube
+presentation was left unchanged. Twelve browser checks passed: all five Training
+help sheets, Timer/Flashcards reference sheets, desktop/mobile recognition results,
+Execution/Guided popup keyboard guards, and Timer popup editable controls.
+Typecheck passed.

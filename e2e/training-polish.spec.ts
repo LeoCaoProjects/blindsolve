@@ -144,6 +144,7 @@ for (const mode of ["Execution Sprint", "Guided Solve"])
       exact: true,
     });
     await expect(popup).toBeVisible();
+    await expect(popup).toBeFocused();
     await page.keyboard.down("Space");
     await page.keyboard.up("Space");
     await expect(popup).toBeVisible();

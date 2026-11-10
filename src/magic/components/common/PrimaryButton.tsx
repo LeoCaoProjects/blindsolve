@@ -32,17 +32,14 @@ export function QuietButton({
   children,
   onClick,
   className = "",
-  dialogAutoFocus,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   className?: string;
-  dialogAutoFocus?: boolean;
 }) {
   return (
     <button
       type="button"
-      data-dialog-autofocus={dialogAutoFocus || undefined}
       onClick={onClick}
       className={`inline-flex h-9 items-center rounded-[4px] px-3 text-[13px] text-ink-3 transition-colors duration-150 ease-out hover:bg-hover hover:text-ink-2 ${className}`}
     >

@@ -47,12 +47,20 @@ export function ReviewPanel({
   width = 820,
 }: ReviewPanelProps) {
   const hasPending = !!pending && pending.count > 0;
-  const dialogRef = useDialogFocus<HTMLElement>();
+  const dialogRef = useDialogFocus<HTMLElement>(true, false, true);
   useDialogSpaceClose(dialogRef, onClose ?? onNext, !!onClose && !hasPending);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.isComposing || e.repeat) return;
+      if (
+        e.defaultPrevented ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.isComposing ||
+        e.repeat
+      )
+        return;
       if (document.querySelector('[role="alertdialog"]')) return;
       if (e.key === "Escape" && hasPending) {
         e.preventDefault();
@@ -95,13 +103,14 @@ export function ReviewPanel({
         role="dialog"
         ref={dialogRef}
         tabIndex={-1}
+        data-dialog-autofocus
         aria-modal="true"
         aria-label={label}
         initial={{ x: 32, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 24, opacity: 0 }}
         transition={{ duration: 0.24, ease: EASE_OUT }}
-        style={{ width: `min(${designRem(width)}, 100vw)` }}
+        style={{ width: `min(${designRem(width)}, 100vw)`, outline: "none" }}
         className="absolute inset-y-0 right-0 flex flex-col border-l border-line bg-raised shadow-overlay"
       >
         {header}
