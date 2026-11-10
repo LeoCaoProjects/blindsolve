@@ -30,7 +30,7 @@ const CATEGORY_NOUN: Record<CategoryFilter, string> = { all: 'feedback', bug: 'b
  */
 export function FeedbackInbox() {
   const init = useScreenInit() as ScreenState;
-  const { account, feedback } = useAppData();
+  const { account, feedback, feedbackStatus, retryFeedback } = useAppData();
   const sheet = useShortcutSheet();
   const [category, setCategory] = useState<CategoryFilter>(init.category ?? 'all');
   const [status, setStatus] = useState<StatusFilter>(init.status ?? 'active');
@@ -47,6 +47,8 @@ export function FeedbackInbox() {
     });
   }, [feedback, category, status, query]);
 
+  if (feedbackStatus === "loading") return <main role="status">Loading feedback...</main>;
+  if (feedbackStatus === "error") return <main><p role="alert">Feedback could not be loaded.</p><button onClick={retryFeedback}>Retry feedback</button><Link to="/settings">Back to Settings</Link></main>;
   if (account.role !== 'admin') return <Navigate to="/settings" replace />;
 
   const newCount = feedback.filter((f) => f.status === 'new').length;

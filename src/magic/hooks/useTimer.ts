@@ -110,29 +110,43 @@ export function useTimer({
   }, [setPhase, startLoop]);
 
   useEffect(() => {
-    if (disabled) {
+    const cancelHold = () => {
       lockRef.current = false;
       window.clearTimeout(holdRef.current);
       if (phaseRef.current === "armed" || phaseRef.current === "ready")
         setPhase(restRef.current);
+    };
+    if (disabled) {
+      cancelHold();
       return;
     }
+    const ignored = (e: KeyboardEvent) =>
+      isTypingTarget(e.target) || e.isComposing || e.metaKey || e.ctrlKey ||
+      e.altKey || e.shiftKey || e.defaultPrevented ||
+      !!document.querySelector('[role="dialog"], [role="alertdialog"]');
     const down = (e: KeyboardEvent) => {
-      if (e.code !== "Space" || isTypingTarget(e.target)) return;
+      if (e.code !== "Space") return;
+      if (ignored(e)) { cancelHold(); return; }
       e.preventDefault();
       if (e.repeat) return;
       press();
     };
     const up = (e: KeyboardEvent) => {
-      if (e.code !== "Space" || isTypingTarget(e.target)) return;
+      if (e.code !== "Space") return;
+      if (ignored(e)) { cancelHold(); return; }
       e.preventDefault();
       release();
     };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
+    window.addEventListener("blur", cancelHold);
+    document.addEventListener("visibilitychange", cancelHold);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", cancelHold);
+      document.removeEventListener("visibilitychange", cancelHold);
+      window.clearTimeout(holdRef.current);
     };
   }, [disabled, press, release, setPhase]);
 

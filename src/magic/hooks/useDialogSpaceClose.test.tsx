@@ -26,6 +26,12 @@ afterEach(() => {
 });
 const space = (target: Element | Window, repeat = false) =>
   fireEvent.keyDown(target, { key: " ", code: "Space", repeat });
+it("does not dismiss a popup with composing Space", () => {
+  const close = vi.fn();
+  render(<Popup name="result" onClose={close} />);
+  fireEvent.keyDown(window, { code: "Space", isComposing: true });
+  expect(close).not.toHaveBeenCalled();
+});
 it("only dismisses the top popup, through the existing close callback", () => {
   const underneath = vi.fn(),
     top = vi.fn();

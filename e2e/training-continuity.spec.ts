@@ -32,7 +32,7 @@ async function choose(page: Page, mode: string) {
   }
   await expect(page.locator("[data-training-region=scramble]")).toHaveCSS(
     "height",
-    mode === "Execution Sprint" || mode === "Guided Solve" ? /^(?!0px)/ : "0px",
+    mode === "Execution Sprint" || mode === "Guided Solve" || mode === "Trace Sprint" ? /^(?!0px)/ : "0px",
   );
   await expect(
     page.locator('[data-training-region][data-transitioning="true"]'),
@@ -464,7 +464,7 @@ test("rapid reversals and reduced motion keep the shared workspace anchored", as
   );
   await expect(page.locator("[data-training-region=scramble]")).toHaveCSS(
     "height",
-    "0px",
+    /^(?!0px)/,
   );
   await expect(
     page.locator('[data-training-region][data-transitioning="true"]'),

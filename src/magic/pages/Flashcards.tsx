@@ -46,6 +46,7 @@ export function Flashcards() {
   });
   return (
     <main className="flex h-full min-h-0 min-w-0 flex-col bg-bg font-sans text-ink">
+      {f.phase === "editing" && f.editError && <p role="alert" className="px-4 pt-3 text-sm">{f.editError}</p>}
       <AppBar onShortcuts={sheet.openSheet} />
       {!f.card || !f.cardTokens ? (
         <EmptyState />

@@ -10,7 +10,6 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -32,11 +31,10 @@ import { modeOf, solvesForMode, type TimerMode } from "../utils/timerModes";
 import { toTimerDb } from "../utils/pairs";
 import { ALL_STICKERS, speffzScheme } from "../utils/scheme";
 import { supabase } from "../../lib/supabase";
+import { useFeedbackInbox } from "../hooks/useFeedbackInbox";
 import type { Feedback, NewFeedback } from "../types/feedback";
 import {
   deleteFeedback as deleteFeedbackRemote,
-  feedbackAdmin,
-  listFeedback,
   submitFeedback as submitFeedbackRemote,
   updateFeedback as updateFeedbackRemote,
 } from "../../lib/feedback";
@@ -72,6 +70,8 @@ interface AppDataValue {
   navGuard: NavGuard;
   setNavGuard: (g: NavGuard) => void;
   feedback: Feedback[];
+  feedbackStatus: "loading" | "ready" | "error";
+  retryFeedback: () => void;
   submitFeedback: (feedback: NewFeedback) => Promise<Feedback>;
   updateFeedback: (
     id: string,
@@ -244,8 +244,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const store = useStore(),
     data = store.data;
   const [navGuard, setNavGuardState] = useState<NavGuard>(null);
-  const [feedback, setFeedback] = useState<Feedback[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const inbox = useFeedbackInbox(store.user?.id);
+  const { feedback, isAdmin, feedbackStatus, retryFeedback } = inbox;
   const pairs = useMemo(
     () => pairsFromStore(data),
     [data.pairs, data.logicalPairs, data.logicalPairDeletions, data.scheme, data.pairSharing],
@@ -294,32 +294,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     memoOrder: data.memoOrder,
     defaultView: data.defaultCubeView ?? { top: "white", front: "green" },
   };
-  useEffect(() => {
-    const userId = store.user?.id;
-    if (!userId) {
-      setIsAdmin(false);
-      setFeedback([]);
-      return;
-    }
-    let live = true;
-    void feedbackAdmin(userId).then(async (allowed) => {
-      if (!live) return;
-      setIsAdmin(allowed);
-      if (allowed) {
-        try {
-          const items = await listFeedback();
-          if (live) setFeedback(items);
-        } catch {
-          if (live) setFeedback([]);
-        }
-      } else {
-        setFeedback([]);
-      }
-    });
-    return () => {
-      live = false;
-    };
-  }, [store.user?.id]);
   const writeEntry = useCallback(
     (key: string, entry: PairEntry | null) => {
       store.update((current) => writePairEntries(current, { [key]: entry }));
@@ -557,20 +531,25 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     navGuard,
     setNavGuard: (g) => setNavGuardState(() => g),
     feedback,
+    feedbackStatus,
+    retryFeedback,
     submitFeedback: async (input) => {
+      const apply = inbox.capture();
       const created = await submitFeedbackRemote(input, store.user);
-      if (isAdmin) setFeedback((items) => [created, ...items]);
+      if (isAdmin) apply((items) => [created, ...items]);
       return created;
     },
     updateFeedback: async (id, patch) => {
+      const apply = inbox.capture();
       await updateFeedbackRemote(id, patch);
-      setFeedback((items) =>
+      apply((items) =>
         items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
       );
     },
     deleteFeedback: async (id) => {
+      const apply = inbox.capture();
       await deleteFeedbackRemote(id);
-      setFeedback((items) => items.filter((item) => item.id !== id));
+      apply((items) => items.filter((item) => item.id !== id));
     },
   };
   return (

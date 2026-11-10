@@ -89,6 +89,9 @@ export function Training() {
         isTypingTarget(e.target) ||
         e.metaKey ||
         e.ctrlKey ||
+        e.altKey ||
+        e.isComposing ||
+        e.defaultPrevented ||
         e.repeat ||
         !t.scrambleReady
       )

@@ -24,6 +24,7 @@ import {
 } from "../components/pairs/PairGroups";
 import { PairEditor } from "../components/pairs/PairEditor";
 import { useAppData } from "../contexts/AppDataContext";
+import { useStore } from "../../app/Store";
 import { useShortcutSheet } from "../hooks/useShortcutSheet";
 import { PairScope } from "../types/app";
 import { pairKey, resolveWords } from "../utils/pairs";
@@ -46,6 +47,7 @@ interface ScreenState {
  * Scope and the scheme's first-letter index belong to contextual navigation.
  */
 export function LetterPairs() {
+  const owner = useStore().user?.id ?? "guest";
   const { pathname, key: routeKey } = useWorkspaceLocation();
   const init = useScreenInit() as ScreenState;
   const { pairs, savePair, deletePairGroup, setup } = useAppData();
@@ -244,11 +246,13 @@ export function LetterPairs() {
     };
     document.addEventListener("focusin", onFocus);
     window.addEventListener("blur", reset);
+    document.addEventListener("visibilitychange", reset);
     return () => {
       reset();
       window.removeEventListener("keydown", onLetter);
       document.removeEventListener("focusin", onFocus);
       window.removeEventListener("blur", reset);
+      document.removeEventListener("visibilitychange", reset);
     };
   }, [axes, view, editing, deletingFirst, sheet.open, pathname, routeKey]);
 
@@ -345,6 +349,7 @@ export function LetterPairs() {
       <AnimatePresence>
         {editing && possible(activeFirst, editing) && (
           <PairEditor
+            contextKey={JSON.stringify([owner, setup])}
             key={`${activeFirst}|${editing}`}
             first={activeFirst}
             second={editing}

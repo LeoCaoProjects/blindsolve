@@ -61,6 +61,11 @@ export function distinctMnemonicCardCount(
 export function useFlashcards(opts: Options, active = true) {
   const store = useStore();
   const { pairs, setup, setDefaultWord } = useAppData();
+  const editContext = JSON.stringify([store.user?.id, store.data.scheme, pairs]);
+  const currentContext = useRef(editContext);
+  currentContext.current = editContext;
+  const openedContext = useRef<string | null>(null);
+  const [editError, setEditError] = useState("");
   // Derive recent cards from saved data, including later account/cloud hydration.
   const log = useMemo<CardLog[]>(
     () =>
@@ -80,6 +85,8 @@ export function useFlashcards(opts: Options, active = true) {
   // Reopening during an exit fade starts a fresh draft rather than reviving it.
   const [editSession, setEditSession] = useState(0);
   const beginEdit = useCallback(() => {
+    openedContext.current = currentContext.current;
+    setEditError("");
     setEditSession((current) => current + 1);
     setPhase("editing");
   }, []);
@@ -196,6 +203,10 @@ export function useFlashcards(opts: Options, active = true) {
   );
 
   const editPrimary = (word: string) => {
+    if (openedContext.current !== null && openedContext.current !== currentContext.current) {
+      setEditError("Your workspace changed. Copy your draft, then cancel and reopen the editor before saving.");
+      return;
+    }
     if (!card || !word.trim()) return;
     setDefaultWord(card.key, word.trim());
     setPhase("revealed");
@@ -211,6 +222,7 @@ export function useFlashcards(opts: Options, active = true) {
     const onKey = (e: KeyboardEvent) => {
       if (
         isTypingTarget(e.target) ||
+        e.isComposing ||
         e.metaKey ||
         e.ctrlKey ||
         e.altKey ||
@@ -252,6 +264,7 @@ export function useFlashcards(opts: Options, active = true) {
     words,
     defaultWord: card ? (pairs[card.key]?.shared[0] ?? "") : "",
     editSession,
+    editError,
     beginEdit,
     phase,
     setPhase,

@@ -10,7 +10,7 @@ export function useDetailsKeys(
 ) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return;
+      if (e.defaultPrevented || e.isComposing || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "Escape") {
         e.preventDefault();
         onClose();
