@@ -1,11 +1,15 @@
 import { cubeHighlightFor } from "../utils/reconstruction";
 import { stateFromScramble } from "../utils/cube";
-import { act, renderHook, cleanup } from "@testing-library/react";
+import { act, renderHook, cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { scrambleToState } from "../../domain/bld/cubing";
 import { createSpeffzScheme } from "../../domain/bld/speffz";
 import { useReconstruction } from "./useReconstruction";
-afterEach(cleanup);
+import { REVIEW_SAVE_PAUSE_MS } from "./useReviewSaveGuard";
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 describe("Timer piece-scoped reconstruction", () => {
   for (const mode of ["edges", "corners"] as const)
     it(`reconstructs ${mode} while learning Default words`, async () => {
@@ -312,4 +316,71 @@ for (const existingDefaults of [false, true])
       expect(
         saved.memo[piece].map((ref: { pair: string }) => ref.pair),
       ).toEqual(result.current.sample[piece]);
+  });
+
+for (const input of ["click", "Enter", "held Enter"] as const)
+  it(`keeps the completed review open through repeated ${input} until input settles`, async () => {
+    const state = await scrambleToState("R U F");
+    const labels = "ABCDEFGHIJKLMNOPQRSTUVWX".split("");
+    const db = Object.fromEntries(
+      labels.flatMap((a) => labels.map((b) => [a + b, ["Apple"]])),
+    );
+    const onSave = vi.fn();
+    vi.useFakeTimers();
+    const { result } = renderHook(() =>
+      useReconstruction({
+        draft: {
+          time: 3000,
+          memoTime: 1000,
+          scramble: "R U F",
+          date: new Date().toISOString(),
+          sample: { corners: [], edges: [] },
+          engine: { state, scheme: createSpeffzScheme() },
+        },
+        db,
+        onSave,
+      }),
+    );
+    for (let i = 0; i < 30 && result.current.step.kind !== "review"; i++)
+      act(() => result.current.primary());
+    expect(result.current.step.kind).toBe("review");
+    expect(result.current.canSave).toBe(false);
+    for (let i = 0; i < 12; i++) {
+      act(() => vi.advanceTimersByTime(100));
+      act(() => {
+        if (input === "click") result.current.primary();
+        else
+          fireEvent.keyDown(window, {
+            key: "Enter",
+            repeat: input === "held Enter",
+          });
+      });
+      expect(onSave).not.toHaveBeenCalled();
+      expect(result.current.canSave).toBe(false);
+    }
+    act(() => vi.advanceTimersByTime(REVIEW_SAVE_PAUSE_MS));
+    expect(result.current.canSave).toBe(true);
+    if (input === "click") {
+      act(() => result.current.back());
+      expect(result.current.step.kind).toBe("break");
+      act(() => result.current.primary());
+      expect(result.current.step.kind).toBe("review");
+      expect(result.current.canSave).toBe(false);
+      act(() => result.current.primary());
+      expect(onSave).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(REVIEW_SAVE_PAUSE_MS));
+    }
+    if (input === "held Enter") {
+      act(() => fireEvent.keyDown(window, { key: "Enter", repeat: true }));
+      expect(onSave).not.toHaveBeenCalled();
+      act(() => fireEvent.keyUp(window, { key: "Enter" }));
+      act(() => vi.advanceTimersByTime(REVIEW_SAVE_PAUSE_MS));
+    }
+    act(() => {
+      if (input === "click") {
+        result.current.primary();
+        result.current.primary();
+      } else fireEvent.keyDown(window, { key: "Enter" });
+    });
+    expect(onSave).toHaveBeenCalledTimes(1);
   });
