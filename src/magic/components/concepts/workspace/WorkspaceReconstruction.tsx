@@ -82,11 +82,15 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
           </div>
         </div>
 
-        <div className="flex h-11 shrink-0 items-center px-5 md:px-9">
-          <StepTicks total={r.steps.length} index={r.index} />
-        </div>
+        {r.step.kind !== "review" && (
+          <div className="flex h-11 shrink-0 items-center px-5 md:px-9">
+            <StepTicks total={r.steps.length} index={r.index} />
+          </div>
+        )}
 
-        <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-3 md:px-9">
+        <div
+          className={`scroll-quiet min-h-0 flex-1 overflow-y-auto px-5 md:px-9 ${r.step.kind === "review" ? "py-8" : "pb-8 pt-3"}`}
+        >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={r.index}

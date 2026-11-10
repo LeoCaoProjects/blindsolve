@@ -77,7 +77,10 @@ export function TrainingIdle({
       {t.mode === "recognition" && (
         <div className="mt-2 min-h-[20px] text-[13px] text-ink-3">
           {!t.scrambleReady && (
-            <p role="status">
+            <p
+              role="status"
+              className={t.scrambleError ? undefined : "sr-only"}
+            >
               {t.scrambleError ? (
                 <>
                   Unable to prepare this attempt.{" "}
