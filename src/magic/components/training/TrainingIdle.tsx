@@ -33,7 +33,9 @@ export function TrainingIdle({
   const hold = t.hold.phase;
   return (
     <motion.div
-      layout={execution || reduced ? false : "position"}
+      layout={
+        execution || reduced || t.mode === "recognition" ? false : "position"
+      }
       transition={{
         layout: { type: "tween", duration: 0.18, ease: SUB_NAV_EASE },
       }}
@@ -59,24 +61,6 @@ export function TrainingIdle({
           <TimerPhaseCue phase={t.phase === "execution" ? "exec" : "stopped"} />
         </div>
       )}
-      {t.mode === "recognition" && !t.scrambleReady && (
-        <p className="mt-5 text-[13px] text-ink-3" role="status">
-          {t.scrambleError ? (
-            <>
-              Unable to prepare this attempt.{" "}
-              <button
-                onClick={t.newScramble}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="underline underline-offset-4"
-              >
-                Try again
-              </button>
-            </>
-          ) : (
-            "Preparing scramble…"
-          )}
-        </p>
-      )}
       <p
         className={`mt-[clamp(14px,3vh,28px)] max-w-[560px] text-[14px] leading-relaxed text-ink-3 ${execution ? "invisible" : ""}`}
       >
@@ -90,6 +74,28 @@ export function TrainingIdle({
           How it works
         </button>
       </p>
+      {t.mode === "recognition" && (
+        <div className="mt-2 min-h-[20px] text-[13px] text-ink-3">
+          {!t.scrambleReady && (
+            <p role="status">
+              {t.scrambleError ? (
+                <>
+                  Unable to prepare this attempt.{" "}
+                  <button
+                    onClick={t.newScramble}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="underline underline-offset-4"
+                  >
+                    Try again
+                  </button>
+                </>
+              ) : (
+                "Preparing scramble…"
+              )}
+            </p>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }
