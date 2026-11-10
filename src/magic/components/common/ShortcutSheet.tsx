@@ -45,9 +45,8 @@ export function ShortcutSheet({
       </dl>
       {page === "timer" && (
         <p className="mt-6 border-t border-line pt-4 text-[12.5px] leading-relaxed text-ink-3">
-          After reconstruction, you can still click any word in the summary to
-          edit it before saving. Replacements use Save as Default; choose Keep
-          Default to change the word for this solve only.
+          After reconstruction, click any word beneath Edges or Corners to edit
+          it.
         </p>
       )}
     </ReferenceModal>
