@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useReviewSaveGuard } from "./useReviewSaveGuard";
 import { traceMemo } from "../../domain/bld/trace";
 import type { TraceSection } from "../../domain/bld/types";
 import {
@@ -219,6 +220,11 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     return result;
   }, [db, draft.engine, pending, pieceOrder, presented, presentedBreakId]);
   const step = steps[Math.min(index, steps.length - 1)];
+  const {
+    ready: canSave,
+    confirm: confirmSave,
+    wait: waitToSave,
+  } = useReviewSaveGuard(step.kind === "review");
 
   useEffect(() => {
     if (restoringBreak.current) {
@@ -440,8 +446,8 @@ export function useReconstruction({ draft, db, onSave }: Options) {
   const primary = useCallback(() => {
     if (step.kind === "break") pickBreak(step.options[optionFocus]);
     else if (step.kind === "word") next();
-    else finish();
-  }, [finish, next, optionFocus, pickBreak, step]);
+    else if (confirmSave()) finish();
+  }, [confirmSave, finish, next, optionFocus, pickBreak, step]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -453,6 +459,11 @@ export function useReconstruction({ draft, db, onSave }: Options) {
       }
       if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey)
         return;
+      if (event.key === "Enter" && step.kind === "review" && event.repeat) {
+        event.preventDefault();
+        waitToSave();
+        return;
+      }
       if (event.key === "Enter" && event.target instanceof HTMLButtonElement)
         return;
       if (event.key === "1") return setPenalty("ok");
@@ -473,12 +484,12 @@ export function useReconstruction({ draft, db, onSave }: Options) {
           pickBreak(event.key.toUpperCase());
       } else if (event.key === "Enter" && step.kind === "review") {
         event.preventDefault();
-        finish();
+        if (confirmSave()) finish();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [finish, optionFocus, pickBreak, step]);
+  }, [confirmSave, finish, optionFocus, pickBreak, step, waitToSave]);
 
   return {
     draft,
@@ -509,6 +520,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     finish,
     primary,
     isResolved: () => !pending,
+    canSave,
     primaryLabel: step.kind === "review" ? "Save solve" : "Continue",
   };
 }

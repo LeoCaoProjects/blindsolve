@@ -159,6 +159,9 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
           )}
           <QuietButton
             onClick={r.primary}
+            aria-disabled={
+              r.step.kind === "review" && !r.canSave ? true : undefined
+            }
             className="min-w-[84px] justify-center border border-line-strong text-ink-2"
           >
             {r.primaryLabel}

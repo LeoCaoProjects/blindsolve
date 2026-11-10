@@ -306,3 +306,50 @@ for (const viewport of [
       path: `test-results/reconstruction-scroll-${viewport.width}-${viewport.height}.png`,
     });
   });
+
+for (const input of ["mouse", "Enter"] as const)
+  test(`Continue spam cannot save the completed reconstruction with ${input}`, async ({
+    page,
+  }) => {
+    const popup = await reconstruct(page);
+    let continueBox;
+    for (
+      let i = 0;
+      i < 30 &&
+      (await popup.getByRole("heading", { name: /cycle break/ }).count());
+      i++
+    ) {
+      const next = popup.getByRole("button", { name: "Continue", exact: true });
+      continueBox = await next.boundingBox();
+      await next.click();
+    }
+    const save = popup.getByRole("button", { name: "Save solve", exact: true });
+    await expect(save).toHaveAttribute("aria-disabled", "true");
+    for (let i = 0; i < 10; i++) {
+      if (input === "mouse")
+        await page.mouse.click(
+          continueBox!.x + continueBox!.width / 2,
+          continueBox!.y + continueBox!.height / 2,
+        );
+      else await page.keyboard.down("Enter");
+      await page.waitForTimeout(100);
+    }
+    await expect(popup).toBeVisible();
+    await expect(save).toHaveAttribute("aria-disabled", "true");
+    await expect(save).toBeEnabled();
+    if (input === "Enter") {
+      // A held key must remain harmless even after the pause has elapsed.
+      await page.keyboard.down("Enter");
+      await expect(popup).toBeVisible();
+      await page.keyboard.up("Enter");
+      await expect(save).toBeEnabled();
+      await page.keyboard.press("Enter");
+    } else await save.click();
+    await expect(popup).toHaveCount(0);
+    const count = await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data.solves
+          .length,
+    );
+    expect(count).toBe(1);
+  });
