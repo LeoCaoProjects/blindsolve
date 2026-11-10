@@ -17,6 +17,7 @@ export function ReferenceModal({
 }) {
   return (
     <Sheet
+      restoreWorkspaceFocus
       open={open}
       onClose={onClose}
       label={label}

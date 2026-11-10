@@ -120,7 +120,7 @@ test("single-key answers remain silent; completion, history, deletion and start 
     result.getByText("Time per target", { exact: true }),
   ).toBeVisible();
   await expect(result.locator("[data-recall-error]")).not.toHaveCount(0);
-  await expect(result.getByRole("button", { name: /^Close/ })).toBeFocused();
+  await expect(result).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(result).toHaveCount(0);
   const row = page.locator("[data-attempt-row]");

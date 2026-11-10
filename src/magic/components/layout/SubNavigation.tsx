@@ -124,8 +124,10 @@ export function SubNavFrame({
         data-session-workspace={reference ? "" : undefined}
       >
         <div
+          style={{ outline: "none" }}
           data-workspace-main
-          className="flex h-full min-h-0 min-w-0 flex-col font-sans text-ink"
+          tabIndex={-1}
+          className="flex h-full min-h-0 min-w-0 flex-col font-sans text-ink outline-none"
         >
           <div
             className="flex min-h-0 min-w-0 flex-1 overflow-hidden font-sans text-ink"

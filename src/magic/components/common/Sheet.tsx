@@ -16,11 +16,12 @@ interface SheetProps {
   footer?: React.ReactNode;
   children: React.ReactNode;
   scrollContent?: boolean;
+  restoreWorkspaceFocus?: boolean;
 }
 
 /** Centred sheet — same scrim, surface and motion as the shortcut sheet. Scrolls inside, never past the viewport. */
-export function Sheet({ open, onClose, label, title, width = 420, footer, children, scrollContent = true }: SheetProps) {
-  const dialogRef = useDialogFocus<HTMLDivElement>(open);
+export function Sheet({ open, onClose, label, title, width = 420, footer, children, scrollContent = true, restoreWorkspaceFocus = false }: SheetProps) {
+  const dialogRef = useDialogFocus<HTMLDivElement>(open, false, restoreWorkspaceFocus);
   useDialogSpaceClose(dialogRef, onClose, open);
   useEffect(() => {
     if (!open) return;
