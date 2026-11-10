@@ -1,4 +1,5 @@
 import React from "react";
+import { useShortViewport } from "../../hooks/useShortViewport";
 import { Decision, Reconstruction } from "../../hooks/useReconstruction";
 import { SolveMemoSection } from "../solve/SolveMemoSection";
 import { DecisionMenu } from "../training/review/DecisionMenu";
@@ -16,45 +17,56 @@ interface ReviewMemoProps {
 
 export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
   const { timerDb } = useAppData();
+  const compact = useShortViewport();
   return (
-    <div>
-      <SolveMemoSection
-        showScramble={false}
-        scramble={r.draft.scramble}
-        memo={r.reviewMemo}
-        db={timerDb}
-        size={size}
-        renderWord={(pair, piece, word) =>
-          memoPairTokens(pair).length < 2 ? (
-            <span>{word || "—"}</span>
-          ) : (
-            <EditableWord
-              pair={pair}
-              value={word}
-              onCommit={(value) => r.setWord(pair, piece, value)}
-            />
-          )
-        }
-      />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0">
+        <SolveMemoSection
+          showScramble={false}
+          scramble={r.draft.scramble}
+          memo={r.reviewMemo}
+          db={timerDb}
+          size={compact ? "sm" : size}
+          labelWidth={compact ? "3rem" : undefined}
+          renderWord={(pair, piece, word) =>
+            memoPairTokens(pair).length < 2 ? (
+              <span>{word || "—"}</span>
+            ) : (
+              <EditableWord
+                pair={pair}
+                value={word}
+                onCommit={(value) => r.setWord(pair, piece, value)}
+              />
+            )
+          }
+        />
+      </div>
 
       {r.changedPairs.length > 0 && (
         <section
           aria-label="Default word updates"
-          className="mt-8 border-t border-line pt-5"
+          className="mt-4 flex min-h-0 flex-1 flex-col border-t border-line pt-3"
         >
-          <h3 className="mb-2 text-[12px] text-ink-3">
+          <h3 className="mb-2 shrink-0 text-[12px] text-ink-3">
             Overwrite Default words
           </h3>
-          {r.changedPairs.map(({ pair, piece }) => (
-            <ChangedRow
-              key={`${piece}:${pair}`}
-              pair={pair}
-              stored={r.storedFor(pair, piece) ?? ""}
-              used={r.wordFor(pair, piece)}
-              value={r.decisions[`${piece}:${pair}`] ?? "replace"}
-              onChange={(d) => r.decide(pair, piece, d)}
-            />
-          ))}
+          <div
+            className="scroll-quiet min-h-0 overflow-y-auto overscroll-contain"
+            tabIndex={0}
+            role="region"
+            aria-label="Words to overwrite"
+          >
+            {r.changedPairs.map(({ pair, piece }) => (
+              <ChangedRow
+                key={`${piece}:${pair}`}
+                pair={pair}
+                stored={r.storedFor(pair, piece) ?? ""}
+                used={r.wordFor(pair, piece)}
+                value={r.decisions[`${piece}:${pair}`] ?? "replace"}
+                onChange={(d) => r.decide(pair, piece, d)}
+              />
+            ))}
+          </div>
         </section>
       )}
     </div>

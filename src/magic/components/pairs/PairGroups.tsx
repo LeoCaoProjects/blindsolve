@@ -20,7 +20,7 @@ interface PairGroupsProps {
   refocus: number;
   jumpRequest?: number;
 }
-export const GROUP = 12;
+export const pairColumnSize = (count: number) => Math.ceil(count / 2);
 /** Default vocabulary, or just its explicit exceptions, in the same reading columns. */
 export function PairGroups({
   first,
@@ -47,8 +47,11 @@ export function PairGroups({
         (first.length > 1 || row.second.length > 1 ? 5 : 0),
     ),
   );
-  for (let index = 0; index < entries.length; index += GROUP)
-    groups.push(entries.slice(index, index + GROUP));
+  const columnSize = pairColumnSize(entries.length);
+  if (columnSize) {
+    groups.push(entries.slice(0, columnSize));
+    if (entries.length > columnSize) groups.push(entries.slice(columnSize));
+  }
   const activeIndex = entries.some((entry) => entry.index === focus)
     ? focus
     : entries[0]?.index;

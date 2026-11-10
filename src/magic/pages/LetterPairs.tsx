@@ -17,7 +17,7 @@ import { SubNavigation } from "../components/layout/SubNavigation";
 import { AppBar } from "../components/layout/AppBar";
 import { FirstTokenRail } from "../components/pairs/FirstTokenRail";
 import {
-  GROUP,
+  pairColumnSize,
   PairGroups,
   PairRow,
   isVisiblePair,
@@ -160,6 +160,9 @@ export function LetterPairs() {
     );
     const position = Math.max(0, valid.indexOf(focus));
     const last = valid.length - 1;
+    const columnSize = window.matchMedia("(min-width: 768px)").matches
+      ? pairColumnSize(valid.length)
+      : valid.length;
     const move = (i: number) => {
       e.preventDefault();
       if (valid.length) setFocus(valid[Math.max(0, Math.min(last, i))]);
@@ -170,9 +173,13 @@ export function LetterPairs() {
       case "ArrowUp":
         return move(position - 1);
       case "ArrowRight":
-        return move(position + GROUP <= last ? position + GROUP : position);
+        return move(
+          position < columnSize && columnSize < valid.length
+            ? Math.min(position + columnSize, last)
+            : position,
+        );
       case "ArrowLeft":
-        return move(position - GROUP >= 0 ? position - GROUP : position);
+        return move(position >= columnSize ? position - columnSize : position);
       case "Home":
         return move(0);
       case "End":

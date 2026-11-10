@@ -15,6 +15,7 @@ import { SolveDetailsActionRow } from "../../solve/SolveDetailsShell";
 import { ReconStepBody } from "../../reconstruction/ReconStepBody";
 import { StepTicks } from "../../reconstruction/StepTicks";
 
+import { useShortViewport } from "../../../hooks/useShortViewport";
 import { SolveSummary } from "../../solve/SolveSummary";
 
 interface Props {
@@ -26,6 +27,7 @@ interface Props {
 /** An inspector slides over the right of the workspace; the timer stays readable at left. */
 export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
   const r = useReconstruction({ draft, db, onSave });
+  const compactReview = useShortViewport() && r.step.kind === "review";
   const cube = useMemo(
     () => stateFromScramble(draft.scramble),
     [draft.scramble],
@@ -68,9 +70,14 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
         transition={{ duration: 0.24, ease: EASE_OUT }}
         className="absolute inset-y-0 right-0 flex w-[min(780px,100vw)] flex-col border-l border-line bg-raised shadow-overlay"
       >
-        <div className="grid h-[clamp(200px,34vh,300px)] shrink-0 grid-cols-1 border-b border-line bg-surface sm:grid-cols-[minmax(0,1fr)_clamp(150px,34vh,300px)]">
-          <div className="flex min-w-0 flex-col px-5 py-[clamp(16px,3.5vh,32px)] md:px-9">
+        <div
+          className={`grid shrink-0 grid-cols-1 border-b border-line bg-surface sm:grid-cols-[minmax(0,1fr)_clamp(150px,34vh,300px)] ${compactReview ? "h-[150px]" : r.step.kind === "review" ? "h-[clamp(190px,28vh,260px)]" : "h-[clamp(200px,34vh,300px)]"}`}
+        >
+          <div
+            className={`flex min-w-0 flex-col px-5 md:px-9 ${r.step.kind === "review" ? "py-3" : "py-[clamp(16px,3.5vh,32px)]"}`}
+          >
             <SolveSummary
+              compact={compactReview}
               date={draft.date}
               time={draft.time}
               memoTime={draft.memoTime}
@@ -115,10 +122,15 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
         )}
 
         <div
-          className={`scroll-quiet min-h-0 flex-1 overflow-y-auto px-5 md:px-9 ${r.step.kind === "review" ? "py-8" : "pb-8 pt-3"}`}
+          className={`min-h-0 flex-1 px-5 md:px-9 ${r.step.kind === "review" ? "flex flex-col overflow-hidden py-4" : "scroll-quiet overflow-y-auto pb-8 pt-3"}`}
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
+              className={
+                r.step.kind === "review"
+                  ? "flex min-h-0 flex-1 flex-col"
+                  : undefined
+              }
               key={r.index}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
