@@ -79,26 +79,34 @@ test("single-key answers remain silent; completion, history, deletion and start 
     isComposing: true,
   });
   await input.press("Control+a");
-  await expect(page.locator("[data-recognition-progress]")).toContainText("1/");
+  await expect(page.locator("[data-recognition-progress]")).toContainText(
+    "1 /",
+  );
   const firstSource = await page
     .locator('[data-recognition-sticker="source"]')
     .getAttribute("data-sticker-id");
   await input.press("Z");
-  await expect(page.locator("[data-recognition-progress]")).toContainText("2/");
+  await expect(page.locator("[data-recognition-progress]")).toContainText(
+    "2 /",
+  );
   await expect(
     page.getByRole("button", { name: "Focus recognition typing" }),
   ).toContainText("Z");
   await input.press("Backspace");
-  await expect(page.locator("[data-recognition-progress]")).toContainText("1/");
+  await expect(page.locator("[data-recognition-progress]")).toContainText(
+    "1 /",
+  );
   await expect(
     page.locator('[data-recognition-sticker="source"]'),
   ).toHaveAttribute("data-sticker-id", firstSource!);
   await input.press("Z");
-  await expect(page.locator("[data-recognition-progress]")).toContainText("2/");
+  await expect(page.locator("[data-recognition-progress]")).toContainText(
+    "2 /",
+  );
   await expect(
     page.getByText(/Correct|Incorrect|Expected/, { exact: true }),
   ).toHaveCount(0);
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(500);
   await page.screenshot({ path: "test-results/recognition-desktop.png" });
   const text = await page.locator("[data-recognition-progress]").innerText();
   const count = Number(text.split("/")[1]);
@@ -138,19 +146,34 @@ test("mobile multi-character tokens use Enter and route changes abandon input", 
   const input = page.getByLabel("Target label", { exact: true });
   await expect(input).toBeAttached();
   await input.fill("SH");
-  await expect(page.locator("[data-recognition-progress]")).toContainText("1/");
+  await expect(page.locator("[data-recognition-progress]")).toContainText(
+    "1 /",
+  );
   await input.press("Enter");
-  await expect(page.locator("[data-recognition-progress]")).toContainText("2/");
+  await expect(page.locator("[data-recognition-progress]")).toContainText(
+    "2 /",
+  );
   await expect(input).toHaveValue("\u200b");
   await input.press("Backspace");
-  await expect(page.locator("[data-recognition-progress]")).toContainText("1/");
+  await expect(page.locator("[data-recognition-progress]")).toContainText(
+    "1 /",
+  );
   await input.fill("SH");
   await input.press("Backspace");
   await expect(input).toHaveValue("S");
   await input.press("H");
   await input.press("Enter");
-  await expect(page.locator("[data-recognition-progress]")).toContainText("2/");
-  await page.waitForTimeout(300);
+  await expect(page.locator("[data-recognition-progress]")).toContainText(
+    "2 /",
+  );
+  await expect(
+    page
+      .getByRole("button", { name: "Focus recognition typing" })
+      .locator("span")
+      .filter({ hasText: /^SH$/ })
+      .last(),
+  ).toHaveCSS("opacity", "1");
+  await page.waitForTimeout(500);
   await page.screenshot({ path: "test-results/recognition-mobile.png" });
   await input.fill("S");
   await page.getByRole("link", { name: "Timer", exact: true }).click();
@@ -158,5 +181,7 @@ test("mobile multi-character tokens use Enter and route changes abandon input", 
   await expect(input).toHaveCount(0);
   await hold(page);
   await expect(input).toHaveValue("\u200b");
-  await expect(page.locator("[data-recognition-progress]")).toContainText("1/");
+  await expect(page.locator("[data-recognition-progress]")).toContainText(
+    "1 /",
+  );
 });

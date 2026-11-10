@@ -464,9 +464,10 @@ export function SchemeCube({
                 <>
                   {recognitionSource === id && (
                     <span
-                      data-recognition-anchor
+                      data-recognition-aura
                       aria-hidden
-                      className="absolute left-1/2 top-1/2 h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--cube-body)] bg-white"
+                      className="recognition-focus-aura"
+                      style={{ borderRadius: radius }}
                     />
                   )}
                   <span
