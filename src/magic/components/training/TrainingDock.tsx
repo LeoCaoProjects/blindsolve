@@ -12,7 +12,11 @@ interface Action {
  * on touch devices; desktop uses the shared Space gesture.
  */
 export function TrainingDock({ t }: { t: TrainingSession }) {
-  if ((t.mode === "recall" && t.phase === "recall") || t.mode === "trace")
+  if (
+    (t.mode === "recall" && t.phase === "recall") ||
+    t.mode === "trace" ||
+    t.mode === "recognition"
+  )
     return null;
   let primary: Action | null = null;
   if (t.phase === "active" && t.mode === "recall")

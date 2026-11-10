@@ -84,7 +84,13 @@ function OwnerWorkspace({
     trainingScope,
     setTrainingScope,
   );
-  const sessions = { exec, guided, recall, trace };
+  const recognition = useTrainingSession(
+    initFor("recognition"),
+    trainingActive && mode === "recognition",
+    trainingScope,
+    setTrainingScope,
+  );
+  const sessions = { exec, guided, recall, trace, recognition };
   const selected = sessions[mode];
   const training = useMemo(
     () => ({ ...selected, mode, setMode }) as TrainingSession,

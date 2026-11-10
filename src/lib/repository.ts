@@ -59,7 +59,7 @@ export interface PracticeAttempt {
   accuracy?: number;
   createdAt: string;
   /** `full` is legacy-only and remains readable for backward compatibility. */
-  trainingMode?: "recall" | "exec" | "trace" | "guided" | "full";
+  trainingMode?: "recall" | "exec" | "trace" | "guided" | "recognition" | "full";
   pairKey?: string;
   pairPiece?: "edges" | "corners";
   durationMs?: number;
@@ -72,6 +72,11 @@ export interface PracticeAttempt {
   rawTargets?: { corners: string[]; edges: string[] };
   executionTargets?: { corners: string[]; edges: string[] };
   tokenSnapshot?: { corners: string[]; edges: string[] };
+  recognitionAnswers?: {
+    expected: string;
+    entered: string;
+    piece: "edges" | "corners";
+  }[];
   memoOrder?: "corners-first" | "edges-first";
 }
 export interface AppData extends LogicalPairState {
@@ -305,7 +310,7 @@ const dataSchema = z.object({
         ),
         createdAt: iso,
         trainingMode: z
-          .enum(["recall", "exec", "trace", "guided", "full"])
+          .enum(["recall", "exec", "trace", "guided", "recognition", "full"])
           .optional(),
         pairKey: text.optional(),
         pairPiece: z.enum(["edges", "corners"]).optional(),
@@ -328,6 +333,7 @@ const dataSchema = z.object({
             edges: z.array(text).max(200),
           })
           .optional(),
+        recognitionAnswers: z.array(z.object({ expected: text, entered: text, piece: z.enum(["edges", "corners"]) })).max(200).optional().catch(undefined),
         tokenSnapshot: z.object({ corners: tokens, edges: tokens }).optional(),
         memoOrder: z.enum(["corners-first", "edges-first"]).optional(),
       }),

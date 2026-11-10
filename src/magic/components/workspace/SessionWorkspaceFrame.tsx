@@ -54,7 +54,7 @@ export function SessionWorkspaceFrame({
           : "";
   const scrambleMode =
     t.mode === "exec" || t.mode === "guided" || t.mode === "trace";
-  const cubeVisible = !training || t.mode !== "trace";
+  const cubeVisible = !training || (t.mode !== "trace" && t.mode !== "recognition");
   // Retain the last real scramble while its region collapses; a non-scramble
   // drill must not replace it with an empty/pending header during the exit.
   const lastScramble = useRef({
@@ -178,7 +178,7 @@ export function SessionWorkspaceFrame({
                           animateOrientation
                         />
                       )
-                    : !(training && t.mode === "trace") && (
+                    : !(training && (t.mode === "trace" || t.mode === "recognition")) && (
                         <Cube3D
                           state={state}
                           size={cubeSize}

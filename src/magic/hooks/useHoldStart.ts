@@ -8,10 +8,16 @@ interface Options {
   enabled: boolean;
   onStart: () => void;
   holdMs?: number;
+  resetKey?: string;
 }
 
 /** Same gesture as the Timer: hold Space (or press and hold) until ready, release to start. */
-export function useHoldStart({ enabled, onStart, holdMs = 280 }: Options) {
+export function useHoldStart({
+  enabled,
+  onStart,
+  holdMs = 280,
+  resetKey,
+}: Options) {
   const [phase, setPhaseState] = useState<HoldPhase>("idle");
   const phaseRef = useRef<HoldPhase>("idle");
   const timer = useRef<number | undefined>(undefined);
@@ -69,7 +75,11 @@ export function useHoldStart({ enabled, onStart, holdMs = 280 }: Options) {
       if (e.code !== "Space" || phaseRef.current === "idle") return;
       if (
         !ownsTrainingSpace(e.target) ||
-        e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.isComposing ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.shiftKey ||
+        e.isComposing ||
         e.defaultPrevented ||
         document.querySelector('[role="dialog"], [role="alertdialog"]')
       ) {
@@ -90,7 +100,7 @@ export function useHoldStart({ enabled, onStart, holdMs = 280 }: Options) {
       document.removeEventListener("visibilitychange", cancel);
       cancel();
     };
-  }, [enabled, press, release, cancel]);
+  }, [enabled, press, release, cancel, resetKey]);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 

@@ -1,4 +1,4 @@
-export type TrainMode = "recall" | "trace" | "exec" | "guided";
+export type TrainMode = "recall" | "trace" | "exec" | "guided" | "recognition";
 /** Persisted by older releases. It is intentionally not an active Training mode. */
 export type LegacyTrainMode = "full";
 
@@ -97,6 +97,27 @@ export const trainingModes: TrainingModeInfo[] = [
       {
         label: "Check",
         text: "Type the targets in order. Press Enter for the next field or to submit the last field.",
+      },
+    ],
+  },
+  {
+    id: "recognition",
+    label: "Target Recognition",
+    line: "Recognise each highlighted piece from its colours.",
+    tests:
+      "Recognise logical targets from the colours and orientation of scrambled pieces.",
+    steps: [
+      {
+        label: "Start",
+        text: "Hold Space until ready, then release to reveal the cube.",
+      },
+      {
+        label: "Recognise",
+        text: "Read the outlined sticker on the highlighted piece. Type its logical label. Multi-character labels use Enter to submit.",
+      },
+      {
+        label: "Review",
+        text: "Answers advance immediately. Accuracy is revealed only after the final target.",
       },
     ],
   },
