@@ -181,3 +181,135 @@ it("selects cycle breaks, commits once, and restores earlier choices with Back",
   }
   expect(result.current.canBack).toBe(false);
 });
+
+for (const existingDefaults of [false, true])
+  it(`excludes obsolete words after correcting a completed reconstruction (${existingDefaults ? "overrides" : "new words"})`, async () => {
+    const onSave = vi.fn();
+    const state = await scrambleToState("R U F");
+    const labels = "ABCDEFGHIJKLMNOPQRSTUVWX".split("");
+    const db = existingDefaults
+      ? Object.fromEntries(
+          labels.flatMap((a) => labels.map((b) => [a + b, ["Apple"]])),
+        )
+      : {};
+    const { result } = renderHook(() =>
+      useReconstruction({
+        draft: {
+          time: 3000,
+          memoTime: 1000,
+          scramble: "R U F",
+          date: new Date().toISOString(),
+          timerMode: "3bld",
+          sample: { corners: [], edges: [] },
+          engine: { state, scheme: createSpeffzScheme() },
+        },
+        db,
+        onSave,
+      }),
+    );
+    for (let i = 0; i < 50 && result.current.step.kind !== "review"; i++) {
+      act(() => {
+        const step = result.current.step;
+        if (step.kind === "break") result.current.pickBreak(step.options[0]);
+        else result.current.next();
+      });
+    }
+    expect(result.current.step.kind).toBe("review");
+    const original = (["edges", "corners"] as const).flatMap((piece) =>
+      result.current.sample[piece]
+        .filter((pair) => pair.length === 2)
+        .map((pair) => ({ piece, pair, word: `Entered-${piece}-${pair}` })),
+    );
+    act(() => {
+      for (const { pair, piece, word } of original)
+        result.current.setWord(pair, piece, word);
+    });
+    // Return through every word step and confirmed break to correct the first choice.
+    for (let i = 0; i < 50 && result.current.canBack; i++)
+      act(() => result.current.back());
+    expect(result.current.step.kind).toBe("break");
+    const first = result.current.step;
+    if (first.kind !== "break") return;
+    expect(first.options.length).toBeGreaterThan(1);
+    act(() => result.current.pickBreak(first.options.at(-1)!));
+    for (let i = 0; i < 20 && result.current.step.kind === "break"; i++) {
+      act(() => {
+        const step = result.current.step;
+        if (step.kind === "break") result.current.pickBreak(step.options[0]);
+      });
+    }
+    const current = (["edges", "corners"] as const).flatMap((piece) =>
+      result.current.sample[piece].map((pair) => ({ pair, piece })),
+    );
+    const removed = original.filter(
+      (old) =>
+        !current.some(
+          (ref) => ref.piece === old.piece && ref.pair === old.pair,
+        ),
+    );
+    const obsolete = removed.filter(
+      (old) => !current.some((ref) => ref.pair === old.pair),
+    );
+    expect(obsolete.length).toBeGreaterThan(0);
+    const retained = original.filter((old) =>
+      current.some((ref) => ref.piece === old.piece && ref.pair === old.pair),
+    );
+    expect(retained.length).toBeGreaterThan(0);
+    for (const { pair, piece, word } of retained)
+      expect(result.current.wordFor(pair, piece)).toBe(word);
+    const added = current.filter(
+      (ref) =>
+        ref.pair.length === 2 && !original.some((old) => old.pair === ref.pair),
+    );
+    expect(added.length).toBeGreaterThan(0);
+    for (const { pair, piece } of added)
+      expect(result.current.wordFor(pair, piece)).toBe(
+        existingDefaults ? "Apple" : "",
+      );
+    for (let i = 0; i < 50 && result.current.step.kind === "word"; i++) {
+      act(() => {
+        const step = result.current.step;
+        if (step.kind !== "word") return;
+        if (!result.current.wordFor(step.pair, step.piece))
+          result.current.setWord(
+            step.pair,
+            step.piece,
+            `Corrected-${step.pair}`,
+          );
+        result.current.next();
+      });
+    }
+    expect(result.current.step.kind).toBe("review");
+    for (const old of removed) {
+      expect(result.current.changedPairs).not.toContainEqual(
+        expect.objectContaining({ pair: old.pair, piece: old.piece }),
+      );
+      expect(result.current.newPairs).not.toContainEqual(
+        expect.objectContaining({ pair: old.pair, piece: old.piece }),
+      );
+      expect(
+        result.current.reviewMemo[old.piece].some(
+          (ref) => ref.pair === old.pair,
+        ),
+      ).toBe(false);
+    }
+    act(() => result.current.finish());
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0];
+    for (const old of removed)
+      expect(
+        saved.memo[old.piece].some(
+          (ref: { pair: string }) => ref.pair === old.pair,
+        ),
+      ).toBe(false);
+    for (const old of obsolete)
+      expect(saved.defaultWords).not.toHaveProperty(
+        `${old.pair[0]}|${old.pair[1]}`,
+      );
+    for (const { pair, piece, word } of retained)
+      expect(saved.memo[piece]).toContainEqual({ pair, word });
+    for (const piece of ["edges", "corners"] as const)
+      expect(
+        saved.memo[piece].map((ref: { pair: string }) => ref.pair),
+      ).toEqual(result.current.sample[piece]);
+  });

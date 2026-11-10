@@ -42,7 +42,9 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
           aria-label="Default word updates"
           className="mt-8 border-t border-line pt-5"
         >
-          <h3 className="mb-2 text-[12px] text-ink-3">Default words</h3>
+          <h3 className="mb-2 text-[12px] text-ink-3">
+            Overwrite Default words
+          </h3>
           {r.changedPairs.map(({ pair, piece }) => (
             <ChangedRow
               key={`${piece}:${pair}`}

@@ -160,6 +160,12 @@ for (const width of [1440, 390])
     await field.press("Enter");
     const updates = popup.getByRole("region", { name: "Default word updates" });
     await expect(
+      updates.getByRole("heading", {
+        name: "Overwrite Default words",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
       updates.getByRole("button", { name: /Default word for/ }),
     ).toHaveCount(2);
     await expect(
