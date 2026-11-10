@@ -71,10 +71,10 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
         className="absolute inset-y-0 right-0 flex w-[min(780px,100vw)] flex-col border-l border-line bg-raised shadow-overlay"
       >
         <div
-          className={`grid shrink-0 grid-cols-1 border-b border-line bg-surface sm:grid-cols-[minmax(0,1fr)_clamp(150px,34vh,300px)] ${compactReview ? "h-[150px]" : r.step.kind === "review" ? "h-[clamp(190px,28vh,260px)]" : "h-[clamp(200px,34vh,300px)]"}`}
+          className={`grid shrink-0 grid-cols-1 border-b border-line bg-surface sm:grid-cols-[minmax(0,1fr)_clamp(150px,34vh,300px)] ${compactReview ? "h-[150px]" : "h-[clamp(200px,34vh,300px)]"}`}
         >
           <div
-            className={`flex min-w-0 flex-col px-5 md:px-9 ${r.step.kind === "review" ? "py-3" : "py-[clamp(16px,3.5vh,32px)]"}`}
+            className={`flex min-w-0 flex-col px-5 md:px-9 ${compactReview ? "py-3" : "py-[clamp(16px,3.5vh,32px)]"}`}
           >
             <SolveSummary
               compact={compactReview}
@@ -122,7 +122,7 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
         )}
 
         <div
-          className={`min-h-0 flex-1 px-5 md:px-9 ${r.step.kind === "review" ? "flex flex-col overflow-hidden py-4" : "scroll-quiet overflow-y-auto pb-8 pt-3"}`}
+          className={`min-h-0 flex-1 px-5 md:px-9 ${r.step.kind === "review" ? `flex flex-col overflow-hidden ${compactReview ? "py-4" : "py-8"}` : "scroll-quiet overflow-y-auto pb-8 pt-3"}`}
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
