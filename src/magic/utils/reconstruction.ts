@@ -1,8 +1,8 @@
-import type { CubeHighlight } from '../components/cube/Cube3D';
-import type { Reconstruction } from '../hooks/useReconstruction';
-import { createSpeffzScheme } from '../../domain/bld/speffz';
-import { CubeState, Face, PieceType, locateTarget, locationOf } from './cube';
-import { ALL_STICKERS, speffzScheme } from './scheme';
+import type { CubeHighlight } from "../components/cube/Cube3D";
+import type { Reconstruction } from "../hooks/useReconstruction";
+import { createSpeffzScheme } from "../../domain/bld/speffz";
+import { CubeState, Face, PieceType, locateTarget, locationOf } from "./cube";
+import { ALL_STICKERS, speffzScheme } from "./scheme";
 
 export interface BreakTarget {
   /** Facelet on the rendered cube (object space), e.g. "R6" */
@@ -16,7 +16,11 @@ export interface BreakTarget {
  * sticker it names on this cube. The cube's highlight AND its click targets both come from this
  * list, so what's lit up is always exactly what can be picked.
  */
-export function breakTargets(state: CubeState, type: PieceType, options: string[]): BreakTarget[] {
+export function breakTargets(
+  state: CubeState,
+  type: PieceType,
+  options: string[],
+): BreakTarget[] {
   return options.flatMap((value) => {
     const loc = locationOf(value, type);
     return loc ? [{ id: locateTarget(state, loc.face, loc.index), value }] : [];
@@ -25,24 +29,36 @@ export function breakTargets(state: CubeState, type: PieceType, options: string[
 
 const canonical = createSpeffzScheme();
 const magic = speffzScheme();
-const physicalToSlot = Object.fromEntries(ALL_STICKERS.flatMap((slot) => {
-  const label = magic[slot.id];
-  const physical = Object.values(canonical.stickers).find((sticker) => sticker.pieceType === slot.type && sticker.label === label);
-  return physical ? [[physical.id, slot.id]] : [];
-}));
+const physicalToSlot = Object.fromEntries(
+  ALL_STICKERS.flatMap((slot) => {
+    const label = magic[slot.id];
+    const physical = Object.values(canonical.stickers).find(
+      (sticker) => sticker.pieceType === slot.type && sticker.label === label,
+    );
+    return physical ? [[physical.id, slot.id]] : [];
+  }),
+);
 
-export function cubeHighlightFor(r: Reconstruction, state: CubeState): CubeHighlight | undefined {
+export function cubeHighlightFor(
+  r: Reconstruction,
+  state: CubeState,
+): CubeHighlight | undefined {
   const step = r.step;
-  if (step.kind !== 'break') return undefined;
+  if (step.kind !== "break") return undefined;
   return {
-    targets: r.breakTargetIds.flatMap((physicalId) => {
+    targets: r.breakTargetIds.flatMap((physicalId, index) => {
       const slot = physicalToSlot[physicalId];
       const sticker = r.draft.engine?.scheme.stickers[physicalId];
       if (!slot || !sticker) return [];
-      return [{ id: locateTarget(state, slot[0] as Face, Number(slot.slice(1))), value: sticker.label }];
+      return [
+        {
+          id: locateTarget(state, slot[0] as Face, Number(slot.slice(1))),
+          value: step.options[index] ?? sticker.label,
+        },
+      ];
     }),
     focused: step.options[r.optionFocus],
     selected: r.breaks[step.piece] ?? null,
-    onPick: r.pickBreak
+    onPick: r.pickBreak,
   };
 }

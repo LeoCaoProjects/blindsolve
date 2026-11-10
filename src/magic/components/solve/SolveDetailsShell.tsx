@@ -94,33 +94,50 @@ export function SolveDetailsActions({
   actionClassName?: string;
 }) {
   return (
-    <footer className="dock-inset flex shrink-0 items-center justify-between border-t border-line px-5 pt-3 text-[12.5px] md:px-9">
-      <button
-        type="button"
-        onClick={onDelete}
-        className={DETAILS_DELETE_BUTTON}
-      >
-        {deleteLabel}
-      </button>
-      <div className="ml-auto flex items-center gap-2">
-        {onDiscard && (
-          <QuietButton
-            onClick={onDiscard}
-            className={`border border-line-strong text-ink-2 ${actionClassName}`}
-          >
-            Close <span className="ml-3 text-[11px] text-ink-3">Esc</span>
-          </QuietButton>
-        )}
+    <SolveDetailsActionRow
+      leading={
+        <button
+          type="button"
+          onClick={onDelete}
+          className={DETAILS_DELETE_BUTTON}
+        >
+          {deleteLabel}
+        </button>
+      }
+    >
+      {onDiscard && (
         <QuietButton
-          onClick={onClose}
+          onClick={onDiscard}
           className={`border border-line-strong text-ink-2 ${actionClassName}`}
         >
-          {closeLabel}
-          {!onDiscard && closeHint && (
-            <span className="ml-3 text-[11px] text-ink-3">{closeHint}</span>
-          )}
+          Close <span className="ml-3 text-[11px] text-ink-3">Esc</span>
         </QuietButton>
-      </div>
+      )}
+      <QuietButton
+        onClick={onClose}
+        className={`border border-line-strong text-ink-2 ${actionClassName}`}
+      >
+        {closeLabel}
+        {!onDiscard && closeHint && (
+          <span className="ml-3 text-[11px] text-ink-3">{closeHint}</span>
+        )}
+      </QuietButton>
+    </SolveDetailsActionRow>
+  );
+}
+
+/** Shared footer geometry for completed results and reconstruction steps. */
+export function SolveDetailsActionRow({
+  leading,
+  children,
+}: {
+  leading?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <footer className="dock-inset flex shrink-0 items-center justify-between border-t border-line px-5 pt-3 text-[12.5px] md:px-9">
+      {leading}
+      <div className="ml-auto flex items-center gap-2">{children}</div>
     </footer>
   );
 }

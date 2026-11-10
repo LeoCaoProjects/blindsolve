@@ -13,7 +13,12 @@ import {
   REFERENCE_COLORS,
   siblingsOf,
 } from "../../utils/scheme";
-import { applyView, glyphRotation, viewTransform } from "../../utils/view";
+import {
+  applyView,
+  glyphRotation,
+  viewTransform,
+  viewForScrambledCenters,
+} from "../../utils/view";
 import { cubeGeometry } from "../../utils/cubeGeometry";
 import { useViewportSizingActive } from "../../utils/viewportSizing";
 import { bestRotation } from "../../utils/camera";
@@ -49,6 +54,8 @@ interface SchemeCubeProps {
   /** How many leading highlightIds belong to the pair's first token (accent ring); the rest get the ink ring */
   highlightPrimaryCount?: number;
   onPick?: (id: string) => void;
+  /** Optional physical slots allowed by the current reconstruction step. */
+  pickableIds?: string[];
   /** Allow Settings Overview stickers to open their lettering editor. */
   pickInOverview?: boolean;
   onViewChange?: (view: CubeView) => void;
@@ -97,6 +104,7 @@ export function SchemeCube({
   highlightIds,
   highlightPrimaryCount = 1,
   onPick,
+  pickableIds,
   pickInOverview = false,
   onViewChange,
   resetSignal = 0,
@@ -135,7 +143,11 @@ export function SchemeCube({
   const radius = Math.max(1.5, S * 0.022);
 
   const orientationFor = (faces: Face[]) => {
-    const target = bestRotation(faces, camera, currentRot.current).rot;
+    const target = bestRotation(
+      faces,
+      state ? viewForScrambledCenters(state, camera) : camera,
+      currentRot.current,
+    ).rot;
     // Free Settings rotation can accumulate full vertical turns as well as yaw.
     // Keep automatic orientation changes on the nearest equivalent turn.
     return freeRotation
@@ -385,10 +397,11 @@ export function SchemeCube({
               const id = `${face}${i}`;
               const token = scheme[id] ?? "";
               const pickable =
-                (mode === "view" && pickInOverview) ||
-                mode === "lettering" ||
-                (mode === "edge-buffer" && type === "edge") ||
-                (mode === "corner-buffer" && type === "corner");
+                (!pickableIds || pickableIds.includes(id)) &&
+                ((mode === "view" && pickInOverview) ||
+                  mode === "lettering" ||
+                  (mode === "edge-buffer" && type === "edge") ||
+                  (mode === "corner-buffer" && type === "corner"));
               const typeDim =
                 (mode === "edge-buffer" && type !== "edge") ||
                 (mode === "corner-buffer" && type !== "corner");
@@ -469,7 +482,7 @@ export function SchemeCube({
                 },
                 rootUnits,
               );
-              const turn = glyphRotation(face, camera);
+              const turn = glyphRotation(face, camera, state);
               const content = (
                 <>
                   {recognitionSource === id && (

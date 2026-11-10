@@ -51,6 +51,7 @@ export function EditableWord({
     <button
       type="button"
       title="Edit the word you used"
+      aria-label={`Edit word used for ${displayMemoPair(pair)}`}
       onClick={() => {
         setDraft(value);
         setEditing(true);

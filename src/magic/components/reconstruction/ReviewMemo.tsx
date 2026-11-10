@@ -1,6 +1,7 @@
 import React from "react";
 import { Decision, Reconstruction } from "../../hooks/useReconstruction";
 import { SolveMemoSection } from "../solve/SolveMemoSection";
+import { DecisionMenu } from "../training/review/DecisionMenu";
 import { EditableWord } from "./EditableWord";
 import { useAppData } from "../../contexts/AppDataContext";
 import {
@@ -18,6 +19,7 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
   return (
     <div>
       <SolveMemoSection
+        showScramble={false}
         scramble={r.draft.scramble}
         memo={r.reviewMemo}
         db={timerDb}
@@ -36,7 +38,11 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
       />
 
       {r.changedPairs.length > 0 && (
-        <div className="mt-8 grid gap-3 border-t border-line pt-5">
+        <section
+          aria-label="Default word updates"
+          className="mt-8 border-t border-line pt-5"
+        >
+          <h3 className="mb-2 text-[12px] text-ink-3">Default words</h3>
           {r.changedPairs.map(({ pair, piece }) => (
             <ChangedRow
               key={`${piece}:${pair}`}
@@ -47,7 +53,7 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
               onChange={(d) => r.decide(pair, piece, d)}
             />
           ))}
-        </div>
+        </section>
       )}
     </div>
   );
@@ -66,43 +72,35 @@ function ChangedRow({
   value: Decision;
   onChange: (d: Decision) => void;
 }) {
-  const options: { value: Decision; label: string }[] = [
-    { value: "keep", label: `Keep ${stored}` },
-    { value: "replace", label: `Save ${used} as default` },
-  ];
-
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
-      <span className="font-mono tracking-[0.12em] text-ink">
-        {displayMemoPair(pair)}
-      </span>
-      <span className="text-ink-3">
-        {stored} <span aria-hidden>→</span>
-        <span className="sr-only">changed to</span>{" "}
-        <span className="text-ink">{used}</span>
-      </span>
-      <div
-        role="radiogroup"
-        aria-label={`Letter pair ${displayMemoPair(pair)}`}
-        className="ml-auto flex gap-1"
-      >
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={value === o.value}
-            onClick={() => onChange(o.value)}
-            className={`h-7 max-w-[12rem] truncate rounded-[3px] px-2.5 text-[12.5px] transition-colors duration-150 ease-out ${
-              value === o.value
-                ? "bg-selected text-ink"
-                : "text-ink-3 hover:text-ink-2"
-            }`}
-          >
-            {o.label}
-          </button>
-        ))}
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-line py-3 last:border-b-0">
+      <div className="flex min-w-0 items-center gap-4">
+        <span className="shrink-0 font-mono text-[15px] tracking-[0.1em] text-ink">
+          {displayMemoPair(pair)}
+        </span>
+        <div className="min-w-0 text-[13px] leading-relaxed">
+          <div className="truncate text-ink-3" title={stored}>
+            {stored}
+          </div>
+          <div className="truncate text-ink" title={used}>
+            {used}
+          </div>
+        </div>
       </div>
+      <DecisionMenu
+        label={`Default word for ${displayMemoPair(pair)}`}
+        value={value}
+        safe="keep"
+        onChange={onChange}
+        options={[
+          { value: "keep", short: "Keep Default", label: `Keep ${stored}` },
+          {
+            value: "replace",
+            short: "Save Default",
+            label: `Save ${used} as Default`,
+          },
+        ]}
+      />
     </div>
   );
 }

@@ -9,8 +9,9 @@ import { LetterPairDb, SolveDraft } from "../../../types/solve";
 import { stateFromScramble } from "../../../utils/cube";
 import { EASE_OUT } from "../../../utils/keyboard";
 import { cubeHighlightFor } from "../../../utils/reconstruction";
-import { PrimaryButton, QuietButton } from "../../common/PrimaryButton";
-import { Cube3D } from "../../cube/Cube3D";
+import { QuietButton } from "../../common/PrimaryButton";
+import { SchemeCube } from "../../cube/SchemeCube";
+import { SolveDetailsActionRow } from "../../solve/SolveDetailsShell";
 import { ReconStepBody } from "../../reconstruction/ReconStepBody";
 import { StepTicks } from "../../reconstruction/StepTicks";
 
@@ -33,6 +34,14 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
     width: 300,
     height: 300,
   });
+  const highlight = cubeHighlightFor(r, cube);
+  const targets = highlight?.targets ?? [];
+  const selected =
+    targets.find(
+      (target) =>
+        target.value ===
+        (r.step.kind === "break" ? r.step.options[r.optionFocus] : undefined),
+    )?.id ?? null;
   const cubeSize = clamp(Math.min(box.width, box.height) - 28, 130, 260);
 
   return (
@@ -73,10 +82,23 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
             ref={cubeRef}
             className="hidden min-h-0 items-center justify-center overflow-hidden border-l border-line sm:flex"
           >
-            <Cube3D
+            <SchemeCube
               state={cube}
               size={cubeSize}
-              highlight={cubeHighlightFor(r, cube)}
+              scheme={Object.fromEntries(
+                targets.map((target) => [target.id, target.value]),
+              )}
+              mode={highlight ? "lettering" : "static"}
+              selected={selected}
+              revealSelected={!!highlight}
+              animateOrientation
+              freeRotation
+              pickableIds={targets.map((target) => target.id)}
+              hideLetters={!highlight}
+              onPick={(id) => {
+                const target = targets.find((target) => target.id === id);
+                if (target) r.focusBreak(target.value);
+              }}
               label="Cube at the start of memo"
             />
           </div>
@@ -104,19 +126,28 @@ export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
           </AnimatePresence>
         </div>
 
-        <footer className="dock-inset flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 pt-3.5 md:px-6">
-          {r.step.kind !== "review" ? (
-            <QuietButton onClick={r.finish}>Skip to save</QuietButton>
-          ) : (
-            <span />
+        <SolveDetailsActionRow
+          leading={
+            r.step.kind !== "review" ? (
+              <QuietButton onClick={r.finish}>Skip to save</QuietButton>
+            ) : undefined
+          }
+        >
+          {r.index > 0 && (
+            <QuietButton
+              onClick={r.back}
+              className="border border-line-strong text-ink-2"
+            >
+              Back
+            </QuietButton>
           )}
-          <div className="flex items-center gap-2">
-            {r.index > 0 && <QuietButton onClick={r.back}>Back</QuietButton>}
-            <PrimaryButton hint="" onClick={r.primary}>
-              {r.primaryLabel}
-            </PrimaryButton>
-          </div>
-        </footer>
+          <QuietButton
+            onClick={r.primary}
+            className="min-w-[84px] justify-center border border-line-strong text-ink-2"
+          >
+            {r.primaryLabel}
+          </QuietButton>
+        </SolveDetailsActionRow>
       </motion.section>
     </motion.div>
   );

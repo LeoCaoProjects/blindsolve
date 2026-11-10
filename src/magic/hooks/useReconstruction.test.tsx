@@ -1,3 +1,5 @@
+import { cubeHighlightFor } from "../utils/reconstruction";
+import { stateFromScramble } from "../utils/cube";
 import { act, renderHook, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { scrambleToState } from "../../domain/bld/cubing";
@@ -111,4 +113,42 @@ it("keeps piece-specific solve words while ordinary edits save only Default", as
   expect(
     saved.memo.edges.find((p: { pair: string }) => p.pair === pair).word,
   ).toBe("Plum");
+});
+
+it("selects a cycle-break option without committing until Continue", async () => {
+  const scheme = createSpeffzScheme();
+  scheme.edgeMethod = "m2";
+  scheme.edgeBuffer = "D:DF";
+  const scramble = "R U F";
+  const state = await scrambleToState(scramble);
+  const { result } = renderHook(() =>
+    useReconstruction({
+      draft: {
+        time: 3000,
+        memoTime: 1000,
+        date: new Date().toISOString(),
+        scramble,
+        sample: { corners: [], edges: [] },
+        engine: { state, scheme },
+        memoPrefs: { memoOrder: "edges-first", m2SecondTargetSwap: true },
+      },
+      db: {},
+      onSave: vi.fn(),
+    }),
+  );
+  const step = result.current.step;
+  expect(step.kind).toBe("break");
+  if (step.kind !== "break") return;
+  const targets = cubeHighlightFor(
+    result.current,
+    stateFromScramble(scramble),
+  )!.targets;
+  expect(targets.map((t) => t.value)).toEqual(step.options);
+  const choice = step.options.at(-1)!;
+  act(() => result.current.focusBreak(choice));
+  expect(result.current.step.kind).toBe("break");
+  expect(result.current.optionFocus).toBe(step.options.length - 1);
+  expect(result.current.breaks[step.piece]).toBeUndefined();
+  act(() => result.current.primary());
+  expect(result.current.breaks[step.piece]).toBe(choice);
 });

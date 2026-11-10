@@ -55,6 +55,14 @@ for (const width of [1440, 390])
       await popup
         .getByRole("button", { name: "Continue", exact: true })
         .click();
+    const footer = popup.locator("footer");
+    const skip = popup.getByRole("button", {
+      name: "Skip to save",
+      exact: true,
+    });
+    const skipBox = (await skip.boundingBox())!;
+    const footerBox = (await footer.boundingBox())!;
+    expect(skipBox.x - footerBox.x).toBeLessThan(width < 600 ? 35 : 60);
     const input = popup.getByPlaceholder("Enter word");
     await expect(input).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
@@ -110,7 +118,8 @@ for (const width of [1440, 390])
     expect(await popup.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
       true,
     );
-    const before = await section.textContent();
+    const before = await section.locator("[data-solve-memo]").textContent();
+    await expect(section.locator("p")).toHaveCount(0);
     await page.screenshot({
       path: `test-results/reconstruction-review-${width}.png`,
     });
@@ -125,5 +134,5 @@ for (const width of [1440, 390])
       .click();
     const saved = page.locator('[role="dialog"] [data-solve-memo-section]');
     await expect(saved).toBeVisible();
-    await expect(saved).toHaveText(before);
+    await expect(saved.locator("[data-solve-memo]")).toHaveText(before);
   });
