@@ -10,6 +10,7 @@ interface SolveMemoViewProps {
   size?: "sm" | "md" | "lg";
   className?: string;
   labelWidth?: string;
+  renderWord?: (pair: string, piece: Piece, word: string) => React.ReactNode;
 }
 
 /** The words used in THAT solve — with a quiet note where the database has since moved on. */
@@ -19,15 +20,22 @@ export function SolveMemoView({
   size = "md",
   className = "",
   labelWidth = "4.5rem",
+  renderWord,
 }: SolveMemoViewProps) {
   const { prefs } = useAppData();
   const rowsByPiece = {
     corners: {
+      piece: "corners" as const,
       label: "Corners",
       pairs: memo.corners,
       breakAt: memo.cornerBreakAt,
     },
-    edges: { label: "Edges", pairs: memo.edges, breakAt: memo.edgeBreakAt },
+    edges: {
+      piece: "edges" as const,
+      label: "Edges",
+      pairs: memo.edges,
+      breakAt: memo.edgeBreakAt,
+    },
   };
   const order: Piece[] =
     prefs.memoOrder === "edges-first"
@@ -51,7 +59,12 @@ export function SolveMemoView({
               breakAt={row.breakAt ?? null}
               renderWord={(pair, i) => {
                 const used = row.pairs[i].word;
-                const current = timerWords(db, pair, row.label === "Edges" ? "edges" : "corners")[0];
+                if (renderWord) return renderWord(pair, row.piece, used);
+                const current = timerWords(
+                  db,
+                  pair,
+                  row.label === "Edges" ? "edges" : "corners",
+                )[0];
                 return (
                   <span className="flex flex-col">
                     <span className="truncate">

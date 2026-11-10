@@ -6,8 +6,7 @@ import {
 import { useDetailsKeys } from "../../../hooks/useDetailsKeys";
 import { LetterPairDb, Penalty, Solve } from "../../../types/solve";
 import { stateFromScramble } from "../../../utils/cube";
-import { ScrambleText } from "../../solve/ScrambleText";
-import { SolveMemoView } from "../../solve/SolveMemoView";
+import { SolveMemoSection } from "../../solve/SolveMemoSection";
 
 import { SolveSummary } from "../../solve/SolveSummary";
 
@@ -65,14 +64,7 @@ export function WorkspaceSolveDetails({
         </DetailsSummaryBand>
       }
     >
-      <ScrambleText
-        scramble={solve.scramble}
-        animate={false}
-        className="text-[15px] leading-[1.75] text-ink"
-      />
-      <div className="mt-8 border-t border-line pt-7">
-        <SolveMemoView memo={solve.memo} db={db} />
-      </div>
+      <SolveMemoSection scramble={solve.scramble} memo={solve.memo} db={db} />
     </SolveDetailsShell>
   );
 }

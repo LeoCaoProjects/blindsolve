@@ -1,10 +1,12 @@
 import React from "react";
 import { Decision, Reconstruction } from "../../hooks/useReconstruction";
-import { Piece } from "../../types/solve";
-import { MemoTrace } from "../solve/MemoTrace";
+import { SolveMemoSection } from "../solve/SolveMemoSection";
 import { EditableWord } from "./EditableWord";
 import { useAppData } from "../../contexts/AppDataContext";
-import { displayMemoPair } from "../../../domain/letterPairs/identity";
+import {
+  memoPairTokens,
+  displayMemoPair,
+} from "../../../domain/letterPairs/identity";
 
 interface ReviewMemoProps {
   r: Reconstruction;
@@ -12,60 +14,26 @@ interface ReviewMemoProps {
 }
 
 export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
-  const { prefs } = useAppData();
-  const rowsByPiece: Record<
-    Piece,
-    { piece: Piece; label: string; pairs: string[]; breakAt?: number }
-  > = {
-    corners: {
-      piece: "corners",
-      label: "Corners",
-      pairs: r.sample.corners,
-      breakAt: r.sample.cornerBreak?.at,
-    },
-    edges: {
-      piece: "edges",
-      label: "Edges",
-      pairs: r.sample.edges,
-      breakAt: r.sample.edgeBreak?.at,
-    },
-  };
-  const rows = (
-    prefs.memoOrder === "edges-first"
-      ? ["edges", "corners"]
-      : ["corners", "edges"]
-  )
-    .map((piece) => rowsByPiece[piece as Piece])
-    .filter((row) => row.pairs.length > 0);
-
+  const { timerDb } = useAppData();
   return (
     <div>
-      <p className="mb-4 text-[12px] text-ink-3">
-        Word edits save to Default; optional overrides stay unchanged.
-      </p>
-      <div className="grid gap-8">
-        {rows.map((row) => (
-          <section
-            key={row.piece}
-            className="grid grid-cols-[72px_1fr] items-start gap-4"
-          >
-            <h3 className="pt-1 text-[12px] text-ink-3">{row.label}</h3>
-            <MemoTrace
-              size={size === "lg" ? "lg" : "md"}
-              pairs={row.pairs}
-              breakAt={row.breakAt ?? null}
-              renderWord={(pair) => (
-                <EditableWord
-                  pair={pair}
-                  value={r.wordFor(pair, row.piece)}
-                  isNew={r.isNew(pair, row.piece)}
-                  onCommit={(w) => r.setWord(pair, row.piece, w)}
-                />
-              )}
+      <SolveMemoSection
+        scramble={r.draft.scramble}
+        memo={r.reviewMemo}
+        db={timerDb}
+        size={size}
+        renderWord={(pair, piece, word) =>
+          memoPairTokens(pair).length < 2 ? (
+            <span>{word || "—"}</span>
+          ) : (
+            <EditableWord
+              pair={pair}
+              value={word}
+              onCommit={(value) => r.setWord(pair, piece, value)}
             />
-          </section>
-        ))}
-      </div>
+          )
+        }
+      />
 
       {r.changedPairs.length > 0 && (
         <div className="mt-8 grid gap-3 border-t border-line pt-5">
@@ -80,22 +48,6 @@ export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
             />
           ))}
         </div>
-      )}
-
-      {r.newPairs.length > 0 && (
-        <p className="mt-7 text-[12.5px] text-ink-3">
-          <span className="text-accent">+</span>{" "}
-          {r.newPairs.map(({ pair, piece }, i) => (
-            <span key={`${piece}:${pair}`}>
-              <span className="font-mono tracking-[0.1em] text-ink-2">
-              {displayMemoPair(pair)}
-              </span>{" "}
-              {r.wordFor(pair, piece)}
-              {i < r.newPairs.length - 1 ? ", " : ""}
-            </span>
-          ))}{" "}
-          join your letter pairs
-        </p>
       )}
     </div>
   );
@@ -121,7 +73,9 @@ function ChangedRow({
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
-      <span className="font-mono tracking-[0.12em] text-ink">{displayMemoPair(pair)}</span>
+      <span className="font-mono tracking-[0.12em] text-ink">
+        {displayMemoPair(pair)}
+      </span>
       <span className="text-ink-3">
         {stored} <span aria-hidden>→</span>
         <span className="sr-only">changed to</span>{" "}

@@ -326,6 +326,31 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     [allPairs, isNew, editedPiece],
   );
 
+  // The saved-solve inspector places cycle separators at the start of their pair.
+  const reviewBreakAt = (piece: Piece) => {
+    const at =
+      presented?.[piece].targets.findIndex((target) => target.cycleBreak) ??
+      (piece === "corners"
+        ? completedSample.cornerBreak?.at
+        : completedSample.edgeBreak?.at) ??
+      -1;
+    return at >= 0 ? Math.floor(at / 2) * 2 : undefined;
+  };
+  const reviewMemo: SolveMemo = {
+    corners: completedSample.corners.map((pair) => ({
+      pair,
+      word: wordFor(pair, "corners"),
+    })),
+    edges: completedSample.edges.map((pair) => ({
+      pair,
+      word: wordFor(pair, "edges"),
+    })),
+    cornerBreakAt: reviewBreakAt("corners"),
+    edgeBreakAt: reviewBreakAt("edges"),
+    hasM2Parity: completedSample.hasM2Parity,
+    targetRepresentation: completedSample.targetRepresentation,
+  };
+
   const finish = useCallback(() => {
     const toPairs = (pairs: string[], piece: Piece) =>
       pairs.map((pair) => ({ pair, word: wordFor(pair, piece) }));
@@ -414,6 +439,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
 
   return {
     draft,
+    reviewMemo,
     sample: pending ? sample : completedSample,
     steps,
     step,
