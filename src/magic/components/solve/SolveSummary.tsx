@@ -18,7 +18,9 @@ export function SolveSummary({
   resultControl,
   metadata,
   resultOptions,
+  compact = false,
 }: {
+  compact?: boolean;
   date?: string;
   time: number;
   memoTime?: number;
@@ -31,10 +33,16 @@ export function SolveSummary({
   return (
     <section
       aria-label="Solve summary"
-      className="flex h-full min-w-0 flex-col"
+      className={
+        compact
+          ? "grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2"
+          : "flex h-full min-w-0 flex-col"
+      }
     >
       {date && (
-        <div className="flex items-center justify-between">
+        <div
+          className={`flex items-center justify-between ${compact ? "col-span-2" : ""}`}
+        >
           <p className="flex items-baseline gap-3 text-[12.5px] text-ink-3">
             <time dateTime={date}>{formatSolveDate(date)}</time>
           </p>
@@ -43,21 +51,21 @@ export function SolveSummary({
       <SolveTime
         time={time}
         penalty={penalty}
-        className="mt-3 font-timer text-[clamp(38px,6.5vh,60px)] font-extralight leading-none tracking-[-0.05em] text-ink"
+        className={`font-timer font-extralight leading-none tracking-[-0.05em] text-ink ${compact ? "text-[38px]" : "mt-3 text-[clamp(38px,6.5vh,60px)]"}`}
       />
       {memoTime !== undefined && (
         <SplitMeter
           memo={memoTime}
           total={time}
           showLabels
-          className="mt-[clamp(10px,2vh,20px)] w-full max-w-[280px]"
+          className={`w-full max-w-[280px] ${compact ? "col-span-2 row-start-3" : "mt-[clamp(10px,2vh,20px)]"}`}
         />
       )}
       {metadata}
       {resultControl ?? (
         <ResultControl
           size="original"
-          className="mt-auto self-start"
+          className={compact ? "col-start-2 row-start-2" : "mt-auto self-start"}
           value={penalty}
           onChange={onPenalty}
           options={resultOptions}

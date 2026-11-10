@@ -10,13 +10,15 @@ export function SolveMemoSection({
   db,
   size = "md",
   renderWord,
+  labelWidth,
   showScramble = true,
 }: {
   scramble: string;
   showScramble?: boolean;
   memo: SolveMemo;
   db: LetterPairDb;
-  size?: "md" | "lg";
+  size?: "sm" | "md" | "lg";
+  labelWidth?: string;
   renderWord?: (pair: string, piece: Piece, word: string) => React.ReactNode;
 }) {
   return (
@@ -36,6 +38,7 @@ export function SolveMemoSection({
           memo={memo}
           db={db}
           size={size}
+          labelWidth={labelWidth}
           renderWord={renderWord}
         />
       </div>

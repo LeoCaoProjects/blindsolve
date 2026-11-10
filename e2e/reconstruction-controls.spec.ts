@@ -221,3 +221,69 @@ for (const width of [1440, 390])
       ].map((item: { mnemonic: string }) => item.mnemonic),
     ).toEqual(expect.arrayContaining(["Orchard", "Lantern"]));
   });
+
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 900 },
+  { width: 390, height: 640 },
+])
+  test(`only overwrite words scroll at ${viewport.width}x${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    const popup = await reconstruct(page);
+    for (
+      let i = 0;
+      i < 30 &&
+      (await popup.getByRole("heading", { name: /cycle break/ }).count());
+      i++
+    )
+      await popup
+        .getByRole("button", { name: "Continue", exact: true })
+        .click();
+    const editors = popup.getByRole("button", { name: /^Edit word used for/ });
+    await expect(editors.first()).toBeVisible();
+    const labels = [
+      ...new Set(
+        await editors.evaluateAll((els) =>
+          els.map((el) => el.getAttribute("aria-label")!),
+        ),
+      ),
+    ];
+    for (const [index, label] of labels.entries()) {
+      await popup
+        .getByRole("button", { name: label, exact: true })
+        .first()
+        .click();
+      const field = popup.getByRole("textbox", { name: /^Word used for/ });
+      await field.fill(`Word ${index}`);
+      await field.press("Enter");
+    }
+    const list = popup.getByRole("region", {
+      name: "Words to overwrite",
+      exact: true,
+    });
+    await expect(list).toBeVisible();
+    const memo = popup.locator("[data-solve-memo]");
+    const before = await memo.boundingBox();
+    await expect
+      .poll(() => list.evaluate((el) => el.clientHeight))
+      .toBeGreaterThan(40);
+    await expect
+      .poll(() => list.evaluate((el) => el.scrollHeight > el.clientHeight))
+      .toBe(true);
+    await list.hover();
+    await page.mouse.wheel(0, 2000);
+    await expect
+      .poll(() => list.evaluate((el) => el.scrollTop))
+      .toBeGreaterThan(0);
+    expect(await memo.boundingBox()).toEqual(before);
+    const save = popup.getByRole("button", { name: "Save solve", exact: true });
+    await expect(save).toBeInViewport();
+    await expect(
+      list.getByRole("button", { name: /Default word for/ }).last(),
+    ).toBeInViewport();
+    await page.screenshot({
+      path: `test-results/reconstruction-scroll-${viewport.width}-${viewport.height}.png`,
+    });
+  });
