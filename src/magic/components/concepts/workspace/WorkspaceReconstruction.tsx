@@ -15,7 +15,7 @@ import { SolveDetailsActionRow } from "../../solve/SolveDetailsShell";
 import { ReconStepBody } from "../../reconstruction/ReconStepBody";
 import { StepTicks } from "../../reconstruction/StepTicks";
 
-import { useShortViewport } from "../../../hooks/useShortViewport";
+import { useShortPhoneViewport } from "../../../hooks/useShortPhoneViewport";
 import { SolveSummary } from "../../solve/SolveSummary";
 
 interface Props {
@@ -27,7 +27,7 @@ interface Props {
 /** An inspector slides over the right of the workspace; the timer stays readable at left. */
 export function WorkspaceReconstruction({ draft, db, onSave }: Props) {
   const r = useReconstruction({ draft, db, onSave });
-  const compactReview = useShortViewport() && r.step.kind === "review";
+  const compactReview = useShortPhoneViewport() && r.step.kind === "review";
   const cube = useMemo(
     () => stateFromScramble(draft.scramble),
     [draft.scramble],

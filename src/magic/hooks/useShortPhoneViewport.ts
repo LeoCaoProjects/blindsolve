@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-const query = "(max-height: 720px)";
+const query = "(max-width: 639px) and (max-height: 720px)";
 const subscribe = (notify: () => void) => {
   const media = window.matchMedia(query);
   media.addEventListener("change", notify);
@@ -8,6 +8,6 @@ const subscribe = (notify: () => void) => {
 };
 const snapshot = () => window.matchMedia(query).matches;
 
-export function useShortViewport() {
+export function useShortPhoneViewport() {
   return useSyncExternalStore(subscribe, snapshot, () => false);
 }

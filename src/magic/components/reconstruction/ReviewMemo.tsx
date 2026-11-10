@@ -1,5 +1,5 @@
 import React from "react";
-import { useShortViewport } from "../../hooks/useShortViewport";
+import { useShortPhoneViewport } from "../../hooks/useShortPhoneViewport";
 import { Decision, Reconstruction } from "../../hooks/useReconstruction";
 import { SolveMemoSection } from "../solve/SolveMemoSection";
 import { DecisionMenu } from "../training/review/DecisionMenu";
@@ -17,7 +17,7 @@ interface ReviewMemoProps {
 
 export function ReviewMemo({ r, size = "md" }: ReviewMemoProps) {
   const { timerDb } = useAppData();
-  const compact = useShortViewport();
+  const compact = useShortPhoneViewport();
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0">
