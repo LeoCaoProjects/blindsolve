@@ -369,7 +369,9 @@ export function SchemeCube({
                         background: bg,
                         borderRadius: radius,
                         opacity: hasHighlight
-                          ? 0.2
+                          ? recognitionSource
+                            ? 0.12
+                            : 0.2
                           : selected || (showBuffers && mode !== "cube-view")
                             ? 0.45
                             : 1,
@@ -437,8 +439,8 @@ export function SchemeCube({
 
               if (recognitionSource === id)
                 shadows.push(
-                  "inset 0 0 0 2px #fff",
-                  "inset 0 0 0 4px var(--cube-body)",
+                  "inset 0 0 0 3px #fff",
+                  "inset 0 0 0 5px var(--cube-body)",
                 );
 
               const fontSize = Math.max(
@@ -450,7 +452,15 @@ export function SchemeCube({
                 {
                   background: bg,
                   borderRadius: radius,
-                  opacity: dim ? 0.2 : quiet ? 0.45 : 1,
+                  opacity: dim
+                    ? recognitionSource
+                      ? 0.12
+                      : 0.2
+                    : recognitionSource && id !== recognitionSource
+                      ? 0.6
+                      : quiet
+                        ? 0.45
+                        : 1,
                   boxShadow: shadows.join(", ") || undefined,
                   color: COLOR_TEXT[color],
                   fontSize,

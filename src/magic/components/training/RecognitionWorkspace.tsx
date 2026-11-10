@@ -9,9 +9,11 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { TrainingSession } from "../../hooks/useTrainingSession";
 import { SchemeCube } from "../cube/SchemeCube";
 import { CompactTrainingTimer } from "./CompactTrainingTimer";
-import { recognitionPieceStickers } from "../../utils/recognition";
-import { bestRotation, FRONT_ROT } from "../../utils/camera";
-import type { Face } from "../../utils/cube";
+import {
+  recognitionPieceStickers,
+  recognitionRotation,
+} from "../../utils/recognition";
+import { FRONT_ROT } from "../../utils/camera";
 import { useDefaultView, useAppData } from "../../contexts/AppDataContext";
 import { tokensOf } from "../../utils/scheme";
 import { EASE_OUT, isTypingTarget } from "../../utils/keyboard";
@@ -41,23 +43,11 @@ export function RecognitionWorkspace({
       Math.min(t.recognitionAnswers.length, t.recognitionSteps.length - 1)
     ];
   const [rotation, setRotation] = useState(() =>
-    step
-      ? bestRotation(
-          recognitionPieceStickers(step.source).map((id) => id[0] as Face),
-          view,
-        ).rot
-      : FRONT_ROT,
+    step ? recognitionRotation(step.source, view) : FRONT_ROT,
   );
   useLayoutEffect(() => {
     if (step)
-      setRotation(
-        (from) =>
-          bestRotation(
-            recognitionPieceStickers(step.source).map((id) => id[0] as Face),
-            view,
-            from,
-          ).rot,
-      );
+      setRotation((from) => recognitionRotation(step.source, view, from));
   }, [step?.source, view.top, view.front]);
   const submit = useCallback(
     (token: string) => {

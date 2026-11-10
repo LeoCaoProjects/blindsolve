@@ -56,22 +56,23 @@ export const trainingModes: TrainingModeInfo[] = [
     ],
   },
   {
-    id: "recall",
-    label: "Memo Recall",
-    line: "Memorise the letters, then type them back from memory.",
-    tests: "Study the targets, then recall them from memory.",
+    id: "recognition",
+    label: "Target Recognition",
+    line: "Recognise each highlighted piece from its colours.",
+    tests:
+      "Recognise logical targets from the colours and orientation of scrambled pieces.",
     steps: [
       {
-        label: "Study",
-        text: "Hold Space until ready, then release. Memorise the letters.",
+        label: "Start",
+        text: "Hold Space until ready, then release to reveal the cube.",
       },
       {
-        label: "Recall",
-        text: "Press Space to hide the memo. Type the targets in order.",
+        label: "Recognise",
+        text: "Read the outlined sticker on the highlighted piece. Type its logical label. Multi-character labels use Enter to submit.",
       },
       {
-        label: "Check",
-        text: "Press Enter for the next field or to check the last field. Esc reveals the answer.",
+        label: "Review",
+        text: "Answers advance immediately. Accuracy is revealed only after the final target.",
       },
     ],
   },
@@ -101,23 +102,22 @@ export const trainingModes: TrainingModeInfo[] = [
     ],
   },
   {
-    id: "recognition",
-    label: "Target Recognition",
-    line: "Recognise each highlighted piece from its colours.",
-    tests:
-      "Recognise logical targets from the colours and orientation of scrambled pieces.",
+    id: "recall",
+    label: "Memo Recall",
+    line: "Memorise the letters, then type them back from memory.",
+    tests: "Study the targets, then recall them from memory.",
     steps: [
       {
-        label: "Start",
-        text: "Hold Space until ready, then release to reveal the cube.",
+        label: "Study",
+        text: "Hold Space until ready, then release. Memorise the letters.",
       },
       {
-        label: "Recognise",
-        text: "Read the outlined sticker on the highlighted piece. Type its logical label. Multi-character labels use Enter to submit.",
+        label: "Recall",
+        text: "Press Space to hide the memo. Type the targets in order.",
       },
       {
-        label: "Review",
-        text: "Answers advance immediately. Accuracy is revealed only after the final target.",
+        label: "Check",
+        text: "Press Enter for the next field or to check the last field. Esc reveals the answer.",
       },
     ],
   },
