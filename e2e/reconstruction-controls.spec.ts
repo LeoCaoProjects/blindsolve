@@ -108,8 +108,19 @@ test("Settings cube selects a visible cell on first click without moving or comm
   await page.screenshot({
     path: "test-results/reconstruction-cube-selection.png",
   });
-  await popup.getByRole("button", { name: "Continue", exact: true }).click();
+  await cell.dblclick();
   await expect(cube.locator(`button[data-sticker-id="${id}"]`)).toHaveCount(0);
+  await popup.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(cell).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    popup.getByRole("button", { name: "Back", exact: true }),
+  ).toHaveCount(0);
+  const options = popup.getByRole("radio");
+  const selected = options.filter({ hasText: await cell.innerText() });
+  await selected.dblclick();
+  await expect(cube.locator(`button[data-sticker-id="${id}"]`)).toHaveCount(0);
+  await popup.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(cell).toHaveAttribute("aria-pressed", "true");
 });
 
 for (const width of [1440, 390])
@@ -151,21 +162,26 @@ for (const width of [1440, 390])
     await expect(
       updates.getByRole("button", { name: /Default word for/ }),
     ).toHaveCount(2);
+    await expect(
+      updates
+        .getByRole("button", { name: /Default word for/ })
+        .filter({ hasText: "Save as Default" }),
+    ).toHaveCount(2);
     await updates
       .getByRole("button", { name: /Default word for/ })
-      .filter({ hasText: "Keep Default" })
+      .filter({ hasText: "Save as Default" })
       .first()
       .click();
     const menu = page.getByRole("menu", { name: /^Default word for/ });
     const label = await menu.getAttribute("aria-label");
-    const saveWord = label?.endsWith(
+    const keepWord = label?.endsWith(
       firstLabel!.replace("Edit word used for ", ""),
     )
       ? "Orchard"
       : "Lantern";
     await menu
       .getByRole("menuitemradio", {
-        name: `Save ${saveWord} as Default`,
+        name: "Keep Apple",
         exact: true,
       })
       .click();
@@ -187,10 +203,10 @@ for (const width of [1440, 390])
     const first = firstLabel!.replace("Edit word used for ", "");
     const other = secondLabel!.replace("Edit word used for ", "");
     expect(pairs[`${first[0]}|${first[1]}`]?.shared).toEqual([
-      saveWord === "Orchard" ? "Orchard" : "Apple",
+      keepWord === "Orchard" ? "Apple" : "Orchard",
     ]);
     expect(pairs[`${other[0]}|${other[1]}`]?.shared).toEqual([
-      saveWord === "Lantern" ? "Lantern" : "Apple",
+      keepWord === "Lantern" ? "Apple" : "Lantern",
     ]);
     expect(
       [
