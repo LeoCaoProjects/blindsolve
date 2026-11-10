@@ -14,10 +14,10 @@ Synthetic cycle-break entries are skipped; their chosen location starts the next
 recognition chain. M2 execution swaps never rewrite recognition answers. No parity
 question is added, and logical tokens are never concatenated to identify stickers.
 
-The existing Cube3D renders the unchanged scrambled state. All stickers of the
-inspected physical piece remain bright; the source sticker has an inset outline.
+The Settings SchemeCube renders the unchanged scrambled state. All stickers of the
+inspected physical piece remain bright; the source sticker has the Settings accent ring, its partners have ink rings, and centres dim with the rest of the cube.
 `bestRotation` makes its two or three colours visible in the configured view.
-Camera changes are immediate, without an animation or input lock. Labels and the
+Camera changes use the same 260ms ease-out as Settings, taking the nearest equivalent turn without an input lock. Labels and the
 scrambled cube are absent before the shared hold-to-start gesture completes.
 
 Single-character scopes submit one character immediately. Schemes containing
@@ -32,12 +32,17 @@ TrainingHistory/VirtualHistory, shared navigation/scope, and the existing store
 update/deletion pipeline are reused. Results show time, target accuracy, time per
 target, and ordered expected/entered tokens. Only completed attempts persist.
 
-PracticeAttempt adds the `recognition` mode and optional ordered
-`recognitionAnswers` snapshot (expected, entered, piece). Historical review uses
-that snapshot and stored totals, never current lettering or settings. Malformed
-optional review data is discarded during parsing without discarding attempt totals.
-The existing generic sync payload supports these fields: no database migration,
-new table, polling, or hydration writeback was introduced.
+PracticeAttempt supports the `recognition` mode. Only the standard compact summary
+is saved: id, kind, mode, createdAt, durationMs, targets, correct and accuracy.
+Expected/entered tokens exist only in the current session for the immediate result.
+Recognition now uses TraceReview directly, including PairDiff and automatic DNF.
+History rows are numbered, non-clickable, and use the standard hover-delete control.
+Obsolete recognition answer payloads are ignored by the data parser. No database
+migration, polling, or hydration writeback is involved.
+
+The active view shows a short instruction and a counter. Single-character entry
+has no visible field; multi-character entry shows only the typed token without
+an input box. Tapping the instruction focuses the mobile keyboard.
 
 Changed areas: recognition derivation and tests; Training session/provider, mode
 metadata and shortcuts; cube observation emphasis; recognition workspace/review;
@@ -86,11 +91,18 @@ URL: http://127.0.0.1:5173/training
   answers appear beforehand, then check the outlined source and all partner colours.
 - Infer answers from colours/orientation. Mix correct and wrong entries; check
   immediate target changes and no accuracy feedback before completion.
-- Check final time, accuracy, time per target and ordered answer review; reopen and
-  delete an attempt through the native history.
+- Check final time, accuracy, time per target and ordered answer review; then
+  check numbered DNF history and delete an attempt. History does not reopen reviews.
 - Try Edges, Corners and Both, a rotated orientation, and a custom `SH` label with
   Enter. Check mobile keyboard entry and return from another route mid-attempt.
 
 Local work only. Nothing was pushed, merged, deployed, or applied to production.
 No production Supabase/SQL/Cloudflare settings were modified. Release audit stops
 at the existing Stage 1 checkpoint; no next stage was started.
+
+## Refinement validation
+
+The Settings cube / minimal input / compact persistence iteration passed 19
+focused unit tests across useRecognitionSession, SchemeCube, recognition and
+challengeTargets. The desktop and mobile recognition browser tests passed.
+Typecheck passed. Older validation above records the initial implementation.

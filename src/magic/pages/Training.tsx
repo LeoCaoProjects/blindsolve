@@ -1,5 +1,4 @@
 import { RecognitionWorkspace } from "../components/training/RecognitionWorkspace";
-import { RecognitionReview } from "../components/training/review/RecognitionReview";
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { ShortcutSheet } from "../components/common/ShortcutSheet";
@@ -180,11 +179,7 @@ export function Training() {
       )}
       <AnimatePresence>
         {t.phase === "review" && t.mode === "recognition" && (
-          <RecognitionReview
-            attempt={t.history.find((a) => a.id === t.reviewAttemptId)!}
-            onClose={t.next}
-            onDelete={t.removeAttempt}
-          />
+          <TraceReview t={t} />
         )}
         {completedExecution && (
           <ExecutionSprintAttemptDetails

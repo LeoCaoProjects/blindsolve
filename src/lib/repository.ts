@@ -72,11 +72,6 @@ export interface PracticeAttempt {
   rawTargets?: { corners: string[]; edges: string[] };
   executionTargets?: { corners: string[]; edges: string[] };
   tokenSnapshot?: { corners: string[]; edges: string[] };
-  recognitionAnswers?: {
-    expected: string;
-    entered: string;
-    piece: "edges" | "corners";
-  }[];
   memoOrder?: "corners-first" | "edges-first";
 }
 export interface AppData extends LogicalPairState {
@@ -333,7 +328,6 @@ const dataSchema = z.object({
             edges: z.array(text).max(200),
           })
           .optional(),
-        recognitionAnswers: z.array(z.object({ expected: text, entered: text, piece: z.enum(["edges", "corners"]) })).max(200).optional().catch(undefined),
         tokenSnapshot: z.object({ corners: tokens, edges: tokens }).optional(),
         memoOrder: z.enum(["corners-first", "edges-first"]).optional(),
       }),

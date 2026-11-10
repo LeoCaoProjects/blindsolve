@@ -64,7 +64,7 @@ test("single-key answers remain silent; completion, history, deletion and start 
   await page.keyboard.press("Control+Space");
   await hold(page);
   const input = page.getByLabel("Target label", { exact: true });
-  await expect(input).toBeVisible();
+  await expect(input).toBeAttached();
   await expect(page.locator('[data-recognition-sticker="source"]')).toHaveCount(
     1,
   );
@@ -79,38 +79,40 @@ test("single-key answers remain silent; completion, history, deletion and start 
     isComposing: true,
   });
   await input.press("Control+a");
-  await expect(page.locator('label[for="recognition-answer"]')).toContainText(
-    "1/",
-  );
+  await expect(page.locator("[data-recognition-progress]")).toContainText("1/");
   await input.press("Z");
-  await expect(page.locator('label[for="recognition-answer"]')).toContainText(
-    "2/",
-  );
+  await expect(page.locator("[data-recognition-progress]")).toContainText("2/");
   await expect(
     page.getByText(/Correct|Incorrect|Expected/, { exact: true }),
   ).toHaveCount(0);
+  await page.waitForTimeout(300);
   await page.screenshot({ path: "test-results/recognition-desktop.png" });
-  const text = await page
-    .locator('label[for="recognition-answer"]')
-    .innerText();
+  const text = await page.locator("[data-recognition-progress]").innerText();
   const count = Number(text.split("/")[1]);
   for (let i = 1; i < count; i++) await input.press("Z");
   const result = page.getByRole("dialog", {
     name: "Target Recognition result",
   });
   await expect(result).toBeVisible();
-  await expect(
-    result.getByText(`0/${count} targets`, { exact: true }),
-  ).toBeVisible();
+  await expect(result.getByText(`0/${count}`, { exact: true })).toBeVisible();
   await expect(
     result.getByText("Time per target", { exact: true }),
   ).toBeVisible();
-  await expect(result.getByText("Expected", { exact: true })).toBeVisible();
-  await result.getByRole("button", { name: "Close Esc", exact: true }).click();
-  await page.locator("[data-attempt-row]").click();
-  await expect(result).toBeVisible();
-  await result
-    .getByRole("button", { name: "Delete attempt", exact: true })
+  await expect(result.locator("[data-recall-error]")).not.toHaveCount(0);
+  await result.getByRole("button", { name: /^Close/ }).click();
+  const row = page.locator("[data-attempt-row]");
+  await expect(row).toContainText("DNF");
+  await row.click();
+  await expect(result).toHaveCount(0);
+  const attempt = await page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data.attempts[0],
+  );
+  expect(attempt.recognitionAnswers).toBeUndefined();
+  expect(attempt.scramble).toBeUndefined();
+  await row.hover();
+  await page
+    .getByRole("button", { name: "Delete attempt 1", exact: true })
     .click();
   await expect(page.locator("[data-attempt-row]")).toHaveCount(0);
 });
@@ -121,16 +123,13 @@ test("mobile multi-character tokens use Enter and route changes abandon input", 
   await setup(page, true);
   await hold(page);
   const input = page.getByLabel("Target label", { exact: true });
-  await expect(input).toBeVisible();
+  await expect(input).toBeAttached();
   await input.fill("SH");
-  await expect(page.locator('label[for="recognition-answer"]')).toContainText(
-    "1/",
-  );
+  await expect(page.locator("[data-recognition-progress]")).toContainText("1/");
   await input.press("Enter");
-  await expect(page.locator('label[for="recognition-answer"]')).toContainText(
-    "2/",
-  );
+  await expect(page.locator("[data-recognition-progress]")).toContainText("2/");
   await expect(input).toHaveValue("");
+  await page.waitForTimeout(300);
   await page.screenshot({ path: "test-results/recognition-mobile.png" });
   await input.fill("S");
   await page.getByRole("link", { name: "Timer", exact: true }).click();
@@ -138,7 +137,5 @@ test("mobile multi-character tokens use Enter and route changes abandon input", 
   await expect(input).toHaveCount(0);
   await hold(page);
   await expect(input).toHaveValue("");
-  await expect(page.locator('label[for="recognition-answer"]')).toContainText(
-    "1/",
-  );
+  await expect(page.locator("[data-recognition-progress]")).toContainText("1/");
 });

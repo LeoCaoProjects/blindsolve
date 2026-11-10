@@ -47,7 +47,7 @@ function start(result: { current: ReturnType<typeof useTrainingSession> }) {
     result.current.hold.pointerHandlers.onPointerUp();
   });
 }
-it("finishes exactly once with objective accuracy and immutable atomic review snapshots", () => {
+it("finishes once with summary-only persistence and in-memory atomic review", () => {
   const { result, rerender } = renderHook(() =>
     useTrainingSession({ mode: "recognition" }),
   );
@@ -63,21 +63,22 @@ it("finishes exactly once with objective accuracy and immutable atomic review sn
   const attempt = state.data.attempts[0];
   expect(attempt.targets).toBe(steps.length);
   expect(attempt.accuracy).toBe((steps.length - 1) / steps.length);
-  expect(attempt.recognitionAnswers?.[0]).toEqual({
-    expected: steps[0].expected,
-    entered: "ZZ",
-    piece: steps[0].piece,
-  });
-  const snapshot = structuredClone(attempt.recognitionAnswers);
-  const copy = structuredClone(state.data.scheme);
-  Object.values(copy.stickers).forEach((s) => {
-    s.label = `${s.label}H`;
-  });
-  state.data = { ...state.data, scheme: copy };
-  rerender();
-  expect(parseData(state.data).attempts[0].recognitionAnswers).toEqual(
-    snapshot,
+  expect(Object.keys(attempt).sort()).toEqual(
+    [
+      "id",
+      "kind",
+      "trainingMode",
+      "createdAt",
+      "durationMs",
+      "targets",
+      "correct",
+      "accuracy",
+    ].sort(),
   );
+  expect(result.current.results[0].typed[0]).toBe("ZZ");
+  expect(result.current.results[0].actual[0]).toBe(steps[0].expected);
+  expect(result.current.allCorrect).toBe(false);
+  rerender();
   act(() => result.current.removeAttempt(attempt.id));
   expect(state.data.attempts).toHaveLength(0);
 });
@@ -113,25 +114,46 @@ it("cannot start while preparing or after an empty reconstruction", () => {
   expect(result.current.scrambleError).toBe(true);
 });
 
-it("retains historical totals when a malformed optional review snapshot is discarded", () => {
-  state.data.attempts = [{
-    id: crypto.randomUUID(), kind: "memo", trainingMode: "recognition",
-    createdAt: new Date().toISOString(), correct: false, accuracy: 0.5,
-    targets: 2, durationMs: 1000,
-    recognitionAnswers: "broken" as never,
-  }];
-  const parsed = parseData(state.data);
-  expect(parsed.attempts[0].recognitionAnswers).toBeUndefined();
+it("drops obsolete review payloads while preserving historical summary stats", () => {
+  state.data.attempts = [
+    {
+      id: crypto.randomUUID(),
+      kind: "memo",
+      trainingMode: "recognition",
+      createdAt: new Date().toISOString(),
+      correct: false,
+      accuracy: 0.5,
+      targets: 2,
+      durationMs: 1000,
+    },
+  ];
+  const parsed = parseData({
+    ...state.data,
+    attempts: state.data.attempts.map((a) => ({
+      ...a,
+      recognitionAnswers: "old review data",
+    })),
+  });
+  expect("recognitionAnswers" in parsed.attempts[0]).toBe(false);
   expect(parsed.attempts[0].targets).toBe(2);
   expect(parsed.attempts[0].accuracy).toBe(0.5);
 });
 
 it("settings changes cancel a pending held start", () => {
-  const { result, rerender } = renderHook(() => useTrainingSession({ mode: "recognition" }));
-  act(() => result.current.hold.pointerHandlers.onPointerDown({ button: 0, target: document.body } as never));
+  const { result, rerender } = renderHook(() =>
+    useTrainingSession({ mode: "recognition" }),
+  );
+  act(() =>
+    result.current.hold.pointerHandlers.onPointerDown({
+      button: 0,
+      target: document.body,
+    } as never),
+  );
   act(() => vi.advanceTimersByTime(300));
   state.data = { ...state.data, memoOrder: "edges-first" };
   rerender();
-  act(() => { result.current.hold.pointerHandlers.onPointerUp(); });
+  act(() => {
+    result.current.hold.pointerHandlers.onPointerUp();
+  });
   expect(result.current.phase).toBe("idle");
 });
