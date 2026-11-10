@@ -143,10 +143,11 @@ export function RecognitionWorkspace({
         highlightIds={stickers}
         label="Recognition piece"
       />
-      <div className="relative w-full max-w-[420px] px-3">
+      <div className="relative w-full max-w-[380px] px-3">
         <button
           type="button"
           aria-label="Focus recognition typing"
+          title="Type an answer. Backspace returns to the previous piece."
           disabled={locked}
           onClick={() => input.current?.focus()}
           className="relative block h-16 w-full cursor-text overflow-hidden rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-line-strong"
@@ -159,28 +160,25 @@ export function RecognitionWorkspace({
             }}
           >
             <span className="flex items-center gap-3 font-mono text-[28px] leading-none text-ink-2">
-              <AnimatePresence initial={false} mode="popLayout">
-                {t.recognitionAnswers.slice(-12).map((answer, i) => (
-                  <motion.span
-                    key={
-                      t.recognitionAnswers.length -
-                      Math.min(t.recognitionAnswers.length, 12) +
-                      i
-                    }
-                    layout={!reduced ? "position" : false}
-                    initial={{ opacity: 0, x: reduced ? 0 : 12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: reduced ? 0 : 12 }}
-                    transition={{
-                      duration: reduced ? 0 : 0.14,
-                      ease: EASE_OUT,
-                    }}
-                    className="shrink-0"
-                  >
-                    {answer}
-                  </motion.span>
-                ))}
-              </AnimatePresence>
+              {t.recognitionAnswers.slice(-12).map((answer, i) => (
+                <motion.span
+                  key={
+                    t.recognitionAnswers.length -
+                    Math.min(t.recognitionAnswers.length, 12) +
+                    i
+                  }
+                  layout={!reduced ? "position" : false}
+                  initial={{ opacity: 0, x: reduced ? 0 : 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{
+                    duration: reduced ? 0 : 0.14,
+                    ease: EASE_OUT,
+                  }}
+                  className="shrink-0"
+                >
+                  {answer}
+                </motion.span>
+              ))}
             </span>
           </span>
           <span
@@ -189,30 +187,86 @@ export function RecognitionWorkspace({
           />
           <span
             aria-hidden
-            className="absolute inset-y-0 left-1/2 flex items-center pl-3 text-left"
+            className="absolute inset-y-0 left-1/2 flex w-1/2 items-center overflow-hidden pl-3 text-left"
           >
-            {value ? (
-              <span className="font-mono text-[28px] text-ink">{value}</span>
-            ) : (
-              <span className="whitespace-nowrap font-mono text-[18px] text-ink-3 opacity-50">
-                {t.recognitionAnswers.length ? "· · ·" : "begin typing"}
-              </span>
-            )}
+            <AnimatePresence initial={false}>
+              {value ? (
+                <motion.span
+                  key="buffer"
+                  initial={{ opacity: 0, x: reduced ? 0 : 18 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: reduced ? 0 : -20 }}
+                  transition={{ duration: reduced ? 0 : 0.18, ease: EASE_OUT }}
+                  className="absolute font-mono text-[28px] text-ink"
+                >
+                  {value}
+                </motion.span>
+              ) : t.recognitionAnswers.length === 0 ? (
+                <motion.span
+                  key="begin"
+                  data-recognition-prompt
+                  initial={{ opacity: 0, x: reduced ? 0 : 24 }}
+                  animate={{ x: 0, opacity: 0.5 }}
+                  exit={{ x: reduced ? 0 : -90, opacity: 0 }}
+                  transition={{ duration: reduced ? 0 : 0.42, ease: EASE_OUT }}
+                  className="absolute whitespace-nowrap font-mono text-[18px] text-ink-3"
+                >
+                  begin typing
+                </motion.span>
+              ) : (
+                <motion.span
+                  key="runway"
+                  initial={{ opacity: 0, x: reduced ? 0 : 32 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: reduced ? 0 : 0.32, ease: EASE_OUT }}
+                  exit={{ opacity: 0 }}
+                  className="relative flex gap-3 overflow-hidden font-mono text-[28px] leading-none text-ink-3"
+                >
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {Array.from(
+                      {
+                        length: Math.min(
+                          5,
+                          t.recognitionSteps.length -
+                            t.recognitionAnswers.length,
+                        ),
+                      },
+                      (_, i) => t.recognitionAnswers.length + i,
+                    ).map((position) => (
+                      <motion.span
+                        key={position}
+                        layout={!reduced ? "position" : false}
+                        initial={{ opacity: 0, x: reduced ? 0 : 24 }}
+                        animate={{ opacity: 0.18, x: 0 }}
+                        exit={{ opacity: 0, x: reduced ? 0 : -24 }}
+                        transition={{
+                          duration: reduced ? 0 : 0.18,
+                          ease: EASE_OUT,
+                        }}
+                        className="shrink-0"
+                      >
+                        _
+                      </motion.span>
+                    ))}
+                  </AnimatePresence>
+                </motion.span>
+              )}
+            </AnimatePresence>
           </span>
         </button>
-        <div className="flex items-baseline justify-between border-t border-line pt-2 text-[11px] text-ink-3">
-          <span>
-            {single
-              ? "backspace to edit"
-              : "enter to advance · backspace to edit"}
-          </span>
-          <span data-recognition-progress className="font-mono tnum">
+        <div className="relative flex h-6 items-center justify-center text-[11px] text-ink-3">
+          <span data-recognition-progress className="font-mono tnum opacity-60">
             {Math.min(
               t.recognitionAnswers.length + 1,
               t.recognitionSteps.length,
-            )}
-            /{t.recognitionSteps.length}
+            )}{" "}
+            / {t.recognitionSteps.length}
           </span>
+          {!single && value && (
+            <span className="absolute left-[calc(50%+44px)] whitespace-nowrap opacity-60">
+              enter to submit
+            </span>
+          )}
         </div>
         <input
           ref={input}

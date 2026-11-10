@@ -345,3 +345,20 @@ body :is([role="textbox"], [contenteditable]:not([contenteditable="false"])) * {
 @media (hover: hover) and (pointer: fine) {
   .training-touch-dock { display: none; }
 }
+
+/* Recognition focus belongs to the sticker perimeter; its colour stays unobscured. */
+.recognition-focus-aura {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+  animation: recognition-aura 1.8s ease-in-out infinite alternate;
+}
+@keyframes recognition-aura {
+  from { opacity: 0.55; box-shadow: 0 0 4px rgba(255, 255, 255, 0.18); }
+  to { opacity: 1; box-shadow: 0 0 11px rgba(255, 255, 255, 0.38); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recognition-focus-aura { animation: none; }
+}

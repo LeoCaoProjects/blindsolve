@@ -145,10 +145,8 @@ it("marks only the recognition source, keeping partner colours unmarked", () => 
   const partner = container.querySelector<HTMLElement>(
     '[data-sticker-id="B1"]',
   )!;
-  expect(source.querySelector("[data-recognition-anchor]")).toBeTruthy();
-  expect(container.querySelectorAll("[data-recognition-anchor]")).toHaveLength(
-    1,
-  );
+  expect(source.querySelector("[data-recognition-aura]")).toBeTruthy();
+  expect(container.querySelectorAll("[data-recognition-aura]")).toHaveLength(1);
   expect(source.style.boxShadow).toContain("#fff");
   expect(partner.style.boxShadow).toBe("");
   expect(partner.style.opacity).toBe("1");

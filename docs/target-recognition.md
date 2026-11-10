@@ -122,3 +122,15 @@ Validation: 16 focused unit tests passed in useRecognitionSession, SchemeCube an
 recognition; the 2 desktop/mobile recognition browser tests passed, including
 Backspace restoring the physical source and multi-character token editing.
 `npx tsc -b --pretty false` passed. Desktop and mobile screenshots were inspected.
+
+## Prompt motion and perimeter aura
+
+The initial prompt now slides left and fades on first input. Faint empty positions
+arrive from the right and keep advancing as answers are entered, without exposing
+expected letters. The divider and permanent keyboard hint were removed; progress
+sits quietly under the caret. The selected sticker's centre dot is gone, replaced
+by a gentle pulsing perimeter glow around a crisp neutral outline. Reduced motion
+disables the pulse and translational typing effects.
+
+Validation: 11 focused unit tests in SchemeCube/useRecognitionSession, both
+desktop/mobile browser tests, and typecheck passed. No persistence changes.
