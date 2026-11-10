@@ -24,6 +24,11 @@ export function trainingShortcuts(mode: TrainMode): ShortcutItem[] {
   const items: ShortcutItem[] = [
     { keys: ["Space"], label: "Hold, then release to start" },
   ];
+  if (mode === "recognition")
+    items.push({
+      keys: ["Label / Enter"],
+      label: "Answer highlighted piece; Enter submits multi-character labels",
+    });
   if (mode === "exec") items.push({ keys: ["Space"], label: "Stop timing" });
   if (mode === "guided")
     items.push({ keys: ["Space"], label: "End memo or stop execution" });

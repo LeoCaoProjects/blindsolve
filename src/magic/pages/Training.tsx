@@ -1,3 +1,5 @@
+import { RecognitionWorkspace } from "../components/training/RecognitionWorkspace";
+import { RecognitionReview } from "../components/training/review/RecognitionReview";
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { ShortcutSheet } from "../components/common/ShortcutSheet";
@@ -148,6 +150,13 @@ export function Training() {
                   </Fade>
                 ) : (
                   <Fade key={`run-${t.mode}`} className="h-full min-h-0">
+                    {t.mode === "recognition" && (
+                      <RecognitionWorkspace
+                        key={t.challengeId}
+                        t={t}
+                        stage={stableStage.current}
+                      />
+                    )}
                     {t.mode === "recall" && <MemoRecallWorkspace t={t} />}
                     {t.mode === "exec" && <ExecutionWorkspace t={t} />}
                     {t.mode === "trace" && (
@@ -170,6 +179,13 @@ export function Training() {
         <GuidedSolveExecution t={t} />
       )}
       <AnimatePresence>
+        {t.phase === "review" && t.mode === "recognition" && (
+          <RecognitionReview
+            attempt={t.history.find((a) => a.id === t.reviewAttemptId)!}
+            onClose={t.next}
+            onDelete={t.removeAttempt}
+          />
+        )}
         {completedExecution && (
           <ExecutionSprintAttemptDetails
             key={completedExecution.id}

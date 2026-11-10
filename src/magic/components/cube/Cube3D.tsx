@@ -30,6 +30,8 @@ interface Cube3DProps {
   size: number;
   highlight?: CubeHighlight;
   showLetters?: boolean;
+  /** Observation location, with the entire physical piece kept in colour. No labels. */
+  observation?: { source: string; stickers: string[] };
   className?: string;
   label?: string;
   /** Camera only — defaults to the saved Default Cube View */
@@ -60,6 +62,7 @@ export function Cube3D({
   size,
   highlight,
   showLetters = false,
+  observation,
   className = '',
   label = 'Scrambled cube',
   view,
@@ -254,7 +257,8 @@ export function Cube3D({
                   <div
                     key={i}
                     className="flex min-h-0 min-w-0 items-center justify-center overflow-hidden font-mono leading-none"
-                    style={{ ...base, opacity: highlight ? 0.14 : 1, transition: 'opacity 200ms ease-out' }}>
+                    data-recognition-sticker={observation?.stickers.includes(id) ? (observation.source === id ? "source" : "partner") : undefined}
+                    style={{ ...base, boxShadow: observation?.source === id ? "inset 0 0 0 2px var(--cube-body), inset 0 0 0 4px var(--ink)" : undefined, opacity: observation ? (observation.stickers.includes(id) || i === 4 ? 1 : 0.14) : highlight ? 0.14 : 1, transition: observation ? 'none' : 'opacity 200ms ease-out' }}>
                     
                   {showLetters && !highlight && glyph(token)}
                 </div>);

@@ -1,3 +1,6 @@
+import { recognitionSteps } from "../utils/recognition";
+import { normalizeLabel } from "../../domain/letterPairs/identity";
+import type { PracticeAttempt } from "../../lib/repository";
 import { scrambleToState } from "../../domain/bld/cubing";
 import type { CubeOrbitState } from "../../domain/bld/types";
 import { compareTraceGroups } from "../utils/traceValidation";
@@ -9,6 +12,7 @@ import {
   TrainFilter,
   challengeFromScramble,
   makeChallenge,
+  SOLVED_STATE,
 } from "../utils/bld";
 import { isTypingTarget, ownsTrainingSpace } from "../utils/keyboard";
 import { pairKey, resolveWords } from "../utils/pairs";
@@ -47,6 +51,7 @@ export interface Attempt {
   pairs?: number;
   memoMs?: number;
   executionMs?: number;
+  recognitionAnswers?: PracticeAttempt["recognitionAnswers"];
 }
 
 export interface TrainInit {
@@ -68,12 +73,14 @@ interface Times {
 }
 
 const SEEDED_MS: Record<TrainMode, { total: number; split?: number }> = {
+  recognition: { total: 9420 },
   recall: { total: 25730, split: 18420 },
   trace: { total: 21860 },
   exec: { total: 48210 },
   guided: { total: 61270, split: 25120 },
 };
 const MODE_SEED_OFFSET: Record<TrainMode, number> = {
+  recognition: 404,
   exec: 0,
   guided: 101,
   recall: 202,
@@ -120,6 +127,7 @@ export function useTrainingSession(
           pairs: attempt.pairs,
           memoMs: attempt.memoMs,
           executionMs: attempt.executionMs,
+          recognitionAnswers: attempt.recognitionAnswers,
         })),
     [store.data.attempts, mode],
   );
@@ -146,7 +154,10 @@ export function useTrainingSession(
   const preparedScramble = useExecScramble(
     filter,
     seed,
-    mode === "exec" || mode === "guided" || mode === "trace",
+    mode === "exec" ||
+      mode === "guided" ||
+      mode === "trace" ||
+      mode === "recognition",
     setFailedScrambleKey,
   );
   const scramble = preparedScramble ?? "";
@@ -171,34 +182,90 @@ export function useTrainingSession(
     };
   }, [mode, preparedScramble, traceKey, filter, seed]);
   const traceReady = traceState?.key === traceKey;
-  const scrambleReady =
-    (mode !== "exec" && mode !== "guided" && mode !== "trace") ||
+  const preparedReady =
+    (mode !== "exec" &&
+      mode !== "guided" &&
+      mode !== "trace" &&
+      mode !== "recognition") ||
     (preparedScramble !== null && (mode !== "trace" || traceReady));
-  const challenge: Challenge = useMemo(
-    () =>
-      (mode === "exec" || mode === "guided" || mode === "trace") &&
-      preparedScramble
-        ? challengeFromScramble(scramble, filter, seed, {
-            ...setup,
-            m2SecondTargetSwap: prefs.m2SecondTargetSwap,
-          })
-        : makeChallenge(filter, seed, {
-            ...setup,
-            m2SecondTargetSwap: prefs.m2SecondTargetSwap,
-          }),
-    [
-      mode,
-      preparedScramble,
-      scramble,
-      filter,
+  const challenge: Challenge = useMemo(() => {
+    const empty: Challenge = {
       seed,
-      setup,
-      prefs.m2SecondTargetSwap,
-    ],
-  );
+      filter,
+      state: SOLVED_STATE,
+      rawTargets: {
+        corners: { physicalStickerIds: [], tokens: [] },
+        edges: { physicalStickerIds: [], tokens: [] },
+      },
+      executionTargets: {
+        corners: { physicalStickerIds: [], tokens: [] },
+        edges: { physicalStickerIds: [], tokens: [] },
+      },
+      cornerBreaks: [],
+      edgeBreaks: [],
+      hasM2Parity: false,
+    };
+    const configured = {
+      ...setup,
+      m2SecondTargetSwap: prefs.m2SecondTargetSwap,
+    };
+    if (mode === "recognition") {
+      if (!preparedScramble) return empty;
+      try {
+        return challengeFromScramble(scramble, filter, seed, configured);
+      } catch {
+        return empty;
+      }
+    }
+    return (mode === "exec" || mode === "guided" || mode === "trace") &&
+      preparedScramble
+      ? challengeFromScramble(scramble, filter, seed, configured)
+      : makeChallenge(filter, seed, configured);
+  }, [
+    mode,
+    preparedScramble,
+    scramble,
+    filter,
+    seed,
+    setup,
+    prefs.m2SecondTargetSwap,
+  ]);
   const groups: TrainGroup[] = useMemo(() => {
     return orderedChallengeGroups(challenge, mode, filter, prefs.memoOrder);
   }, [challenge, filter, mode, prefs.memoOrder]);
+
+  const recognition = useMemo(() => {
+    if (mode !== "recognition" || !preparedScramble)
+      return { steps: [], error: false };
+    try {
+      return {
+        steps: recognitionSteps(challenge, setup, prefs.memoOrder, filter),
+        error: false,
+      };
+    } catch {
+      return { steps: [], error: true };
+    }
+  }, [mode, preparedScramble, challenge, setup, prefs.memoOrder, filter]);
+  const scrambleReady =
+    preparedReady && (mode !== "recognition" || recognition.steps.length > 0);
+  const [recognitionAnswers, setRecognitionAnswers] = useState<string[]>([]);
+  const answerCountRef = useRef(0);
+  const recognitionAnswersRef = useRef<string[]>([]);
+  const recognitionIdentity = JSON.stringify([
+    active,
+    filter,
+    setup,
+    prefs.memoOrder,
+    prefs.m2SecondTargetSwap,
+  ]);
+  useEffect(() => {
+    if (mode !== "recognition") return;
+    phaseRef.current = "idle";
+    setPhase("idle");
+    setRecognitionAnswers([]);
+    answerCountRef.current = 0;
+    recognitionAnswersRef.current = [];
+  }, [mode, recognitionIdentity]);
 
   const storedFor = useCallback(
     (a: string, b: string, piece: "corners" | "edges") =>
@@ -212,6 +279,57 @@ export function useTrainingSession(
   );
 
   const [times, setTimes] = useState<Times>(() => seededTimes(init));
+  const answerRecognition = useCallback(
+    (value: string) => {
+      if (!active || mode !== "recognition" || phaseRef.current !== "active")
+        return;
+      const entered = normalizeLabel(value);
+      if (!entered || answerCountRef.current >= recognition.steps.length)
+        return;
+      const answers = [...recognitionAnswersRef.current, entered];
+      recognitionAnswersRef.current = answers;
+      answerCountRef.current++;
+      setRecognitionAnswers(answers);
+      if (answers.length !== recognition.steps.length) return;
+      phaseRef.current = "review";
+      const end = performance.now();
+      const ms = Math.max(0, Math.round(end - times.start));
+      setTimes((t) => ({ ...t, end }));
+      setPhase("review");
+      const snapshot = recognition.steps.map((step, i) => ({
+        expected: step.expected,
+        entered: answers[i],
+        piece: step.piece,
+      }));
+      const correctCount = snapshot.filter(
+        (a) => a.expected === a.entered,
+      ).length;
+      const id = crypto.randomUUID();
+      submittedAttemptIdRef.current = id;
+      store.update((data) => ({
+        ...data,
+        attempts: [
+          {
+            id,
+            kind: "memo",
+            trainingMode: "recognition",
+            createdAt: new Date().toISOString(),
+            durationMs: ms,
+            targets: snapshot.length,
+            correct: correctCount === snapshot.length,
+            accuracy: correctCount / snapshot.length,
+            recognitionAnswers: snapshot,
+            scope: filter,
+          },
+          ...data.attempts,
+        ],
+      }));
+      if (document.activeElement instanceof HTMLElement)
+        document.activeElement.blur();
+    },
+    [active, mode, recognition, times, store, filter],
+  );
+
   const [inputs, setInputs] = useState<string[]>(() =>
     seededInputs(init, groups),
   );
@@ -252,9 +370,11 @@ export function useTrainingSession(
     ],
   );
   const targets =
-    mode === "trace"
-      ? results.reduce((n, g) => n + g.actual.length, 0)
-      : groups.reduce((n, g) => n + g.tokens.length, 0);
+    mode === "recognition"
+      ? recognition.steps.length
+      : mode === "trace"
+        ? results.reduce((n, g) => n + g.actual.length, 0)
+        : groups.reduce((n, g) => n + g.tokens.length, 0);
   const pairCount = groups.reduce((n, g) => n + fullPairs(g.tokens).length, 0);
 
   useEffect(() => {
@@ -265,9 +385,17 @@ export function useTrainingSession(
 
   const start = useCallback(() => {
     // Scramble-based modes keep their seed so targets and scramble stay identical.
-    if (mode !== "exec" && mode !== "guided" && mode !== "trace")
+    if (
+      mode !== "exec" &&
+      mode !== "guided" &&
+      mode !== "trace" &&
+      mode !== "recognition"
+    )
       setSeed((s) => s + 1);
     setInputs(groups.map(() => ""));
+    setRecognitionAnswers([]);
+    answerCountRef.current = 0;
+    recognitionAnswersRef.current = [];
     setReport("solved");
     const t = performance.now();
     setTimes({ start: t, split: null, end: null });
@@ -281,6 +409,7 @@ export function useTrainingSession(
 
   const hold = useHoldStart({
     enabled: active && phase === "idle" && scrambleReady,
+    resetKey: mode === "recognition" ? recognitionIdentity : undefined,
     onStart: start,
   });
 
@@ -504,7 +633,12 @@ export function useTrainingSession(
   );
 
   const next = useCallback(() => {
-    if (mode === "exec" || mode === "guided" || mode === "trace")
+    if (
+      mode === "exec" ||
+      mode === "guided" ||
+      mode === "trace" ||
+      mode === "recognition"
+    )
       setSeed((s) => s + 1);
     phaseRef.current = "idle";
     setPhase("idle");
@@ -529,7 +663,15 @@ export function useTrainingSession(
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.repeat || e.defaultPrevented) return;
+      if (
+        e.isComposing ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.repeat ||
+        e.defaultPrevented
+      )
+        return;
       const dialog = document.querySelector(
         '[role="dialog"], [role="alertdialog"]',
       );
@@ -611,7 +753,14 @@ export function useTrainingSession(
     challengeId: `${filter}:${seed}`,
     scramble,
     scrambleReady,
-    scrambleError: failedScrambleKey === `${filter}:${seed}` && !scrambleReady,
+    scrambleError:
+      (failedScrambleKey === `${filter}:${seed}` && !scrambleReady) ||
+      (mode === "recognition" &&
+        preparedReady &&
+        (recognition.error || !recognition.steps.length)),
+    recognitionSteps: recognition.steps,
+    recognitionAnswers,
+    answerRecognition,
     groups,
     vocabulary,
     targets,
