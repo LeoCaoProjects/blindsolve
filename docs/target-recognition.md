@@ -106,3 +106,19 @@ The Settings cube / minimal input / compact persistence iteration passed 19
 focused unit tests across useRecognitionSession, SchemeCube, recognition and
 challengeTargets. The desktop and mobile recognition browser tests passed.
 Typecheck passed. Older validation above records the initial implementation.
+
+## Typing-strip iteration
+
+Recognition now shows neutral submitted tokens sliding to the left of a fixed caret,
+with a quiet inline progress count and keyboard hint. The current multi-character
+token appears to its right. Backspace edits that token first; with an empty token it
+removes the preceding atomic answer and restores that cube observation. Timing
+continues, and only the corrected final answers determine the saved summary.
+The source sticker alone has a neutral white focus outline and small centre marker;
+partner colours remain bright with no rings. The history readout now says `mean`.
+No answer data was added to persistence.
+
+Validation: 16 focused unit tests passed in useRecognitionSession, SchemeCube and
+recognition; the 2 desktop/mobile recognition browser tests passed, including
+Backspace restoring the physical source and multi-character token editing.
+`npx tsc -b --pretty false` passed. Desktop and mobile screenshots were inspected.

@@ -157,3 +157,30 @@ it("settings changes cancel a pending held start", () => {
   });
   expect(result.current.phase).toBe("idle");
 });
+
+it("Backspace rewinds one atomic answer and the observation without changing the running timer", () => {
+  const { result } = renderHook(() =>
+    useTrainingSession({ mode: "recognition" }),
+  );
+  start(result);
+  const source = result.current.recognitionSteps[0].source;
+  act(() => result.current.undoRecognition());
+  expect(result.current.recognitionAnswers).toEqual([]);
+  act(() => result.current.answerRecognition("SH"));
+  act(() => vi.advanceTimersByTime(500));
+  const elapsed = result.current.elapsed.total;
+  act(() => result.current.undoRecognition());
+  expect(result.current.phase).toBe("active");
+  expect(result.current.recognitionAnswers).toEqual([]);
+  expect(
+    result.current.recognitionSteps[result.current.recognitionAnswers.length]
+      .source,
+  ).toBe(source);
+  expect(result.current.elapsed.total).toBe(elapsed);
+  expect(state.data.attempts).toHaveLength(0);
+  for (const step of result.current.recognitionSteps)
+    act(() => result.current.answerRecognition(step.expected));
+  expect(state.data.attempts).toHaveLength(1);
+  expect(state.data.attempts[0].correct).toBe(true);
+  expect(state.data.attempts[0].accuracy).toBe(1);
+});
