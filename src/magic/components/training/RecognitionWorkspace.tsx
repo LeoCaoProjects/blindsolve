@@ -1,12 +1,13 @@
-import React, { useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { TrainingSession } from "../../hooks/useTrainingSession";
-import { Cube3D } from "../cube/Cube3D";
+import { SchemeCube } from "../cube/SchemeCube";
 import { CompactTrainingTimer } from "./CompactTrainingTimer";
 import { recognitionPieceStickers } from "../../utils/recognition";
-import { bestRotation } from "../../utils/camera";
+import { bestRotation, FRONT_ROT } from "../../utils/camera";
 import type { Face } from "../../utils/cube";
 import { useDefaultView, useAppData } from "../../contexts/AppDataContext";
 import { tokensOf } from "../../utils/scheme";
+import { isTypingTarget } from "../../utils/keyboard";
 import { normalizeLabel } from "../../../domain/letterPairs/identity";
 
 export function RecognitionWorkspace({
@@ -17,18 +18,68 @@ export function RecognitionWorkspace({
   stage: { width: number; height: number };
 }) {
   const [value, setValue] = useState("");
+  const input = useRef<HTMLInputElement>(null);
   const view = useDefaultView();
   const { setup } = useAppData();
   const step =
     t.recognitionSteps[
       Math.min(t.recognitionAnswers.length, t.recognitionSteps.length - 1)
     ];
+  const [rotation, setRotation] = useState(() =>
+    step
+      ? bestRotation(
+          recognitionPieceStickers(step.source).map((id) => id[0] as Face),
+          view,
+        ).rot
+      : FRONT_ROT,
+  );
+  useLayoutEffect(() => {
+    if (!step) return;
+    setRotation(
+      (from) =>
+        bestRotation(
+          recognitionPieceStickers(step.source).map((id) => id[0] as Face),
+          view,
+          from,
+        ).rot,
+    );
+  }, [step?.source, view.top, view.front]);
+  useEffect(() => {
+    if (t.phase !== "active") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        isTypingTarget(e.target) ||
+        e.defaultPrevented ||
+        e.isComposing ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.repeat ||
+        document.querySelector('[role="dialog"], [role="alertdialog"]')
+      )
+        return;
+      const singleKey = tokensOf(
+        setup.scheme,
+        t.filter === "both"
+          ? undefined
+          : t.filter === "edges"
+            ? "edge"
+            : "corner",
+      ).every((token) => token.length === 1);
+      if (e.key.length === 1 && normalizeLabel(e.key)) {
+        e.preventDefault();
+        if (singleKey) t.answerRecognition(e.key);
+        else {
+          setValue((v) => normalizeLabel(v + e.key).slice(0, 12));
+          input.current?.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [t.phase, t.filter, t.answerRecognition, setup.scheme]);
   if (!step) return null;
   const stickers = recognitionPieceStickers(step.source);
-  const rotation = bestRotation(
-    stickers.map((id) => id[0] as Face),
-    view,
-  ).rot;
   const single = tokensOf(
     setup.scheme,
     t.filter === "both" ? undefined : t.filter === "edges" ? "edge" : "corner",
@@ -47,40 +98,62 @@ export function RecognitionWorkspace({
         phase={locked ? "stopped" : "running"}
         label="Recognition"
       />
-      <Cube3D
+      <SchemeCube
+        scheme={setup.scheme}
         state={t.challenge.state}
+        hideLetters
         size={Math.max(
           130,
           Math.min(340, stage.width - 40, stage.height * 0.58),
         )}
         view={view}
         rotation={rotation}
-        observation={{ source: step.source, stickers }}
+        animateOrientation
+        allowRotation={false}
+        mode="static"
+        selected={step.source}
+        highlightIds={stickers}
+        highlightPrimaryCount={0}
         label="Recognition piece"
       />
       <form
-        className="w-full max-w-[280px]"
+        className="relative flex min-h-[72px] w-full max-w-[280px] flex-col items-center gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           submit(value);
         }}
       >
-        <label className="text-[12px] text-ink-3" htmlFor="recognition-answer">
-          {step.piece === "edges" ? "Edge" : "Corner"} ·{" "}
+        <button
+          type="button"
+          onClick={() => input.current?.focus()}
+          disabled={locked}
+          className="text-[13px] text-ink-3 transition-colors hover:text-ink-2"
+        >
+          {single ? "Type the target letter" : "Type the target, then Enter"}
+        </button>
+        <span
+          data-recognition-progress
+          className="font-mono text-[12px] text-ink-3 tnum"
+        >
           {Math.min(t.recognitionAnswers.length + 1, t.recognitionSteps.length)}
           /{t.recognitionSteps.length}
-        </label>
+        </span>
         <input
-          id="recognition-answer"
+          ref={input}
           aria-label="Target label"
           autoFocus
           autoComplete="off"
           autoCapitalize="characters"
           spellCheck={false}
           maxLength={12}
+          style={{ boxShadow: "none", outline: "none", border: 0 }}
           disabled={locked}
           value={value}
-          className="mt-2 h-11 w-full border-b border-line bg-transparent font-mono text-[24px] text-ink outline-none focus:border-ink"
+          className={
+            single
+              ? "absolute bottom-0 h-px w-px text-[16px] opacity-0"
+              : "h-8 w-full border-0 bg-transparent text-center font-mono text-[20px] text-ink outline-none"
+          }
           onKeyDown={(e) => {
             if (
               e.nativeEvent.isComposing ||
@@ -106,11 +179,6 @@ export function RecognitionWorkspace({
             else setValue(next);
           }}
         />
-        {!single && (
-          <span className="mt-2 block text-[12px] text-ink-3">
-            Enter to submit
-          </span>
-        )}
       </form>
     </div>
   );

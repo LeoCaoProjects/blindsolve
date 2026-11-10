@@ -20,7 +20,11 @@ export function TraceReview({ t }: { t: TrainingSession }) {
   const timePerTarget = formatTimePerTarget(rawTime, targets);
   return (
     <ReviewPanel
-      label="Trace Sprint review"
+      label={
+        t.mode === "recognition"
+          ? "Target Recognition result"
+          : "Trace Sprint review"
+      }
       onNext={t.next}
       onClose={t.next}
       footer={
@@ -45,7 +49,11 @@ export function TraceReview({ t }: { t: TrainingSession }) {
             resultControl={<></>}
             metadata={
               <dl
-                aria-label="Trace statistics"
+                aria-label={
+                  t.mode === "recognition"
+                    ? "Recognition statistics"
+                    : "Trace statistics"
+                }
                 className="mt-[clamp(10px,2vh,20px)] flex flex-wrap gap-6"
               >
                 {[

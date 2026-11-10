@@ -6,7 +6,7 @@ import {
   FaceColor,
   LetterScheme,
 } from "../../types/app";
-import { FACES, Face, slotType } from "../../utils/cube";
+import { CubeState, FACES, Face, slotType } from "../../utils/cube";
 import {
   COLOR_HEX,
   COLOR_TEXT,
@@ -26,6 +26,9 @@ export interface CubeView {
 
 interface SchemeCubeProps {
   scheme: LetterScheme;
+  /** Optional scrambled facelets, sharing the Settings selection presentation. */
+  state?: CubeState;
+  hideLetters?: boolean;
   /** Sticker colours; always the fixed scramble reference unless a caller needs otherwise */
   colors?: Record<Face, FaceColor>;
   size: number;
@@ -76,6 +79,8 @@ const NORMALS: Record<Face, [number, number, number]> = {
  */
 export function SchemeCube({
   scheme,
+  state,
+  hideLetters = false,
   colors = REFERENCE_COLORS,
   size,
   view,
@@ -317,7 +322,7 @@ export function SchemeCube({
           // This transparent plane can otherwise intercept stickers behind its
           // centre plane at some viewing angles. Only the actual faces take hits.
           pointerEvents: "none",
-          transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) ${viewTransform(camera)}`,
+          transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg) ${viewTransform(camera, state)}`,
           transition:
             !dragging && !reduced && (animateOrientation || selectionMotion)
               ? "transform 260ms cubic-bezier(0.23, 1, 0.32, 1)"
@@ -348,7 +353,7 @@ export function SchemeCube({
             )}
           >
             {Array.from({ length: 9 }).map((_, i) => {
-              const color = colors[face];
+              const color = colors[state?.[face][i] ?? face];
               const bg = COLOR_HEX[color];
               const type = slotType(i);
               if (!type) {
@@ -401,7 +406,7 @@ export function SchemeCube({
               const emphasizeBuffers = showBuffers && mode !== "cube-view";
               const dim = typeDim || (hasHighlight && !tokenMatch);
               const quiet =
-                (selected && !isSelected) ||
+                (selected && !isSelected && !tokenMatch) ||
                 (emphasizeBuffers && !isBuffer && !isBufferPiece);
 
               const shadows: string[] = [];
@@ -415,7 +420,7 @@ export function SchemeCube({
                   "inset 0 0 0 2px var(--cube-body)",
                   "inset 0 0 0 3.5px var(--ink)",
                 );
-              if (tokenMatch)
+              if (tokenMatch && !isSelected)
                 shadows.push(
                   tokenIndex < (highlightIds ? highlightPrimaryCount : 1)
                     ? `inset 0 0 0 ${Math.max(2, S * 0.024)}px var(--accent)`
@@ -454,7 +459,7 @@ export function SchemeCube({
                       transform: turn ? `rotate(${turn}deg)` : undefined,
                     }}
                   >
-                    {token}
+                    {hideLetters ? null : token}
                   </span>
                   {isBuffer && <span className="sr-only"> (buffer)</span>}
                 </>
@@ -498,6 +503,7 @@ export function SchemeCube({
                 <div
                   key={i}
                   data-sticker-id={id}
+                  data-recognition-sticker={state && tokenMatch ? (isSelected ? "source" : "partner") : undefined}
                   data-buffer={
                     isBuffer
                       ? id === edgeBuffer

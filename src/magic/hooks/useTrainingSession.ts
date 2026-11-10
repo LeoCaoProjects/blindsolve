@@ -1,6 +1,5 @@
 import { recognitionSteps } from "../utils/recognition";
 import { normalizeLabel } from "../../domain/letterPairs/identity";
-import type { PracticeAttempt } from "../../lib/repository";
 import { scrambleToState } from "../../domain/bld/cubing";
 import type { CubeOrbitState } from "../../domain/bld/types";
 import { compareTraceGroups } from "../utils/traceValidation";
@@ -19,6 +18,7 @@ import { pairKey, resolveWords } from "../utils/pairs";
 import { tokensOf } from "../utils/scheme";
 import {
   TrainGroup,
+  GroupResult,
   accuracyForResults,
   compareGroups,
   fullPairs,
@@ -51,7 +51,6 @@ export interface Attempt {
   pairs?: number;
   memoMs?: number;
   executionMs?: number;
-  recognitionAnswers?: PracticeAttempt["recognitionAnswers"];
 }
 
 export interface TrainInit {
@@ -127,7 +126,6 @@ export function useTrainingSession(
           pairs: attempt.pairs,
           memoMs: attempt.memoMs,
           executionMs: attempt.executionMs,
-          recognitionAnswers: attempt.recognitionAnswers,
         })),
     [store.data.attempts, mode],
   );
@@ -318,8 +316,6 @@ export function useTrainingSession(
             targets: snapshot.length,
             correct: correctCount === snapshot.length,
             accuracy: correctCount / snapshot.length,
-            recognitionAnswers: snapshot,
-            scope: filter,
           },
           ...data.attempts,
         ],
@@ -350,17 +346,21 @@ export function useTrainingSession(
     phase === "execution";
   const results = useMemo(
     () =>
-      mode === "trace" && traceReady
-        ? compareTraceGroups(
-            traceState!.state,
-            store.data.scheme,
-            groups,
-            inputs,
-            vocabulary,
-          )
-        : compareGroups(groups, inputs, vocabulary),
+      mode === "recognition"
+        ? recognitionResults(recognition.steps, recognitionAnswers)
+        : mode === "trace" && traceReady
+          ? compareTraceGroups(
+              traceState!.state,
+              store.data.scheme,
+              groups,
+              inputs,
+              vocabulary,
+            )
+          : compareGroups(groups, inputs, vocabulary),
     [
       mode,
+      recognition.steps,
+      recognitionAnswers,
       traceReady,
       traceState,
       store.data.scheme,
@@ -834,5 +834,35 @@ function seededInputs(init: TrainInit, groups: TrainGroup[]): string[] {
       if (gi === groups.length - 1 && tokens.length > 2) tokens.pop();
     }
     return tokens.join(tokens.some((token) => token.length > 1) ? " " : "");
+  });
+}
+
+function recognitionResults(
+  steps: import("../utils/recognition").RecognitionStep[],
+  answers: string[],
+): GroupResult[] {
+  const pieces = [...new Set(steps.map((step) => step.piece))];
+  return pieces.map((piece) => {
+    const indices = steps.flatMap((step, i) =>
+      step.piece === piece ? [i] : [],
+    );
+    const actual = indices.map((i) => steps[i].expected);
+    const typed = indices.flatMap((i) =>
+      answers[i] === undefined ? [] : [answers[i]],
+    );
+    const wrong = actual.filter((token, i) => token !== typed[i]).length;
+    return {
+      piece,
+      actual,
+      typed,
+      wrong,
+      correct: wrong === 0,
+      actualMarks: actual.map((token, i) =>
+        token === typed[i] ? "ok" : "missing",
+      ),
+      typedMarks: typed.map((token, i) =>
+        token === actual[i] ? "ok" : "wrong",
+      ),
+    };
   });
 }
