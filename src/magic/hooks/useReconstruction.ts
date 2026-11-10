@@ -223,6 +223,15 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     [],
   );
 
+  const focusBreak = useCallback(
+    (token: string) => {
+      if (step.kind !== "break") return;
+      const option = step.options.indexOf(token);
+      if (option >= 0) setOptionFocus(option);
+    },
+    [step],
+  );
+
   const pickBreak = useCallback(
     (token: string) => {
       if (!pending || !draft.engine) return;
@@ -412,6 +421,8 @@ export function useReconstruction({ draft, db, onSave }: Options) {
       }
       if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey)
         return;
+      if (event.key === "Enter" && event.target instanceof HTMLButtonElement)
+        return;
       if (event.key === "1") return setPenalty("ok");
       if (event.key === "2") return setPenalty("+2");
       if (event.key === "3") return setPenalty("dnf");
@@ -450,6 +461,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
     breakTargetIds: pending?.section.validCycleBreaks ?? [],
     optionFocus,
     pickBreak,
+    focusBreak,
     words,
     setWord,
     wordFor,

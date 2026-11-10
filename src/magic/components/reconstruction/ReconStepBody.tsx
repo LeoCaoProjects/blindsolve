@@ -23,7 +23,6 @@ export function ReconStepBody({
   if (step.kind === "break") {
     const pairs = step.piece === "corners" ? sample.corners : sample.edges;
     const br = step.piece === "corners" ? sample.cornerBreak : sample.edgeBreak;
-    const picked = r.breaks[step.piece];
     return (
       <div>
         <h2
@@ -39,7 +38,7 @@ export function ReconStepBody({
           size={lg ? "xl" : "lg"}
           pairs={pairs}
           breakAt={br?.at ?? null}
-          resolved={!!picked}
+          resolved={false}
           hideWords
         />
 
@@ -49,8 +48,8 @@ export function ReconStepBody({
             size={lg ? "lg" : "md"}
             options={step.options}
             focused={step.options[r.optionFocus]}
-            selected={picked}
-            onPick={r.pickBreak}
+            selected={step.options[r.optionFocus]}
+            onPick={r.focusBreak}
           />
         )}
       </div>

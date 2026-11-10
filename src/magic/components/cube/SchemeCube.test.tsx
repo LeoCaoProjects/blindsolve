@@ -153,3 +153,23 @@ it("marks only the recognition source, keeping partner colours unmarked", () => 
   expect(source.style.opacity).toBe("1");
   expect(source.textContent).toBe("");
 });
+
+it("only exposes allowed reconstruction cells as selectable buttons", () => {
+  const pick = vi.fn();
+  render(
+    <SchemeCube
+      scheme={speffzScheme()}
+      size={300}
+      mode="lettering"
+      selected="U1"
+      pickableIds={["U1", "F1"]}
+      onPick={pick}
+      revealSelected
+      freeRotation
+      animateOrientation
+    />,
+  );
+  expect(screen.getAllByRole("button")).toHaveLength(2);
+  fireEvent.click(screen.getAllByRole("button")[1]);
+  expect(pick).toHaveBeenCalledWith("F1");
+});

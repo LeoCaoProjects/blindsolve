@@ -10,8 +10,10 @@ export function SolveMemoSection({
   db,
   size = "md",
   renderWord,
+  showScramble = true,
 }: {
   scramble: string;
+  showScramble?: boolean;
   memo: SolveMemo;
   db: LetterPairDb;
   size?: "md" | "lg";
@@ -19,12 +21,17 @@ export function SolveMemoSection({
 }) {
   return (
     <div data-solve-memo-section>
-      <ScrambleText
-        scramble={scramble}
-        animate={false}
-        className="text-[15px] leading-[1.75] text-ink"
-      />
-      <div className="mt-8 border-t border-line pt-7">
+      {showScramble && (
+        <ScrambleText
+          scramble={scramble}
+          animate={false}
+          className="text-[15px] leading-[1.75] text-ink"
+        />
+      )}
+      <div
+        data-solve-memo
+        className={showScramble ? "mt-8 border-t border-line pt-7" : undefined}
+      >
         <SolveMemoView
           memo={memo}
           db={db}
