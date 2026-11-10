@@ -30,6 +30,8 @@ export function TrainingAttemptDetails({
     const onKey = (e: KeyboardEvent) => {
       if (
         e.defaultPrevented ||
+        e.isComposing ||
+        e.altKey ||
         isTypingTarget(e.target) ||
         e.metaKey ||
         e.ctrlKey ||

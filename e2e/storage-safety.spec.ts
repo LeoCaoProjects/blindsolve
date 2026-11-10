@@ -55,7 +55,7 @@ for (const surface of ["Timer", "Training"]) {
     else
       await page
         .getByRole("dialog", { name: "Execution Sprint result" })
-        .getByRole("button", { name: /^Next/ })
+        .getByRole("button", { name: /^Close/ })
         .click();
     const warning = page.getByRole("alert", {
       name: "Browser storage warning",

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+import { useIsPresent } from "framer-motion";
 import { XIcon } from "lucide-react";
 import type { PairEntry, PairScope } from "../../types/app";
 import { primaryWords } from "../../utils/pairs";
@@ -17,6 +18,7 @@ interface PairEditorProps {
   availableOverrides?: ("edges" | "corners")[];
   onSave: (entry: PairEntry | null) => void;
   onClose: () => void;
+  contextKey?: string;
 }
 const overrideScopes = ["edges", "corners"] as const;
 const scopeLabel = (scope: PairScope) =>
@@ -34,7 +36,12 @@ export function PairEditor({
   availableOverrides = [...overrideScopes],
   onSave,
   onClose,
+  contextKey,
 }: PairEditorProps) {
+  const present = useIsPresent();
+  const snapshot = JSON.stringify([first, second, entry, availableOverrides, contextKey]);
+  const opened = useRef(snapshot);
+  const stale = opened.current !== snapshot;
   const [draft, setDraft] = useState<PairEntry>(() => entry ?? { shared: [] });
   const [confirmClear, setConfirmClear] = useState(false);
   const savedCount = entry
@@ -45,6 +52,7 @@ export function PairEditor({
   const setWords = (scope: PairScope, words: string[]) =>
     setDraft((current) => ({ ...current, [scope]: words }));
   const save = () => {
+    if (stale || !present) return;
     const current = { ...draft };
     const out: PairEntry = { shared: primaryWords(current.shared) };
     for (const scope of overrideScopes) {
@@ -95,6 +103,7 @@ export function PairEditor({
   };
   return (
     <PairEditorDialog label={`Pair ${first}${second}`} onClose={onClose}>
+      {stale && <p role="alert" className="px-6 pt-4 text-sm">This pair or its lettering changed. Copy your draft, then close and reopen the editor before saving.</p>}
       <header className="shrink-0 px-6 pb-4 pt-5">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -174,7 +183,7 @@ export function PairEditor({
         onCancel={() => setConfirmClear(false)}
         confirm={{
           label: "Clear pair",
-          onClick: () => onSave(null),
+          onClick: () => { if (!stale && present) onSave(null); },
           tone: "danger",
         }}
       />

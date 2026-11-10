@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckIcon, ImagePlusIcon, Loader2Icon, XIcon } from 'lucide-react';
 import { useAppData } from '../../contexts/AppDataContext';
+import { useStore } from '../../../app/Store';
 import { FeedbackCategory } from '../../types/feedback';
 import { sourceLabel, techContext } from '../../utils/feedbackContext';
 import { EASE_OUT } from '../../utils/keyboard';
@@ -26,6 +27,8 @@ interface FeedbackSheetProps {
  */
 export function FeedbackSheet({ open, onClose, failFirst = false, initialCategory = 'bug' }: FeedbackSheetProps) {
   const { account, submitFeedback } = useAppData();
+  const owner = useStore().user?.id;
+  const request = useRef(0);
   const [category, setCategory] = useState<FeedbackCategory>(initialCategory);
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState('');
@@ -34,6 +37,12 @@ export function FeedbackSheet({ open, onClose, failFirst = false, initialCategor
   const [showIncluded, setShowIncluded] = useState(false);
   const failNext = useRef(failFirst);
   const sending = useRef(false);
+  useEffect(() => {
+    request.current++;
+    sending.current = false;
+    setPhase('idle');
+    return () => { request.current++; };
+  }, [open, owner]);
   const fileRef = useRef<HTMLInputElement>(null);
   const signedIn = !!account.provider;
   const isBug = category === 'bug';
@@ -78,6 +87,7 @@ export function FeedbackSheet({ open, onClose, failFirst = false, initialCategor
 
   const send = async () => {
     if (!canSend || sending.current) return;
+    const ticket = ++request.current;
     sending.current = true;
     setPhase('sending');
     try {
@@ -93,11 +103,11 @@ export function FeedbackSheet({ open, onClose, failFirst = false, initialCategor
         source: sourceLabel(),
         context: isBug ? techContext() : undefined
       });
-      setPhase('sent');
+      if (ticket === request.current) setPhase('sent');
     } catch {
-      setPhase('failed');
+      if (ticket === request.current) setPhase('failed');
     } finally {
-      sending.current = false;
+      if (ticket === request.current) sending.current = false;
     }
   };
 

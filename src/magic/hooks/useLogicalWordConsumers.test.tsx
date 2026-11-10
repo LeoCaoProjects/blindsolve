@@ -46,6 +46,27 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it.each(["delete", "mapping", "edit"])("Flashcards refuses stale Default save after %s", (kind) => {
+  const { result, rerender } = renderHook(() => useFlashcards({ card: "SH|B", scope: "edges" }));
+  act(() => result.current.beginEdit());
+  if (kind === "mapping") state.data = { ...state.data, scheme: { ...state.data.scheme, name: "Changed" } };
+  else state.data = writePairEntries(state.data, { "SH|B": kind === "delete" ? null : { shared: ["Newer"] } }, "2030-01-01T00:00:00.000Z");
+  rerender();
+  const before = JSON.stringify(state.data);
+  act(() => result.current.editPrimary("Stale draft"));
+  expect(JSON.stringify(state.data)).toBe(before);
+  expect(result.current.editError).toContain("workspace changed");
+});
+
+it("Flashcards ignores IME Space and rating keys", () => {
+  const { result } = renderHook(() => useFlashcards({ card: "SH|B", scope: "edges" }));
+  fireEvent.keyDown(window, { code: "Space", isComposing: true });
+  expect(result.current.phase).toBe("question");
+  act(() => result.current.reveal());
+  fireEvent.keyDown(window, { key: "3", isComposing: true });
+  expect(result.current.phase).toBe("revealed");
+});
+
 it("Flashcards reads atomic custom labels with piece overrides and edits only Default", () => {
   const { result, rerender } = renderHook(() =>
     useFlashcards({ card: "SH|B", scope: "edges", phase: "revealed" }),

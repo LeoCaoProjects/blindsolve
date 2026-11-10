@@ -1,5 +1,6 @@
 import { designRem } from "../../../hooks/useDesignPixels";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
+import { useDialogFocus } from "../../../hooks/useDialogFocus";
 import { useDialogSpaceClose } from "../../../hooks/useDialogSpaceClose";
 import { motion } from "framer-motion";
 import { EASE_OUT, isTypingTarget } from "../../../utils/keyboard";
@@ -46,12 +47,12 @@ export function ReviewPanel({
   width = 820,
 }: ReviewPanelProps) {
   const hasPending = !!pending && pending.count > 0;
-  const dialogRef = useRef<HTMLElement>(null);
+  const dialogRef = useDialogFocus<HTMLElement>();
   useDialogSpaceClose(dialogRef, onClose ?? onNext, !!onClose && !hasPending);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey) return;
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.isComposing || e.repeat) return;
       if (document.querySelector('[role="alertdialog"]')) return;
       if (e.key === "Escape" && hasPending) {
         e.preventDefault();
@@ -93,6 +94,7 @@ export function ReviewPanel({
       <motion.section
         role="dialog"
         ref={dialogRef}
+        tabIndex={-1}
         aria-modal="true"
         aria-label={label}
         initial={{ x: 32, opacity: 0 }}

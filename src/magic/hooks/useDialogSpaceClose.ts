@@ -36,6 +36,7 @@ export function useDialogSpaceClose<T extends HTMLElement>(
       if (
         event.code !== "Space" ||
         event.defaultPrevented ||
+        event.isComposing ||
         event.metaKey ||
         event.ctrlKey ||
         event.altKey ||

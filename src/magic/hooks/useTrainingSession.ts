@@ -529,6 +529,7 @@ export function useTrainingSession(
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
+      if (e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.repeat || e.defaultPrevented) return;
       const dialog = document.querySelector(
         '[role="dialog"], [role="alertdialog"]',
       );

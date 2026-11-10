@@ -53,6 +53,9 @@ export function useHoldStart({ enabled, onStart, holdMs = 280 }: Options) {
         !ownsTrainingSpace(e.target) ||
         e.metaKey ||
         e.ctrlKey ||
+        e.altKey ||
+        e.shiftKey ||
+        e.isComposing ||
         e.defaultPrevented
       )
         return;
@@ -66,6 +69,8 @@ export function useHoldStart({ enabled, onStart, holdMs = 280 }: Options) {
       if (e.code !== "Space" || phaseRef.current === "idle") return;
       if (
         !ownsTrainingSpace(e.target) ||
+        e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.isComposing ||
+        e.defaultPrevented ||
         document.querySelector('[role="dialog"], [role="alertdialog"]')
       ) {
         cancel();
@@ -77,10 +82,12 @@ export function useHoldStart({ enabled, onStart, holdMs = 280 }: Options) {
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", cancel);
+    document.addEventListener("visibilitychange", cancel);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", cancel);
+      document.removeEventListener("visibilitychange", cancel);
       cancel();
     };
   }, [enabled, press, release, cancel]);

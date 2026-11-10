@@ -28,6 +28,7 @@ export function SignIn() {
           <div className="mt-7">
             <ProviderButtons pending={flow.step === 'redirecting' ? flow.provider : null} onStart={flow.start} />
           </div>
+          {flow.error && <p role="alert" className="mt-4 text-[12.5px] text-ink-2">{flow.error}</p>}
           {flow.step === 'redirecting' &&
           <button type="button" onClick={flow.cancel} className="mt-4 text-[12.5px] text-ink-3 transition-colors duration-150 hover:text-ink-2">
               Cancel

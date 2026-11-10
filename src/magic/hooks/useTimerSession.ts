@@ -336,7 +336,7 @@ export function useTimerSession({
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
-      if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey)
+      if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey || e.isComposing || e.repeat || e.defaultPrevented)
         return;
       if (e.key === "?") {
         setShortcutsOpen((o) => !o);

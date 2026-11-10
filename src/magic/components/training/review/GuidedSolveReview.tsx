@@ -42,6 +42,8 @@ export function GuidedSolveReview({ t }: { t: TrainingSession }) {
     const key = (event: KeyboardEvent) => {
       if (
         event.defaultPrevented ||
+        event.isComposing ||
+        event.altKey ||
         event.repeat ||
         event.metaKey ||
         event.ctrlKey ||

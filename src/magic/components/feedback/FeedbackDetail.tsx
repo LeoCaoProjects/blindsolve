@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { XIcon } from 'lucide-react';
 import { useAppData } from '../../contexts/AppDataContext';
 import { CATEGORY_LABEL, Feedback, STATUS_LABEL, STATUS_ORDER } from '../../types/feedback';
@@ -17,10 +17,30 @@ export function FeedbackDetail({ item, onClose }: {item: Feedback;onClose: () =>
   const { updateFeedback, deleteFeedback } = useAppData();
   const [note, setNote] = useState(item.note ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState('');
+  const [pending, setPending] = useState(false);
+  const busy = useRef(false);
+  const live = useRef(true);
+  useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
+  const run = async (action: () => Promise<void>, close = false) => {
+    if (busy.current) return;
+    busy.current = true; setPending(true); setError('');
+    try {
+      await action();
+      if (live.current && close) onClose();
+    } catch {
+      if (live.current) setError('Feedback could not be updated. Your changes are still here; please retry.');
+    } finally {
+      busy.current = false;
+      if (live.current) setPending(false);
+    }
+  };
   const noteDirty = note.trim() !== (item.note ?? '').trim();
 
   return (
     <Inspector label={`${CATEGORY_LABEL[item.category]} feedback`} onClose={onClose} width={580}>
+      {error && <p role="alert" className="px-6 pt-4 text-sm">{error}</p>}
+      {pending && <p role="status" className="px-6 pt-2 text-sm">Saving feedback...</p>}
       <header className="relative shrink-0 border-b border-line bg-surface px-6 pb-4 pt-5 md:px-8">
         <IconButton label="Close" onClick={onClose} className="absolute right-3 top-3">
           <XIcon />
@@ -34,7 +54,7 @@ export function FeedbackDetail({ item, onClose }: {item: Feedback;onClose: () =>
           className="mt-4"
           label="Status"
           value={item.status}
-          onChange={(status) => updateFeedback(item.id, { status })}
+          onChange={(status) => { void run(() => updateFeedback(item.id, { status })); }}
           options={STATUS_ORDER.map((s) => ({ value: s, label: STATUS_LABEL[s] }))} />
         
       </header>
@@ -126,7 +146,7 @@ export function FeedbackDetail({ item, onClose }: {item: Feedback;onClose: () =>
               </button>
               <button
               type="button"
-              onClick={() => updateFeedback(item.id, { note: note.trim() || undefined })}
+              onClick={() => { void run(() => updateFeedback(item.id, { note: note.trim() || undefined })); }}
               className="inline-flex h-8 items-center rounded-[4px] border border-line-strong px-3 text-[12.5px] text-ink transition-colors duration-150 hover:bg-hover">
               
                 Save note
@@ -147,7 +167,7 @@ export function FeedbackDetail({ item, onClose }: {item: Feedback;onClose: () =>
         {item.status === 'archived' ?
         <button
           type="button"
-          onClick={() => updateFeedback(item.id, { status: 'new' })}
+          onClick={() => { void run(() => updateFeedback(item.id, { status: 'new' })); }}
           className="inline-flex h-9 items-center rounded-[4px] border border-line-strong px-3.5 text-[13px] text-ink transition-colors duration-150 hover:bg-hover">
           
             Restore
@@ -156,8 +176,7 @@ export function FeedbackDetail({ item, onClose }: {item: Feedback;onClose: () =>
         <button
           type="button"
           onClick={() => {
-            updateFeedback(item.id, { status: 'archived' });
-            onClose();
+            void run(() => updateFeedback(item.id, { status: 'archived' }), true);
           }}
           className="inline-flex h-9 items-center rounded-[4px] border border-line-strong px-3.5 text-[13px] text-ink transition-colors duration-150 hover:bg-hover">
           
@@ -175,9 +194,8 @@ export function FeedbackDetail({ item, onClose }: {item: Feedback;onClose: () =>
           label: 'Delete',
           tone: 'danger',
           onClick: () => {
-            deleteFeedback(item.id);
             setConfirmDelete(false);
-            onClose();
+            void run(() => deleteFeedback(item.id), true);
           }
         }} />
       
