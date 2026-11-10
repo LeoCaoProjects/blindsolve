@@ -224,6 +224,7 @@ for (const width of [1440, 390])
 
 for (const viewport of [
   { width: 1440, height: 900 },
+  { width: 1440, height: 640 },
   { width: 390, height: 900 },
   { width: 390, height: 640 },
 ])
@@ -232,6 +233,10 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     const popup = await reconstruct(page);
+    const header = popup
+      .getByRole("region", { name: "Solve summary", exact: true })
+      .locator("../..");
+    const originalHeader = await header.boundingBox();
     for (
       let i = 0;
       i < 30 &&
@@ -243,6 +248,20 @@ for (const viewport of [
         .click();
     const editors = popup.getByRole("button", { name: /^Edit word used for/ });
     await expect(editors.first()).toBeVisible();
+    if (viewport.width >= 640) {
+      const completedHeader = await header.boundingBox();
+      expect(completedHeader!.height).toBeCloseTo(originalHeader!.height, 0);
+      const memoTop = await popup
+        .locator("[data-solve-memo]")
+        .evaluate((el) => el.getBoundingClientRect().top);
+      const originalGap = await popup.evaluate(
+        () =>
+          2 * parseFloat(getComputedStyle(document.documentElement).fontSize),
+      );
+      expect(
+        memoTop - (completedHeader!.y + completedHeader!.height),
+      ).toBeCloseTo(originalGap, 0);
+    }
     const labels = [
       ...new Set(
         await editors.evaluateAll((els) =>
