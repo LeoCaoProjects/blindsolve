@@ -326,6 +326,19 @@ export function useTrainingSession(
     [active, mode, recognition, times, store, filter],
   );
 
+  const undoRecognition = useCallback(() => {
+    if (
+      !active ||
+      mode !== "recognition" ||
+      phaseRef.current !== "active" ||
+      !answerCountRef.current
+    )
+      return;
+    recognitionAnswersRef.current = recognitionAnswersRef.current.slice(0, -1);
+    answerCountRef.current = recognitionAnswersRef.current.length;
+    setRecognitionAnswers(recognitionAnswersRef.current);
+  }, [active, mode]);
+
   const [inputs, setInputs] = useState<string[]>(() =>
     seededInputs(init, groups),
   );
@@ -761,6 +774,7 @@ export function useTrainingSession(
     recognitionSteps: recognition.steps,
     recognitionAnswers,
     answerRecognition,
+    undoRecognition,
     groups,
     vocabulary,
     targets,

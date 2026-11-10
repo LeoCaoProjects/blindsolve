@@ -29,6 +29,8 @@ interface SchemeCubeProps {
   /** Optional scrambled facelets, sharing the Settings selection presentation. */
   state?: CubeState;
   hideLetters?: boolean;
+  /** Recognition uses one neutral focus marker; partner colours stay unmarked. */
+  recognitionSource?: string;
   /** Sticker colours; always the fixed scramble reference unless a caller needs otherwise */
   colors?: Record<Face, FaceColor>;
   size: number;
@@ -81,6 +83,7 @@ export function SchemeCube({
   scheme,
   state,
   hideLetters = false,
+  recognitionSource,
   colors = REFERENCE_COLORS,
   size,
   view,
@@ -420,7 +423,7 @@ export function SchemeCube({
                   "inset 0 0 0 2px var(--cube-body)",
                   "inset 0 0 0 3.5px var(--ink)",
                 );
-              if (tokenMatch && !isSelected)
+              if (tokenMatch && !isSelected && !recognitionSource)
                 shadows.push(
                   tokenIndex < (highlightIds ? highlightPrimaryCount : 1)
                     ? `inset 0 0 0 ${Math.max(2, S * 0.024)}px var(--accent)`
@@ -430,6 +433,12 @@ export function SchemeCube({
                 shadows.push(
                   `inset 0 0 0 ${Math.max(3, S * 0.035)}px var(--accent)`,
                   `inset 0 0 0 ${Math.max(5, S * 0.06)}px var(--cube-body)`,
+                );
+
+              if (recognitionSource === id)
+                shadows.push(
+                  "inset 0 0 0 2px #fff",
+                  "inset 0 0 0 4px var(--cube-body)",
                 );
 
               const fontSize = Math.max(
@@ -453,6 +462,13 @@ export function SchemeCube({
               const turn = glyphRotation(face, camera);
               const content = (
                 <>
+                  {recognitionSource === id && (
+                    <span
+                      data-recognition-anchor
+                      aria-hidden
+                      className="absolute left-1/2 top-1/2 h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--cube-body)] bg-white"
+                    />
+                  )}
                   <span
                     className="inline-block"
                     style={{
@@ -503,7 +519,13 @@ export function SchemeCube({
                 <div
                   key={i}
                   data-sticker-id={id}
-                  data-recognition-sticker={state && tokenMatch ? (isSelected ? "source" : "partner") : undefined}
+                  data-recognition-sticker={
+                    state && tokenMatch
+                      ? recognitionSource === id || isSelected
+                        ? "source"
+                        : "partner"
+                      : undefined
+                  }
                   data-buffer={
                     isBuffer
                       ? id === edgeBuffer
@@ -511,7 +533,7 @@ export function SchemeCube({
                         : "corner"
                       : undefined
                   }
-                  className="flex items-center justify-center font-mono font-medium leading-none"
+                  className="relative flex items-center justify-center font-mono font-medium leading-none"
                   style={style}
                 >
                   {content}

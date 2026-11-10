@@ -127,3 +127,30 @@ describe("SchemeCube pair highlighting", () => {
     expect(screen.getByRole("group", { name: "Cube" })).toBeTruthy();
   });
 });
+
+it("marks only the recognition source, keeping partner colours unmarked", () => {
+  const { container } = render(
+    <SchemeCube
+      scheme={speffzScheme()}
+      size={300}
+      mode="static"
+      hideLetters
+      recognitionSource="U1"
+      highlightIds={["U1", "B1"]}
+    />,
+  );
+  const source = container.querySelector<HTMLElement>(
+    '[data-sticker-id="U1"]',
+  )!;
+  const partner = container.querySelector<HTMLElement>(
+    '[data-sticker-id="B1"]',
+  )!;
+  expect(source.querySelector("[data-recognition-anchor]")).toBeTruthy();
+  expect(container.querySelectorAll("[data-recognition-anchor]")).toHaveLength(
+    1,
+  );
+  expect(source.style.boxShadow).toContain("#fff");
+  expect(partner.style.boxShadow).toBe("");
+  expect(partner.style.opacity).toBe("1");
+  expect(source.textContent).toBe("");
+});

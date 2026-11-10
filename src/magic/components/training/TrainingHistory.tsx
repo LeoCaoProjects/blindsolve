@@ -28,7 +28,7 @@ export function TrainingHistory({ t }: { t: TrainingSession }) {
       t.mode === "recall"
         ? "mean memo"
         : t.mode === "recognition"
-          ? "mean recognition"
+          ? "mean"
           : t.mode === "trace"
             ? "mean trace"
             : t.mode === "guided"
