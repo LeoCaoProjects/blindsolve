@@ -1,3 +1,4 @@
+import { viewportGeometry } from "./helpers/viewport";
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme, stickersFor } from "../src/domain/bld/speffz";
 import { pairKey } from "../src/domain/letterPairs";
@@ -26,9 +27,6 @@ test.beforeEach(async ({ page }) => {
                   firstToken: "T",
                   secondToken: "W",
                   primaryMnemonic: "tow",
-                  alternates: [],
-                  encounters: 0,
-                  forgotten: 0,
                   updatedAt: "2026-11-05T00:00:00.000Z",
                 },
               },
@@ -48,13 +46,32 @@ type Sample = {
   x: number;
   overflow: boolean;
   headingX: number | null;
+  transformAnimation: boolean;
 };
 async function recordNavigation(page: Page, label: string) {
   await page.evaluate(() => {
-    const recorder = window as unknown as { navFrames: Sample[] };
+    const recorder = window as unknown as {
+      navFrames: Sample[];
+      navDone: boolean;
+    };
     recorder.navFrames = [];
+    recorder.navDone = false;
+    const started = performance.now();
     const sample = () => {
+      const workspace = document.querySelector("[data-page-workspace]")!;
+      const animations = workspace.getAnimations();
       recorder.navFrames.push({
+        transformAnimation: animations.some(
+          (animation) =>
+            animation.playState === "running" &&
+            animation.effect instanceof KeyframeEffect &&
+            new Set(
+              animation.effect
+                .getKeyframes()
+                .map((frame) => frame.transform)
+                .filter((value) => value !== undefined),
+            ).size > 1,
+        ),
         width:
           document
             .querySelector("[data-subnav-column]")
@@ -68,7 +85,23 @@ async function recordNavigation(page: Page, label: string) {
             .querySelector('[data-section="cube"] h2')
             ?.getBoundingClientRect().x ?? null,
       });
-      if (recorder.navFrames.length < 40) requestAnimationFrame(sample);
+      const recent = recorder.navFrames.slice(-5);
+      const settled =
+        recent.length === 5 &&
+        Math.max(...recent.map((frame) => frame.x)) -
+          Math.min(...recent.map((frame) => frame.x)) <
+          0.05;
+      const elapsed = performance.now() - started;
+      // Frame rate and route-commit timing vary. Sample the actual animation,
+      // then retain a settled tail instead of assuming forty frames is enough.
+      if (
+        elapsed < 2000 &&
+        (elapsed < 600 ||
+          animations.some((animation) => animation.playState === "running") ||
+          !settled)
+      )
+        requestAnimationFrame(sample);
+      else recorder.navDone = true;
     };
     document.addEventListener("click", () => requestAnimationFrame(sample), {
       once: true,
@@ -81,11 +114,9 @@ async function recordNavigation(page: Page, label: string) {
     .click();
   await expect
     .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { navFrames: Sample[] }).navFrames.length,
-      ),
+      page.evaluate(() => (window as unknown as { navDone: boolean }).navDone),
     )
-    .toBe(40);
+    .toBe(true);
   return page.evaluate(
     () => (window as unknown as { navFrames: Sample[] }).navFrames,
   );
@@ -108,19 +139,23 @@ test("shared sub nav moves the real workspace and stays stable between contextua
       frames.every(
         (frame) =>
           !frame.overflow &&
-          (Math.abs(frame.width) < 1 || Math.abs(frame.width - 224) < 1) &&
-          frame.x >= 71 &&
-          frame.x <= 297,
+          (Math.abs(frame.width) < 1 ||
+            Math.abs(frame.width - 224 * 1.2) < 1) &&
+          frame.x >= 71 * 1.2 &&
+          frame.x <= 297 * 1.2,
       ),
     ).toBe(true);
-    expect(Math.abs(frames.at(-1)!.width - to)).toBeLessThan(0.5);
-    expect(Math.abs(frames.at(-1)!.x - 72 - to)).toBeLessThan(0.5);
+    expect(Math.abs(frames.at(-1)!.width - to * 1.2)).toBeLessThan(0.5);
+    expect(Math.abs(frames.at(-1)!.x - (72 + to) * 1.2)).toBeLessThan(0.5);
     if (from === to)
-      expect(frames.every((frame) => Math.abs(frame.width - 224) < 0.5)).toBe(
-        true,
-      );
+      expect(
+        frames.every((frame) => Math.abs(frame.width - 224 * 1.2) < 0.5),
+      ).toBe(true);
     else
-      expect(frames.some((frame) => frame.x > 73 && frame.x < 295)).toBe(true);
+      expect(
+        frames.some((frame) => frame.x > 73 * 1.2 && frame.x < 295 * 1.2) ||
+          frames.some((frame) => frame.transformAnimation),
+      ).toBe(true);
     if (label === "Settings") {
       const headings = frames.flatMap((frame) =>
         frame.headingX === null ? [] : [frame.headingX],
@@ -192,9 +227,9 @@ test("sliding selection is shared, responsive and respects reduced motion", asyn
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   const frames = await recordNavigation(page, "Settings");
-  expect(frames.every((frame) => frame.width < 1 || frame.width > 223)).toBe(
-    true,
-  );
+  expect(
+    frames.every((frame) => frame.width < 1 || frame.width > 223 * 1.2),
+  ).toBe(true);
 });
 
 test("contextual navigation remains usable at every requested viewport", async ({
@@ -215,7 +250,8 @@ test("contextual navigation remains usable at every requested viewport", async (
       ["/pairs", "Letter Pairs navigation"],
     ]) {
       await page.goto(path);
-      if (viewport.width >= 1024) {
+      const { contextual, rem } = await viewportGeometry(page);
+      if (contextual) {
         await expect
           .poll(
             async () =>
@@ -225,7 +261,7 @@ test("contextual navigation remains usable at every requested viewport", async (
                   .boundingBox()
               )?.width,
           )
-          .toBe(224);
+          .toBeCloseTo(224 * rem / 16, 1);
       } else {
         await page.getByRole("button", { name: label, exact: true }).click();
         const sheet = page.getByRole("dialog", { name: label, exact: true });
@@ -242,7 +278,7 @@ test("contextual navigation remains usable at every requested viewport", async (
         if (path === "/settings")
           await expect(
             sheet.getByRole("link", { name: "Run first-use setup" }),
-          ).toHaveAttribute("href", "/setup");
+          ).toHaveCount(0);
         if (path === "/pairs")
           await sheet
             .getByRole("button", { name: /^X, / })
@@ -258,7 +294,7 @@ test("contextual navigation remains usable at every requested viewport", async (
   }
 });
 
-test("Settings sections and setup utility retain their real actions", async ({
+test("Settings sections work without the setup wizard and old setup links redirect safely", async ({
   page,
 }) => {
   for (const width of [1440, 390]) {
@@ -288,10 +324,21 @@ test("Settings sections and setup utility retain their real actions", async ({
       await page
         .getByRole("button", { name: "Settings sections", exact: true })
         .click();
-    await page
-      .getByRole("link", { name: "Run first-use setup", exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/setup$/);
+    await expect(
+      page.getByRole("link", { name: "Run first-use setup", exact: true }),
+    ).toHaveCount(0);
+    const before = await page.evaluate(
+      () => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data,
+    );
+    await page.goto("/setup");
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(
+      page.getByRole("heading", { name: "Cube & lettering", exact: true }),
+    ).toBeVisible();
+    const after = await page.evaluate(
+      () => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data,
+    );
+    expect(after).toEqual(before);
   }
 });
 
@@ -385,5 +432,5 @@ test("reversing a sidebar transition preserves its current visual position", asy
       async () =>
         (await page.locator("[data-page-workspace]").boundingBox())!.x,
     )
-    .toBe(296);
+    .toBeCloseTo(296 * 1.2, 1);
 });

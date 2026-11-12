@@ -11,7 +11,7 @@ describe("letter pair domain", () => {
     ]);
   });
   it("compares mnemonics case-insensitively but not fuzzily", () => {
-    const p = { primaryMnemonic: "World Cup", alternates: ["WC"] };
+    const p = { primaryMnemonic: "World Cup" };
     expect(mnemonicMatches(" world cup ", p)).toBe(true);
     expect(mnemonicMatches("world cups", p)).toBe(false);
   });

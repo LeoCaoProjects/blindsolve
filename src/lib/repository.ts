@@ -4,6 +4,14 @@ import type { LetteringScheme } from "../domain/bld/types";
 import type { LetterPair } from "../domain/letterPairs";
 import { pairKey, normalizeMnemonic } from "../domain/letterPairs";
 import { supabase } from "./supabase";
+import { logicalPairFields, logicalMnemonicSchema } from "./logicalPairSchema";
+import { parseMnemonicRecordKey } from "../domain/letterPairs/identity";
+import { normalizeLabel } from "../domain/letterPairs/identity";
+import {
+  logicalDeletionOverlay,
+  mergeLogicalState,
+  type LogicalPairState,
+} from "../domain/letterPairs/logical";
 
 export interface SolveRecord {
   id: string;
@@ -51,7 +59,7 @@ export interface PracticeAttempt {
   accuracy?: number;
   createdAt: string;
   /** `full` is legacy-only and remains readable for backward compatibility. */
-  trainingMode?: "recall" | "exec" | "trace" | "guided" | "full";
+  trainingMode?: "recall" | "exec" | "trace" | "guided" | "recognition" | "full";
   pairKey?: string;
   pairPiece?: "edges" | "corners";
   durationMs?: number;
@@ -66,7 +74,7 @@ export interface PracticeAttempt {
   tokenSnapshot?: { corners: string[]; edges: string[] };
   memoOrder?: "corners-first" | "edges-first";
 }
-export interface AppData {
+export interface AppData extends LogicalPairState {
   schemeHistory?: Array<{ scheme: LetteringScheme; updatedAt: string }>;
   scheme: LetteringScheme;
   pairs: Record<string, LetterPair>;
@@ -120,6 +128,7 @@ export function hasMeaningfulData(data: AppData): boolean {
   return (
     data.onboarded ||
     Object.keys(data.pairs).length > 0 ||
+    Object.keys(data.logicalPairs ?? {}).length > 0 ||
     data.solves.length > 0 ||
     data.attempts.length > 0 ||
     JSON.stringify(data.scheme) !== JSON.stringify(defaults.scheme) ||
@@ -143,20 +152,30 @@ const text = z.string().max(1000),
 const iso = z
   .string()
   .refine((v) => Number.isFinite(Date.parse(v)), "Invalid date");
-const pairSchema = z
-  .object({
-    id: z.string().uuid(),
-    firstStickerId: text,
-    secondStickerId: text,
-    firstToken: text,
-    secondToken: text,
-    primaryMnemonic: text,
-    alternates: z.array(text).max(100),
-    encounters: z.number().int().nonnegative(),
-    forgotten: z.number().int().nonnegative(),
-    updatedAt: iso,
-  })
-  .refine((p) => p.forgotten <= p.encounters);
+const pairSchema = z.object({
+  id: z.string().uuid(),
+  firstStickerId: text,
+  secondStickerId: text,
+  firstToken: text.default(""),
+  secondToken: text.default(""),
+  primaryMnemonic: text,
+  updatedAt: iso,
+  vocabulary: z
+    .object({
+      shared: z
+        .array(text)
+        .max(100)
+        .transform((words) => words.slice(0, 1)),
+      sharedUpdatedAt: iso,
+      overrideUpdatedAt: iso,
+      override: z
+        .array(text)
+        .max(100)
+        .transform((words) => words.slice(0, 1))
+        .optional(),
+    })
+    .optional(),
+});
 const schemeSchema = z.object({
   id: text,
   name: text,
@@ -244,16 +263,27 @@ const solveSchema = z
     (s) => s.totalMs === s.memoMs + s.executionMs,
     "Invalid timing split",
   );
+// Earlier manual saves could archive an unfinished lettering edit. It remains
+// useful recovery evidence, but must not be validated as the active scheme.
+const archivedSchemeSchema = schemeSchema.extend({
+  stickers: z.record(
+    z.string(),
+    schemeSchema.shape.stickers.valueType.extend({
+      label: z.string().max(12),
+    }),
+  ),
+});
 const dataSchema = z.object({
+  ...logicalPairFields,
   schemeHistory: z
-    .array(z.object({ scheme: schemeSchema, updatedAt: iso }))
+    .array(z.object({ scheme: archivedSchemeSchema, updatedAt: iso }))
     .max(100)
     .optional(),
   scheme: schemeSchema,
   pairs: z
     .record(z.string(), pairSchema)
     .refine(
-      (pairs) => Object.keys(pairs).length <= 2304,
+      (pairs) => Object.keys(pairs).length <= 100000,
       "Backup contains too many letter pairs",
     ),
   solves: z.array(solveSchema).max(100000),
@@ -276,7 +306,7 @@ const dataSchema = z.object({
         ),
         createdAt: iso,
         trainingMode: z
-          .enum(["recall", "exec", "trace", "guided", "full"])
+          .enum(["recall", "exec", "trace", "guided", "recognition", "full"])
           .optional(),
         pairKey: text.optional(),
         pairPiece: z.enum(["edges", "corners"]).optional(),
@@ -380,22 +410,27 @@ export function parseData(value: unknown): AppData {
   const stickers = Object.fromEntries(
     Object.entries(defaults.stickers).map(([id, s]) => [
       id,
-      { ...s, label: parsed.scheme.stickers[id]?.label ?? s.label },
+      {
+        ...s,
+        label: normalizeLabel(parsed.scheme.stickers[id]?.label ?? s.label),
+      },
     ]),
   );
   const scheme = { ...parsed.scheme, stickers };
   const error = validateScheme(scheme);
   if (error) throw new Error(error);
   const pairs: Record<string, LetterPair> = {};
-  for (const pair of Object.values(parsed.pairs)) {
-    if (!stickers[pair.firstStickerId] || !stickers[pair.secondStickerId])
-      throw new Error("Backup contains an unknown sticker ID.");
-    const key = pairKey(pair.firstStickerId, pair.secondStickerId);
-    if (pairs[key])
-      throw new Error("Backup contains duplicate pair identities.");
+  for (const [key, pair] of Object.entries(parsed.pairs)) {
+    // Preserve old transport keys and ambiguous provenance verbatim. Current
+    // lettering must never re-key or reinterpret a legacy mnemonic record.
     pairs[key] = pair;
   }
-  const repairMetadata = (old: LetteringScheme) => {
+  const repairMetadata = (old: LetteringScheme, archived = false) => {
+    if (
+      Object.keys(old.stickers).length !== 48 ||
+      Object.keys(defaults.stickers).some((id) => !old.stickers[id])
+    )
+      throw new Error("A saved scheme must include all 48 physical stickers.");
     const repaired = {
       ...old,
       stickers: Object.fromEntries(
@@ -405,7 +440,20 @@ export function parseData(value: unknown): AppData {
         ]),
       ),
     };
-    const error = validateScheme(repaired);
+    const error = validateScheme(
+      archived
+        ? {
+            ...repaired,
+            // Validate structure, buffers and orientation without rewriting archived tokens.
+            stickers: Object.fromEntries(
+              Object.entries(repaired.stickers).map(([id, s]) => [
+                id,
+                { ...s, label: defaults.stickers[id].label },
+              ]),
+            ),
+          }
+        : repaired,
+    );
     if (error) throw new Error(error);
     return repaired;
   };
@@ -421,7 +469,7 @@ export function parseData(value: unknown): AppData {
     })),
     schemeHistory: parsed.schemeHistory?.map((s) => ({
       ...s,
-      scheme: repairMetadata(s.scheme),
+      scheme: repairMetadata(s.scheme, true),
     })),
   };
 }
@@ -439,7 +487,7 @@ export interface LocalEnvelope {
 }
 export function loadLocal(owner: string | null = null): LocalEnvelope {
   const raw = localStorage.getItem(storageKey(owner));
-  if (raw) {
+  if (raw !== null) {
     try {
       const envelope = JSON.parse(raw) as LocalEnvelope;
       return { ...envelope, data: parseData(envelope.data) };
@@ -455,8 +503,8 @@ export function loadLocal(owner: string | null = null): LocalEnvelope {
       throw e;
     }
   }
-  const legacy = !owner && localStorage.getItem("cubeiq-bld-data-v1");
-  if (legacy)
+  const legacy = owner === null ? localStorage.getItem("cubeiq-bld-data-v1") : null;
+  if (legacy !== null)
     return { data: parseData(JSON.parse(legacy)), dirty: false, revision: 0 };
   return { data: emptyData(), dirty: false, revision: 0 };
 }
@@ -580,7 +628,7 @@ export function diffSyncChanges(
         changes.push({
           kind,
           recordId: id,
-          payload: value,
+          payload: kind === "pair" ? pairSchema.parse(value) : value,
           deleted: false,
           updatedAt,
         });
@@ -600,6 +648,44 @@ export function diffSyncChanges(
       new Map(Object.entries(before.pairs)),
       new Map(Object.entries(after.pairs)),
     );
+  // The optional logical namespace is additive: never rewrite legacy physical rows.
+  const logicalChanges = new Map<string, SyncChange>();
+  for (const [recordId, value] of Object.entries(after.logicalPairs ?? {}))
+    if (
+      JSON.stringify(before.logicalPairs?.[recordId]) !== JSON.stringify(value)
+    )
+      logicalChanges.set(recordId, {
+        kind: "pair",
+        recordId,
+        payload: logicalMnemonicSchema.parse(value),
+        deleted: false,
+        updatedAt,
+      });
+  for (const recordId of Object.keys(before.logicalPairs ?? {}))
+    if (!after.logicalPairs?.[recordId])
+      logicalChanges.set(recordId, {
+        kind: "pair",
+        recordId,
+        payload: null,
+        deleted: true,
+        updatedAt,
+      });
+  for (const [recordId, stamp] of Object.entries(
+    after.logicalPairDeletions ?? {},
+  ))
+    if (
+      before.logicalPairDeletions?.[recordId] !== stamp &&
+      (!after.logicalPairs?.[recordId] ||
+        Date.parse(stamp) >= Date.parse(after.logicalPairs[recordId].updatedAt))
+    )
+      logicalChanges.set(recordId, {
+        kind: "pair",
+        recordId,
+        payload: null,
+        deleted: true,
+        updatedAt: stamp,
+      });
+  changes.push(...logicalChanges.values());
   if (before.solves !== after.solves)
     diffMap(
       "solve",
@@ -640,9 +726,28 @@ export function seedSyncChanges(
     changes.push({
       kind: "pair",
       recordId,
-      payload,
+      payload: pairSchema.parse(payload),
       deleted: false,
       updatedAt,
+    });
+  const logical = logicalDeletionOverlay(data, {});
+  for (const [recordId, payload] of Object.entries(logical.logicalPairs ?? {}))
+    changes.push({
+      kind: "pair",
+      recordId,
+      payload: logicalMnemonicSchema.parse(payload),
+      deleted: false,
+      updatedAt,
+    });
+  for (const [recordId, stamp] of Object.entries(
+    logical.logicalPairDeletions ?? {},
+  ))
+    changes.push({
+      kind: "pair",
+      recordId,
+      payload: null,
+      deleted: true,
+      updatedAt: stamp,
     });
   for (const payload of data.solves)
     changes.push({
@@ -670,6 +775,15 @@ function dataFromSyncRecords(rows: SyncRecordRow[]) {
   )?.payload;
   if (settings && typeof settings === "object") Object.assign(data, settings);
   for (const row of rows) {
+    if (row.kind === "pair" && parseMnemonicRecordKey(row.record_id)) {
+      if (row.deleted)
+        (data.logicalPairDeletions ??= {})[row.record_id] = row.updated_at;
+      else
+        (data.logicalPairs ??= {})[row.record_id] = logicalMnemonicSchema.parse(
+          row.payload,
+        );
+      continue;
+    }
     if (row.deleted || !row.payload) continue;
     if (row.kind === "pair")
       data.pairs[row.record_id] = row.payload as LetterPair;
@@ -685,6 +799,15 @@ function dataFromSyncRecords(rows: SyncRecordRow[]) {
 /** Preserve explicit deletion evidence across snapshots, retries, tabs and reloads. */
 export function deletionIndex(envelope: LocalEnvelope): Record<string, string> {
   const index = { ...envelope.tombstones };
+  for (const [key, stamp] of Object.entries(
+    envelope.data.logicalPairDeletions ?? {},
+  ))
+    if (
+      parseMnemonicRecordKey(key) &&
+      (!index[`pair:${key}`] ||
+        Date.parse(stamp) > Date.parse(index[`pair:${key}`]))
+    )
+      index[`pair:${key}`] = stamp;
   for (const solve of envelope.data.solves)
     if (solve.deleted)
       index[`solve:${solve.id}`] = solve.updatedAt ?? solve.createdAt;
@@ -710,6 +833,7 @@ export function applyTombstones(
   });
   return {
     ...data,
+    ...logicalDeletionOverlay(data, tombstones),
     solves: solves.length === data.solves.length ? data.solves : solves,
     attempts:
       attempts.length === data.attempts.length ? data.attempts : attempts,
@@ -739,7 +863,7 @@ export function reconcileSync(
   remote: LocalEnvelope,
   cloudAcknowledgement = true,
 ): LocalEnvelope & { conflicts: number } {
-  const merged = mergeData(local.data, remote.data);
+  const merged = mergeData(local.data, remote.data, cloudAcknowledgement);
   const tombstones = deletionIndex(local);
   for (const [key, stamp] of Object.entries(deletionIndex(remote)))
     if (!tombstones[key] || Date.parse(stamp) > Date.parse(tombstones[key]))
@@ -758,17 +882,24 @@ export function reconcileSync(
     )
       attempts.set(change.recordId, change.payload as PracticeAttempt);
   data = { ...data, attempts: [...attempts.values()] };
-  const outstanding = cloudAcknowledgement
-    ? pruneAcknowledgedSyncChanges(
-        remote.data,
-        local.pending,
-        deletionIndex(remote),
-      )
-    : local.pending;
   const differences =
     remote.pending === undefined
       ? seedSyncChanges(data)
       : diffSyncChanges(remote.data, data);
+  const differenceKeys = new Set(differences.map(syncKey));
+  const outstanding = cloudAcknowledgement
+    ? Object.fromEntries(
+        Object.entries(pruneAcknowledgedSyncChanges(
+          remote.data,
+          local.pending,
+          deletionIndex(remote),
+        )).filter(([key, change]) =>
+          // If the server already contains the canonical winner, an older
+          // queued upsert must not overwrite it at the refreshed revision.
+          change.deleted || differenceKeys.has(key),
+        ),
+      )
+    : local.pending;
   const pending = coalesceSyncChanges(
     outstanding,
     differences.filter((change) => {
@@ -785,7 +916,11 @@ export function reconcileSync(
     const split = key.indexOf(":");
     const kind = key.slice(0, split) as SyncRecordKind;
     const recordId = key.slice(split + 1);
-    if (kind === "pair" && data.pairs[recordId]) continue;
+    if (
+      kind === "pair" &&
+      (data.pairs[recordId] || data.logicalPairs?.[recordId])
+    )
+      continue;
     if (!cloudAcknowledgement && pending[key]?.deleted) continue;
     delete pending[key];
     if (!remoteDeleted[key])
@@ -852,12 +987,48 @@ export function syncSnapshotEnvelope(
 export function mergeData(
   local: AppData,
   incoming: AppData,
+  preferIncomingLogicalTie = false,
 ): { data: AppData; conflicts: number } {
   const pairs = { ...local.pairs };
   let conflicts = 0;
+  for (const [key, record] of Object.entries(incoming.logicalPairs ?? {})) {
+    const previous = local.logicalPairs?.[key];
+    if (previous && normalizeMnemonic(previous.primaryMnemonic) !== normalizeMnemonic(record.primaryMnemonic))
+      conflicts++;
+  }
   for (const [key, p] of Object.entries(incoming.pairs)) {
     const old = pairs[key];
     if (!old) {
+      pairs[key] = p;
+      continue;
+    }
+    if (
+      normalizeLabel(old.firstToken) !== normalizeLabel(p.firstToken) ||
+      normalizeLabel(old.secondToken) !== normalizeLabel(p.secondToken)
+    ) {
+      // An older client reused a physical key for a different logical pair.
+      // Retain the displaced bytes as legacy evidence; never reinterpret labels
+      // or overwrite the other pair's word. Keep the incoming transport row in
+      // place so synchronization does not fight that old physical key forever.
+      const labels = [
+        normalizeLabel(old.firstToken),
+        normalizeLabel(old.secondToken),
+      ];
+      const base = JSON.stringify([
+        "legacy-v1",
+        old.id,
+        ...(labels.every((label) => label.length <= 12)
+          ? labels
+          : [old.updatedAt]),
+      ]);
+      let archive = base,
+        suffix = 0;
+      while (
+        pairs[archive] &&
+        JSON.stringify(pairs[archive]) !== JSON.stringify(old)
+      )
+        archive = `${base}:${++suffix}`;
+      pairs[archive] = old;
       pairs[key] = p;
       continue;
     }
@@ -867,22 +1038,37 @@ export function mergeData(
       normalizeMnemonic(newer.primaryMnemonic) !==
       normalizeMnemonic(other.primaryMnemonic);
     if (differs) conflicts++;
-    const alternatives = [
-      ...newer.alternates,
-      ...other.alternates,
-      ...(differs && other.primaryMnemonic ? [other.primaryMnemonic] : []),
-    ];
+    if (newer.vocabulary) {
+      const shared =
+        other.vocabulary &&
+        Date.parse(other.vocabulary.sharedUpdatedAt) >
+          Date.parse(newer.vocabulary.sharedUpdatedAt)
+          ? other.vocabulary
+          : newer.vocabulary;
+      const scoped =
+        other.vocabulary &&
+        Date.parse(other.vocabulary.overrideUpdatedAt) >
+          Date.parse(newer.vocabulary.overrideUpdatedAt)
+          ? other.vocabulary
+          : newer.vocabulary;
+      const vocabulary = {
+        shared: shared.shared,
+        sharedUpdatedAt: shared.sharedUpdatedAt,
+        overrideUpdatedAt: scoped.overrideUpdatedAt,
+        ...(scoped.override ? { override: scoped.override } : {}),
+      };
+      const words = vocabulary.override ?? vocabulary.shared;
+      pairs[key] = {
+        ...newer,
+        id: p.id,
+        vocabulary,
+        primaryMnemonic: words[0] ?? "",
+      };
+      continue;
+    }
     pairs[key] = {
       ...newer,
       id: p.id,
-      alternates: alternatives.filter(
-        (s, i, a) =>
-          normalizeMnemonic(s) !== normalizeMnemonic(newer.primaryMnemonic) &&
-          a.findIndex((v) => normalizeMnemonic(v) === normalizeMnemonic(s)) ===
-            i,
-      ),
-      encounters: Math.max(old.encounters, p.encounters),
-      forgotten: Math.max(old.forgotten, p.forgotten),
     };
   }
   const solveMap = new Map(local.solves.map((s) => [s.id, s]));
@@ -908,6 +1094,7 @@ export function mergeData(
   return {
     conflicts,
     data: {
+      ...mergeLogicalState(local, incoming, preferIncomingLogicalTie),
       schemeHistory: [
         ...new Map(
           [
@@ -981,24 +1168,122 @@ export function mergeData(
   };
 }
 
-export async function loadCloud(): Promise<LocalEnvelope> {
+type CloudOwnerContext = { owner: string; isCurrent: () => boolean };
+type AuthorizeRead = <T extends { setHeader(name: string, value: string): unknown }>(request: T) => T;
+
+async function pinCloudRead(context?: CloudOwnerContext) {
   if (!supabase) throw new Error("Cloud storage is not configured.");
-  const { data: snapshotData, error: snapshotError } = await supabase.rpc(
-    "get_bld_sync_snapshot",
+  const client = supabase;
+  const checkCurrent = () => {
+    if (context && !context.isCurrent())
+      throw new Error("Account changed during synchronization.");
+  };
+  checkCurrent();
+  const session = context ? (await client.auth.getSession()).data.session : null;
+  checkCurrent();
+  if (context && (!session?.access_token || session.user.id !== context.owner))
+    throw new Error("Account changed during synchronization.");
+  const authorize: AuthorizeRead = (request) => {
+    checkCurrent();
+    if (session)
+      request.setHeader("Authorization", `Bearer ${session.access_token}`);
+    return request;
+  };
+  const checkSession = async () => {
+    checkCurrent();
+    const latest = await client.auth.getSession();
+    checkCurrent();
+    if (latest.error || latest.data.session?.user.id !== context?.owner ||
+        latest.data.session?.access_token !== session?.access_token)
+      throw new Error("Account session changed. Sign in again or retry the export.");
+  };
+  return { client, authorize, checkCurrent, checkSession };
+}
+
+const legacyReviewSources = [
+  {
+    table: "practice_attempts",
+    columns: "id::text,user_id,pair_id,kind,correct,accuracy,details::text,created_at",
+    reason: "The original bigint ID and details do not establish a canonical attempt identity or training mode.",
+  },
+  {
+    table: "letter_pair_aliases",
+    columns: "id::text,user_id,pair_id,mnemonic",
+    reason: "The alias and physical pair reference do not establish a canonical word or scope.",
+  },
+] as const;
+type LegacyReviewTable = {
+  table: typeof legacyReviewSources[number]["table"];
+  status: "complete" | "partial" | "unavailable";
+  rows: { source: Record<string, unknown>; reason: string }[];
+  issue?: string;
+};
+
+/** Explicit, read-only review, independent of canonical/V2 hydration. */
+export async function loadLegacyRecovery(context: CloudOwnerContext) {
+  const { client, authorize, checkSession } = await pinCloudRead(context);
+  const tables: LegacyReviewTable[] = [];
+  for (const { table, columns, reason } of legacyReviewSources) {
+    const result: LegacyReviewTable = { table, status: "complete", rows: [] };
+    let cursor: string | undefined;
+    for (;;) {
+      await checkSession();
+      let query = client.from(table).select(columns).eq("user_id", context.owner)
+        .order("id", { ascending: true }).limit(200);
+      if (cursor !== undefined) query = query.gt("id", cursor);
+      const response = await Promise.resolve(authorize(query)).catch(() => null);
+      await checkSession();
+      if (!response || response.error || !Array.isArray(response.data)) {
+        result.status = result.rows.length ? "partial" : "unavailable";
+        result.issue = "The server could not read this table. Check account access or retry.";
+        break;
+      }
+      const { data } = response;
+      if (!data.length) break;
+      for (const row of data as unknown[]) {
+        if (!row || typeof row !== "object" || !("user_id" in row) || row.user_id !== context.owner)
+          throw new Error("The server response could not be verified for this account.");
+        const source = row as Record<string, unknown>;
+        const id = source.id;
+        if (typeof id !== "string" || !/^-?\d{1,19}$/.test(id) ||
+            (cursor !== undefined && BigInt(id) <= BigInt(cursor))) {
+          result.status = "partial";
+          result.issue = "A source ID could not be verified or pagination did not advance.";
+          result.rows.push({ source, reason: result.issue });
+          break;
+        }
+        result.rows.push({ source, reason });
+        cursor = id;
+      }
+      if (result.status === "partial") break;
+    }
+    tables.push(result);
+  }
+  return { format: "blindsolve-v1-review", version: 1, tables } as const;
+}
+
+export async function loadCloud(context?: CloudOwnerContext): Promise<LocalEnvelope> {
+  const { client, authorize, checkCurrent } = await pinCloudRead(context);
+  const { data: snapshotData, error: snapshotError } = await authorize(
+    client.rpc("get_bld_sync_snapshot"),
   );
+  checkCurrent();
   if (snapshotError) throw new Error(snapshotError.message);
   const snapshot = snapshotData as {
     revision: number;
     records: SyncRecordRow[];
   } | null;
   if (!snapshot) throw new Error("Authentication required.");
-  if (snapshot.records.length)
+  if (snapshot.records.length || snapshot.revision > 0)
     return syncSnapshotEnvelope(snapshot.records, snapshot.revision);
-  const { data, error } = await supabase.rpc("get_bld_workspace");
+  const { data, error } = await authorize(client.rpc("get_bld_workspace"));
+  checkCurrent();
   if (error) throw new Error(error.message);
   const result = data as { data: unknown; revision: number };
+  const workspace = result.data ? parseData(result.data) : await loadLegacyCloud(authorize);
+  checkCurrent();
   return {
-    data: result.data ? parseData(result.data) : await loadLegacyCloud(),
+    data: workspace,
     revision: result.revision,
     dirty: false,
     // An account without record-based data is seeded once after the safe merge.
@@ -1006,29 +1291,29 @@ export async function loadCloud(): Promise<LocalEnvelope> {
   };
 }
 /** Read-only migration of V1 rows. Never remove the original normalized tables. */
-async function loadLegacyCloud(): Promise<AppData> {
+async function loadLegacyCloud(authorize: AuthorizeRead): Promise<AppData> {
   const data = emptyData();
   if (!supabase) return data;
   const [pairs, solves, schemes] = await Promise.all([
-    supabase
+    authorize(supabase
       .from("letter_pairs")
       .select(
-        "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,encounters,forgotten,updated_at,letter_pair_aliases(mnemonic)",
+        "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,updated_at",
       )
-      .order("id"),
-    supabase
+      .order("id")),
+    authorize(supabase
       .from("bld_solves")
       .select(
         "id,scramble,memo_ms,execution_ms,total_ms,result,corner_memo,edge_memo,cycle_breaks,created_at,scheme_snapshot",
       )
-      .order("id"),
-    supabase
+      .order("id")),
+    authorize(supabase
       .from("lettering_schemes")
       .select(
         "id,name,orientation,edge_buffer,corner_buffer,edge_method,corner_method,updated_at",
       )
       .eq("is_active", true)
-      .maybeSingle(),
+      .maybeSingle()),
   ]);
   for (const result of [pairs, solves, schemes])
     if (result.error)
@@ -1036,13 +1321,13 @@ async function loadLegacyCloud(): Promise<AppData> {
   // PostgREST defaults to a 1,000-row cap. Never silently truncate a V1 account.
   if (pairs.data?.length === 1000) {
     for (let offset = 1000; ; offset += 1000) {
-      const next = await supabase
+      const next = await authorize(supabase
         .from("letter_pairs")
         .select(
-          "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,encounters,forgotten,updated_at,letter_pair_aliases(mnemonic)",
+          "id,first_sticker_id,second_sticker_id,first_token,second_token,primary_mnemonic,updated_at",
         )
         .order("id")
-        .range(offset, offset + 999);
+        .range(offset, offset + 999));
       if (next.error) throw new Error(next.error.message);
       pairs.data.push(...next.data);
       if (next.data.length < 1000) break;
@@ -1050,13 +1335,13 @@ async function loadLegacyCloud(): Promise<AppData> {
   }
   if (solves.data?.length === 1000) {
     for (let offset = 1000; ; offset += 1000) {
-      const next = await supabase
+      const next = await authorize(supabase
         .from("bld_solves")
         .select(
           "id,scramble,memo_ms,execution_ms,total_ms,result,corner_memo,edge_memo,cycle_breaks,created_at,scheme_snapshot",
         )
         .order("id")
-        .range(offset, offset + 999);
+        .range(offset, offset + 999));
       if (next.error) throw new Error(next.error.message);
       solves.data.push(...next.data);
       if (next.data.length < 1000) break;
@@ -1070,11 +1355,6 @@ async function loadLegacyCloud(): Promise<AppData> {
       firstToken: p.first_token,
       secondToken: p.second_token,
       primaryMnemonic: p.primary_mnemonic,
-      alternates: (p.letter_pair_aliases as Array<{ mnemonic: string }>).map(
-        (a) => a.mnemonic,
-      ),
-      encounters: p.encounters,
-      forgotten: p.forgotten,
       updatedAt: p.updated_at,
     };
   data.solves = (solves.data ?? []).map((s) => ({
@@ -1092,11 +1372,11 @@ async function loadLegacyCloud(): Promise<AppData> {
   }));
   const s = schemes.data;
   if (s) {
-    const labels = await supabase
+    const labels = await authorize(supabase
       .from("sticker_labels")
       .select("physical_sticker_id,token")
       .eq("scheme_id", s.id)
-      .order("physical_sticker_id");
+      .order("physical_sticker_id"));
     if (labels.error)
       throw new Error(`V1 labels could not be loaded: ${labels.error.message}`);
     data.scheme = {
@@ -1163,7 +1443,15 @@ export async function saveCloudChanges(
       changes: batch.map((change) => ({
         kind: change.kind,
         record_id: change.recordId,
-        payload: change.payload,
+        payload:
+          change.kind === "pair" && !change.deleted
+            ? change.payload &&
+              typeof change.payload === "object" &&
+              "identity" in change.payload &&
+              change.payload.identity === "logical-v1"
+              ? logicalMnemonicSchema.parse(change.payload)
+              : pairSchema.parse(change.payload)
+            : change.payload,
         deleted: change.deleted,
         updated_at: change.updatedAt,
       })),
@@ -1185,18 +1473,44 @@ export async function saveCloudChanges(
 
 export const syncRetryDelay = (attempt: number) =>
   Math.min(60_000, 2_000 * 2 ** Math.max(0, attempt));
-export function downloadBackup(data: AppData) {
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify({ version: 3, data }, null, 2)], {
-      type: "application/json",
-    }),
+const backupHistoryKinds = ["solves", "attempts"] as const;
+
+function backupRecordContent(record: unknown) {
+  return JSON.stringify(record, (_key, value) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, value[key]]))
+      : value,
   );
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `3bld-backup-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+function backupHistoryIndex(records: readonly unknown[], kind: "solves" | "attempts") {
+  const index = new Map<string, unknown>();
+  for (const record of records) {
+    if (!record || typeof record !== "object" || !("id" in record) || typeof record.id !== "string")
+      continue;
+    const previous = index.get(record.id);
+    if (previous && backupRecordContent(previous) !== backupRecordContent(record))
+      throw new Error(
+        `The backup contains conflicting ${kind === "solves" ? "solve" : "attempt"} records for ID ${record.id}. Keep the original file and use a backup with one record for this ID.`,
+      );
+    index.set(record.id, record);
+  }
+  return index;
+}
+
+export function assertBackupHistoryCompatible(current: AppData, incoming: AppData) {
+  for (const kind of backupHistoryKinds) {
+    const existing = backupHistoryIndex(current[kind], kind);
+    for (const [id, record] of backupHistoryIndex(incoming[kind], kind)) {
+      const previous = existing.get(id);
+      if (previous && backupRecordContent(previous) !== backupRecordContent(record))
+        throw new Error(
+          `The backup conflicts with the workspace ${kind === "solves" ? "solve" : "attempt"} for ID ${id}. Keep the original file and use a backup with the same record for this ID.`,
+        );
+    }
+  }
+}
+
 export function parseBackup(content: string) {
   const parsed: unknown = JSON.parse(content);
   if (
@@ -1210,9 +1524,19 @@ export function parseBackup(content: string) {
     throw new Error(
       "Unsupported backup version. Use a compatible 3BLD backup.",
     );
-  return parseData(
+  const data =
     typeof parsed === "object" && parsed !== null && "data" in parsed
       ? parsed.data
-      : parsed,
-  );
+      : parsed;
+  const validated = parseData(data);
+  // Compare source rows before schema projection can hide differing fields.
+  const source = data as Record<string, unknown>;
+  for (const kind of backupHistoryKinds) {
+    if (Array.isArray(source[kind])) backupHistoryIndex(source[kind], kind);
+  }
+  return {
+    ...validated,
+    solves: [...new Map(validated.solves.map((solve) => [solve.id, solve])).values()],
+    attempts: [...new Map(validated.attempts.map((attempt) => [attempt.id, attempt])).values()],
+  };
 }

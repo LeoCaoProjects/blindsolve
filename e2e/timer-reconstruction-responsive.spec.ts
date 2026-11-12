@@ -42,7 +42,7 @@ for (const [width, height] of [
   [390, 844],
   [320, 568],
 ])
-  test(`reconstruction input and adjacent actions fit ${width}x${height}`, async ({
+  test(`reconstruction input and footer actions fit ${width}x${height}`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height });
@@ -73,7 +73,7 @@ for (const [width, height] of [
       await panel
         .getByRole("button", { name: "Continue", exact: true })
         .click();
-    const input = panel.getByPlaceholder("Enter mnemonic");
+    const input = panel.getByPlaceholder("Enter word");
     await expect(input).toBeVisible();
     await expect(panel.getByText("Not in your letter pairs yet")).toHaveCount(
       0,
@@ -88,7 +88,9 @@ for (const [width, height] of [
     const next = panel.getByRole("button", { name: "Continue", exact: true });
     const a = (await skip.boundingBox())!,
       b = (await next.boundingBox())!;
-    expect(b.x - (a.x + a.width)).toBeLessThan(20);
+    const panelBox = (await panel.boundingBox())!;
+    expect(a.x - panelBox.x).toBeLessThan(width < 600 ? 35 : 60);
+    expect(b.x).toBeGreaterThan(a.x + a.width);
     expect(a.y + a.height).toBeLessThanOrEqual(height);
     expect(b.x + b.width).toBeLessThanOrEqual(width);
     expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
@@ -102,6 +104,9 @@ for (const [width, height] of [
       });
     }
     await input.press("Enter");
+    expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+      true,
+    );
     await skip.click();
     await expect(panel).toHaveCount(0);
   });

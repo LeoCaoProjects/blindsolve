@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     undefined | ((event: string, session: Session | null) => void),
   load: vi.fn(),
   save: vi.fn(),
+  legacyReview: vi.fn(),
 }));
 vi.mock("../lib/supabase", () => ({
   supabase: {
@@ -30,8 +31,11 @@ vi.mock("../lib/repository", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   loadCloud: mocks.load,
   saveCloudChanges: mocks.save,
+  loadLegacyRecovery: mocks.legacyReview,
 }));
 import { StoreProvider, useStore } from "./Store";
+import { writeDefaultWords } from "../workspace/utils/pairPersistence";
+import { loadRecovered, portableSnapshot, readPortableSnapshot, saveRecovered } from "../lib/portableRecovery";
 import {
   emptyData,
   loadLocal,
@@ -125,6 +129,84 @@ async function auth(id: string | null, event = "SIGNED_IN") {
   });
 }
 describe("account state and sync", () => {
+  it("reviews V1 rows without changing canonical, guest, backup or outbox state", async () => {
+    const id = "58d441ea-30db-4d02-84e1-f001b69aab1a";
+    const tombstones = { [`attempt:${id}`]: "2026-09-25T00:00:00Z" };
+    mocks.load.mockResolvedValue({
+      data: emptyData(), revision: 8, dirty: false, pending: {}, tombstones,
+    });
+    let store!: ReturnType<typeof useStore>;
+    function Capture() {
+      store = useStore();
+      return null;
+    }
+    render(<StoreProvider><Capture /></StoreProvider>);
+    await auth("alice");
+    await waitFor(() => expect(store.ready).toBe(true));
+    const bytes = localStorage.getItem("cubeiq-bld-v2:alice");
+    const guest = localStorage.getItem("cubeiq-bld-v2:guest");
+    const review = { tables: [{ table: "practice_attempts", rows: [{ source: { id: "9" } }] }] };
+    mocks.legacyReview.mockResolvedValueOnce(review);
+    expect(await store.readLegacyRecovery("alice")).toBe(review);
+    expect(mocks.legacyReview).toHaveBeenLastCalledWith({ owner: "alice", isCurrent: expect.any(Function) });
+    expect(store.recoveryEnvelope().pending).toEqual({});
+    expect(portableSnapshot(store.durableRecovery().envelope)).toMatchObject({
+      data: { attempts: [] }, tombstones,
+    });
+    expect(localStorage.getItem("cubeiq-bld-v2:alice")).toBe(bytes);
+    expect(localStorage.getItem("cubeiq-bld-v2:guest")).toBe(guest);
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it("exports the active account envelope and opens its snapshot without account callbacks", async () => {
+    const id = "8d00ae21-5444-41df-a008-d7bfcdf2f741";
+    const stamp = "2026-11-05T01:00:00.000Z";
+    const marker = { [`attempt:${id}`]: stamp };
+    saveLocal("alice", { data: emptyData(), revision: 1, dirty: false, tombstones: marker });
+    saveLocal(null, { data: emptyData(), revision: 0, dirty: false, tombstones: {} });
+    let read!: ReturnType<typeof useStore>["durableRecovery"];
+    function ExportHarness() {
+      const store = useStore();
+      read = store.durableRecovery;
+      return <span>{store.ready ? "export ready" : "loading"}</span>;
+    }
+    const account = render(<StoreProvider><ExportHarness /></StoreProvider>);
+    await auth("alice");
+    await screen.findByText("export ready");
+    const snapshot = portableSnapshot(read().envelope);
+    expect(snapshot.tombstones).toEqual(marker);
+    expect(JSON.stringify(snapshot)).not.toContain("alice");
+    account.unmount();
+
+    const restored = readPortableSnapshot(snapshot);
+    saveRecovered({
+      id, restoredAt: stamp, sourceVersion: 4, legacyIncomplete: false,
+    }, { data: restored.data, tombstones: restored.tombstones, dirty: false, revision: 0 });
+    const previous = Object.getOwnPropertyDescriptor(navigator, "locks");
+    Object.defineProperty(navigator, "locks", {
+      configurable: true,
+      value: { request: (_name: string, _options: object, callback: () => Promise<void>) => callback() },
+    });
+    mocks.callback = undefined;
+    mocks.load.mockClear();
+    mocks.save.mockClear();
+    try {
+      const recovery = render(<StoreProvider recoveredId={id}><Harness /></StoreProvider>);
+      await waitFor(() => expect(screen.getByTestId("state").textContent).toContain("ready|guest"));
+      expect(mocks.callback).toBeUndefined();
+      fireEvent.click(screen.getByText("Toggle live timer"));
+      expect(loadRecovered(id).envelope.data.showLiveTimer).toBe(false);
+      expect(loadRecovered(id).envelope.tombstones).toEqual(marker);
+      expect(loadLocal("alice").data.showLiveTimer).toBe(true);
+      expect(mocks.load).not.toHaveBeenCalled();
+      expect(mocks.save).not.toHaveBeenCalled();
+      recovery.unmount();
+    } finally {
+      if (previous) Object.defineProperty(navigator, "locks", previous);
+      else Reflect.deleteProperty(navigator, "locks");
+    }
+  });
+
   it("preserves old soft-deletion evidence when an edit happens during hydration", async () => {
     const id = "8d00ae21-5444-41df-a008-d7bfcdf2f741";
     const stamp = "2026-11-05T01:00:00.000Z";
@@ -377,7 +459,7 @@ describe("account state and sync", () => {
     );
     expect(loadLocal("alice").data.scheme.name).toBe("Edited");
   });
-  it("automatically migrates meaningful guest data into a new empty account once", async () => {
+  it("copies meaningful guest data into a new empty account once and retains the guest source", async () => {
     render(
       <StoreProvider>
         <Harness />
@@ -393,7 +475,7 @@ describe("account state and sync", () => {
     });
     await waitFor(() => expect(loadLocal("alice").dirty).toBe(false));
     expect(loadLocal("alice").data.scheme.name).toBe("Edited");
-    expect(loadLocal(null).data.scheme.name).toBe("Speffz");
+    expect(loadLocal(null).data.scheme.name).toBe("Edited");
 
     const syncedAccount = loadLocal("alice").data;
     mocks.load.mockResolvedValue({
@@ -439,7 +521,27 @@ describe("account state and sync", () => {
       expect.arrayContaining([expect.objectContaining({ kind: "settings" })]),
     );
   });
-  it("keeps the guest copy until a failed automatic migration is retried successfully", async () => {
+  it("copies a canonical-only guest workspace while retaining its source", async () => {
+    const guest = writeDefaultWords(emptyData(), { "A|B": "Apple" });
+    saveLocal(null, { data: guest, revision: 0, dirty: false });
+    const source = localStorage.getItem("cubeiq-bld-v2:guest");
+    render(<StoreProvider><Harness /></StoreProvider>);
+    await auth("alice");
+    expect(loadLocal("alice").data.logicalPairs).toEqual(guest.logicalPairs);
+    expect(localStorage.getItem("cubeiq-bld-v2:guest")).toBe(source);
+  });
+  it("requires a choice when an account has only canonical words", async () => {
+    const cloud = writeDefaultWords(emptyData(), { "A|B": "Apple" });
+    const guest = { ...emptyData(), showLiveTimer: false };
+    saveLocal(null, { data: guest, revision: 0, dirty: false });
+    mocks.load.mockResolvedValue({ data: cloud, revision: 4, dirty: false, pending: {} });
+    render(<StoreProvider><Harness /></StoreProvider>);
+    await auth("alice");
+    expect(screen.getByTestId("migration").textContent).toBe("choose");
+    expect(loadLocal("alice").data.showLiveTimer).toBe(true);
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it("retains the guest copy through failed migration and successful retry", async () => {
     mocks.save
       .mockRejectedValueOnce(new Error("Offline"))
       .mockResolvedValueOnce(1);
@@ -458,7 +560,7 @@ describe("account state and sync", () => {
     expect(loadLocal("alice").dirty).toBe(true);
     fireEvent.click(screen.getByText("Retry"));
     await waitFor(() => expect(loadLocal("alice").dirty).toBe(false));
-    expect(loadLocal(null).data.scheme.name).toBe("Speffz");
+    expect(loadLocal(null).data.scheme.name).toBe("Edited");
   });
   it("keeps guest and account workspaces isolated across sign out and sign in", async () => {
     const guest = emptyData();
@@ -500,6 +602,52 @@ describe("account state and sync", () => {
       ),
     );
     expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it("does not clear guest history when an unrelated account saves during a pending migration", async () => {
+    const guest = emptyData();
+    const stamp = "2026-11-05T01:00:00.000Z";
+    const recognition = {
+      id: crypto.randomUUID(), kind: "memo" as const,
+      trainingMode: "recognition" as const, createdAt: stamp,
+      durationMs: 1000, targets: 2, correct: true, accuracy: 1,
+    };
+    guest.attempts = [recognition];
+    saveLocal(null, { data: guest, dirty: false, revision: 0 });
+    const other = { ...emptyData(), onboarded: true };
+    mocks.load.mockResolvedValueOnce({ data: emptyData(), revision: 0, dirty: false, pending: {} })
+      .mockResolvedValueOnce({ data: other, revision: 4, dirty: false, pending: {} });
+    let finishAlice!: (revision: number) => void;
+    mocks.save.mockImplementationOnce(() => new Promise<number>(resolve => { finishAlice = resolve; }))
+      .mockResolvedValueOnce(5);
+    render(<StoreProvider><Harness /></StoreProvider>);
+    await auth("alice", "INITIAL_SESSION");
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1), { timeout: 2500 });
+    expect(loadLocal("alice").data.attempts).toEqual([recognition]);
+    await auth("bob");
+    await waitFor(() => expect(screen.getByTestId("migration").textContent).toBe("choose"));
+    fireEvent.click(screen.getByText("Use account"));
+    fireEvent.click(screen.getByText("Toggle multiphase"));
+    await waitFor(() => expect(loadLocal("bob").revision).toBe(5), { timeout: 2500 });
+    await act(async () => finishAlice(1));
+    expect(loadLocal("bob").data.attempts).toEqual([]);
+    expect(loadLocal("alice").data.attempts).toEqual([recognition]);
+    expect(loadLocal().data.attempts).toEqual([recognition]);
+  });
+
+  it("does not clear guest edits made in a different tab after migration starts", async () => {
+    const guest = { ...emptyData(), onboarded: true };
+    saveLocal(null, { data: guest, revision: 0, dirty: false });
+    let finish!: (revision: number) => void;
+    mocks.save.mockImplementationOnce(() => new Promise<number>(resolve => { finish = resolve; }));
+    render(<StoreProvider><Harness /></StoreProvider>);
+    await auth("alice", "INITIAL_SESSION");
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1), { timeout: 2500 });
+    const newerGuest = { ...guest, scheme: { ...guest.scheme, name: "Guest tab edit" } };
+    saveLocal(null, { data: newerGuest, revision: 0, dirty: false });
+    await act(async () => finish(1));
+    await waitFor(() => expect(loadLocal("alice").revision).toBe(1));
+    expect(loadLocal("alice").data.scheme.name).toBe("Speffz");
+    expect(loadLocal().data.scheme.name).toBe("Guest tab edit");
   });
   it("retains failed cloud writes locally and retries safely", async () => {
     mocks.save.mockRejectedValueOnce(new Error("Offline"));

@@ -1,0 +1,364 @@
+/* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&family=Hanken+Grotesk:wght@400;500;600&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@200;300;400;500&family=Red+Hat+Display:wght@300;400;500&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@400;500&display=swap");
+
+/* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+/* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
+
+/* Concept A — warm graphite, brass accent */
+:root,
+.theme-rail {
+  --bg: #161513;
+  --surface: #1b1a17;
+  --raised: #211f1c;
+  --hover: rgba(236, 230, 218, 0.045);
+  --selected: rgba(236, 230, 218, 0.09);
+  --line: rgba(236, 230, 218, 0.08);
+  --line-strong: rgba(236, 230, 218, 0.17);
+  --ink: #ece7dd;
+  --ink-2: #aaa499;
+  --ink-3: #7a756b;
+  --accent: #d4a862;
+  --scrim: rgba(10, 9, 8, 0.66);
+  --cube-body: #0c0b0a;
+  --shadow-overlay:
+    0 32px 90px -24px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-timer: "IBM Plex Sans", system-ui, sans-serif;
+}
+/* Concept B — cool ink, pale steel accent */
+.theme-stage {
+  --bg: #111317;
+  --surface: #15181d;
+  --raised: #1a1e24;
+  --hover: rgba(214, 226, 242, 0.045);
+  --selected: rgba(214, 226, 242, 0.09);
+  --line: rgba(214, 226, 242, 0.08);
+  --line-strong: rgba(214, 226, 242, 0.17);
+  --ink: #e6eaf0;
+  --ink-2: #9ea7b3;
+  --ink-3: #717a86;
+  --accent: #96b8dd;
+  --scrim: rgba(6, 8, 11, 0.62);
+  --cube-body: #0a0b0d;
+  --shadow-overlay: 0 -24px 80px -20px rgba(0, 0, 0, 0.6);
+  --font-sans: "Hanken Grotesk", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+  --font-timer: "DM Mono", ui-monospace, monospace;
+}
+/* Concept C — neutral charcoal, vermilion signal */
+.theme-workspace {
+  --bg: #1a1a1b;
+  --surface: #1f1f20;
+  --raised: #252527;
+  --hover: rgba(255, 255, 255, 0.04);
+  --selected: rgba(255, 255, 255, 0.085);
+  --line: rgba(255, 255, 255, 0.075);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --ink: #ededec;
+  --ink-2: #a5a5a3;
+  --ink-3: #777775;
+  --accent: #e8774f;
+  --scrim: rgba(8, 8, 9, 0.6);
+  --cube-body: #0c0c0d;
+  --shadow-overlay: -24px 0 80px -20px rgba(0, 0, 0, 0.6);
+  --font-sans: "Instrument Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-timer: "JetBrains Mono", ui-monospace, monospace;
+}
+/* Concept D — warm black, terracotta whisper */
+.theme-quiet {
+  --bg: #0f0e0d;
+  --surface: #161513;
+  --raised: #1b1a18;
+  --hover: rgba(241, 236, 228, 0.045);
+  --selected: rgba(241, 236, 228, 0.09);
+  --line: rgba(241, 236, 228, 0.07);
+  --line-strong: rgba(241, 236, 228, 0.15);
+  --ink: #f1ece4;
+  --ink-2: #a39d93;
+  --ink-3: #736e66;
+  --accent: #dca98c;
+  --scrim: rgba(8, 7, 6, 0.94);
+  --cube-body: #0a0908;
+  --shadow-overlay: 0 30px 80px -20px rgba(0, 0, 0, 0.7);
+  --font-sans: "Red Hat Text", system-ui, sans-serif;
+  --font-mono: "Red Hat Mono", ui-monospace, monospace;
+  --font-timer: "Red Hat Display", system-ui, sans-serif;
+}
+/* Destructive actions only (removing saved data). Kept distinct from the vermilion accent. */
+:root {
+  --danger: #f06462;
+  --danger-soft: rgba(240, 100, 98, 0.1);
+  --danger-strong: #d8423f;
+}
+html,
+body,
+#root {
+  height: 100%;
+  background: #111;
+}
+body {
+  margin: 0;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+/* History popups return functional focus quietly. Normal focus styling resumes
+   once the user moves focus again; interactive controls keep their usual rings. */
+[data-quiet-focus-return]:focus {
+  outline: none !important;
+}
+.scroll-quiet {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.scroll-quiet::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-quiet::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 3px;
+}
+.scroll-none {
+  scrollbar-width: none;
+}
+/* Edge fades for long scroll regions — applied only while more content exists in that direction */
+@layer utilities {
+  .fade-top {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 28px);
+  }
+  .fade-bottom {
+    -webkit-mask-image: linear-gradient(to top, transparent 0, #000 28px);
+    mask-image: linear-gradient(to top, transparent 0, #000 28px);
+  }
+  .fade-both {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 28px,
+      #000 calc(100% - 28px),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 28px,
+      #000 calc(100% - 28px),
+      transparent 100%
+    );
+  }
+}
+/* Inset from the viewport floor for action regions: never flush with the bottom edge */
+.dock-inset {
+  padding-bottom: max(28px, min(8vh, 64px), env(safe-area-inset-bottom));
+}
+.scroll-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-subnav {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-gutter: stable;
+}
+.scroll-subnav::-webkit-scrollbar {
+  width: 5px;
+}
+.scroll-subnav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-subnav::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+.scroll-subnav:hover::-webkit-scrollbar-thumb {
+  background: var(--ink-3);
+}
+
+/* Shared alignment within the Timer's existing working surface. */
+.timer-workspace-inset {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+@media (min-width: 768px) {
+  .timer-workspace-inset {
+    padding-left: 96px;
+    padding-right: 40px;
+  }
+}
+
+/* One restrained cue on entering execution; never part of timing state. */
+@keyframes timer-execution-cue {
+  from {
+    color: var(--accent);
+  }
+  to {
+    color: var(--ink);
+  }
+}
+.timer-execution-cue {
+  animation: timer-execution-cue 450ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .timer-execution-cue {
+    animation: none;
+  }
+}
+
+/* One design baseline: 100% browser zoom renders the prior 120%-sized UI.
+   Pixel design tokens are rem-based at build time; media queries stay viewport-based. */
+html {
+  font-size: 120%;
+}
+body,
+body * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+body
+  :is(
+    input,
+    textarea,
+    select,
+    [role="textbox"],
+    [contenteditable]:not([contenteditable="false"])
+  ),
+body :is([role="textbox"], [contenteditable]:not([contenteditable="false"])) * {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+/* These physical cube dimensions intentionally opt out of design-unit conversion. */
+@media (min-width: 768px) {
+  html:not([data-viewport-sizing]) .timer-layout {
+    grid-template-columns: minmax(0, 1fr) clamp(280px, 28vw, 392px);
+  }
+  .timer-cube-viewport {
+    height: clamp(170px, 36vh, 330px);
+    border-bottom-width: 1px;
+  }
+  .timer-reference-column {
+    border-left-width: 1px;
+  }
+}
+
+/* Short phones need fewer scramble rows and a single-line stats strip.
+   Keep the reserved scramble geometry and the memo footer unchanged. */
+@media (max-width: 767px) and (max-height: 640px) {
+  html:not([data-viewport-sizing]) .timer-layout [aria-label="Scramble"] {
+    padding-top: 10px;
+    padding-bottom: 12px;
+  }
+  html:not([data-viewport-sizing]) .timer-layout [aria-label="Scramble"] .font-mono {
+    font-size: 12.5px;
+  }
+  html:not([data-viewport-sizing]) .timer-layout [data-timer-clock] [role="timer"] {
+    font-size: clamp(40px, 18cqw, 64px);
+  }
+  html:not([data-viewport-sizing]) .timer-reference-column dl > div {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 6px 10px;
+  }
+  html:not([data-viewport-sizing]) .timer-reference-column dd {
+    margin-top: 0;
+  }
+}
+
+/* Original IconButton sm geometry. Aa stays the original Lucide drawing;
+   compact utility labels share its control and 15px icon line box. */
+.cube-utility-control {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 15px;
+  letter-spacing: normal;
+}
+.timer-cube-viewport .cube-utility-control svg {
+  width: 15px;
+  height: 15px;
+}
+.cube-utility-mode {
+  width: 76px;
+  gap: 4px;
+}
+.cube-utility-letters {
+  width: 40px;
+  height: 40px;
+  right: 16px;
+  bottom: 8px;
+}
+
+/* High browser zoom can produce a short phone-sized CSS viewport on desktop.
+   Let the working regions scroll rather than squeezing the clock to zero. */
+@media (max-width: 767px) and (max-height: 480px) {
+  html:not([data-viewport-sizing]) .timer-layout {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  html:not([data-viewport-sizing]) .timer-layout > [data-workspace-main] {
+    flex: none;
+  }
+  html:not([data-viewport-sizing]) .timer-layout [data-timer-clock] {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  html:not([data-viewport-sizing]) .timer-layout > [data-workspace-main] > div {
+    flex: none;
+    min-height: 112px;
+    overflow: visible;
+  }
+  html:not([data-viewport-sizing]) .timer-reference-column {
+    flex: none;
+    height: clamp(180px, 50dvh, 240px);
+    min-height: 180px;
+  }
+}
+
+.timer-cube-viewport .cube-utility-letters svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Touch progression stays available without redundant desktop timing actions. */
+@media (hover: hover) and (pointer: fine) {
+  .training-touch-dock { display: none; }
+}
+
+/* Recognition focus belongs to the sticker perimeter; its colour stays unobscured. */
+.recognition-focus-aura {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+  animation: recognition-aura 1.8s ease-in-out infinite alternate;
+}
+@keyframes recognition-aura {
+  from { opacity: 0.85; box-shadow: inset 0 0 4px rgba(255, 255, 255, 0.12), 0 0 6px rgba(255, 255, 255, 0.28); }
+  to { opacity: 1; box-shadow: inset 0 0 9px rgba(255, 255, 255, 0.24), 0 0 14px rgba(255, 255, 255, 0.55); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recognition-focus-aura { animation: none; }
+}

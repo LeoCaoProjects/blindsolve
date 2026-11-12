@@ -3,7 +3,6 @@ from app.schemas import EvidenceKind, TimelineEventCreate
 from pydantic import ValidationError
 
 
-
 def test_unresolved_gap_keeps_interval_without_notation():
     event = TimelineEventCreate(
         sequence_no=4,
