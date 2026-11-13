@@ -410,7 +410,7 @@ for (const [width, height] of [
     await expect(page.getByText("No overrides", { exact: true })).toBeVisible();
   });
 
-test("Desktop native zoom preserves pair columns and contextual navigation", async () => {
+test("Desktop native zoom preserves pair columns and contextual navigation", async ({ baseURL }) => {
   const { nativeBrowser } =
     await import("../scripts/native-browser-session.mjs");
   const native = await nativeBrowser("chrome");
@@ -425,9 +425,13 @@ test("Desktop native zoom preserves pair columns and contextual navigation", asy
       fixture,
     );
     await native.resize(1440, 900);
-    await native.navigate(
-      `${process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:5186"}/pairs`,
-    );
+    const url = new URL("/pairs", baseURL);
+    const response = await page.goto(url.href);
+    expect(response?.ok()).toBe(true);
+    await expect(page).toHaveURL(new URL("/", baseURL).href);
+    await expect(page.getByRole("link", { name: "Letter Pairs", exact: true }))
+      .toHaveAttribute("aria-current", "page");
+    await expect(page.locator("[data-pair-grid]")).toBeVisible();
     const geometry = () =>
       page.evaluate(() => {
         const dpr = window.devicePixelRatio;

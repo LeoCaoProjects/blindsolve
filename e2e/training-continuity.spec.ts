@@ -362,7 +362,7 @@ for (const [width, height] of [
     }
   });
 
-test("one native 150% Training zoom sanity check preserves settled layout", async () => {
+test("one native 150% Training zoom sanity check preserves settled layout", async ({ baseURL }) => {
   const { nativeBrowser } =
     await import("../scripts/native-browser-session.mjs");
   const native = await nativeBrowser("chrome");
@@ -370,9 +370,12 @@ test("one native 150% Training zoom sanity check preserves settled layout", asyn
     const page = native.page as Page;
     await page.addInitScript(seed, scheme);
     await native.resize(1440, 900);
-    await native.navigate(
-      `${process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:5186"}/training`,
-    );
+    const url = new URL("/training", baseURL);
+    const response = await page.goto(url.href);
+    expect(response?.ok()).toBe(true);
+    await expect(page).toHaveURL(new URL("/", baseURL).href);
+    await expect(page.getByRole("link", { name: "Training", exact: true }))
+      .toHaveAttribute("aria-current", "page");
     await choose(page, "Memo Recall");
     const geometry = () =>
       page.evaluate(() => ({

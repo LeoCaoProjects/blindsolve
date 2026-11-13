@@ -34,7 +34,7 @@ jobs:
         run: npx --yes supabase@3.0.0 stop --workdir "$RUNNER_TEMP/blindsolve-db"
   frontend:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -49,4 +49,62 @@ jobs:
       - run: npm run build
       - run: npm run test:seo
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Run full browser matrix
+        id: browser
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/browser-results.json
+        run: npm run test:e2e -- --reporter=list,html,json
+      - name: Record first browser outcome
+        id: browser-evidence
+        if: ${{ always() && !cancelled() && steps.browser.outcome != 'skipped' }}
+        run: |
+          if [ -f test-results/.last-run.json ]; then
+            cp test-results/.last-run.json test-results/first-run-selection.json
+          fi
+          node --input-type=commonjs <<'NODE'
+          const fs = require('node:fs');
+          const selectionPath = 'test-results/first-run-selection.json';
+          const reportPath = 'test-results/browser-results.json';
+          if (!fs.existsSync(selectionPath) || !fs.existsSync(reportPath)) {
+            throw new Error('Playwright did not finish writing its reports');
+          }
+          const selection = JSON.parse(fs.readFileSync(selectionPath, 'utf8'));
+          const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+          const failed = selection.failedTests.length;
+          console.log(JSON.stringify({ status: selection.status, stats: report.stats, failed }));
+          if (selection.status === 'failed' && failed > 0 &&
+              failed === report.stats.unexpected && report.errors.length === 0) {
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'rerun=true\n');
+          }
+          NODE
+      - name: Upload first browser reports and traces
+        id: first-artifact
+        if: ${{ always() && steps.browser.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: browser-first-attempt
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Run built-artifact worker smoke
+        if: ${{ always() && !cancelled() && steps.browser.outcome != 'skipped' }}
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:55551
+          PLAYWRIGHT_JSON_OUTPUT_FILE: worker-results/report.json
+        run: |
+          node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 55551 --strictPort &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          curl --fail --silent --show-error --retry 10 --retry-connrefused "$PLAYWRIGHT_BASE_URL/" >/dev/null
+          npm run test:e2e -- e2e/latest-ui.spec.ts -g 'production search worker' --output=worker-results --trace=on --reporter=list,json
+      - name: Archive built-artifact worker smoke
+        if: ${{ always() && !cancelled() && steps.browser.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: built-worker-smoke
+          path: worker-results/
+          if-no-files-found: error
