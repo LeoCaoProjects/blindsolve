@@ -139,9 +139,8 @@ export async function nativeBrowser(engine) {
       if (entry) {
         clearTimeout(entry.timer);
         pending.delete(result.id);
-        result.type === "error"
-          ? entry.reject(Error(JSON.stringify(result)))
-          : entry.resolve(result.result);
+        if (result.type === "error") entry.reject(Error(JSON.stringify(result)));
+        else entry.resolve(result.result);
       }
     };
     const send = (method, params = {}) =>

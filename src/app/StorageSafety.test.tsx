@@ -32,7 +32,9 @@ vi.mock("../lib/repository", async (original) => ({
 }));
 import { StoreProvider, useStore } from "./Store";
 import { StorageWarning } from "../components/StorageWarning";
+import { mergeBackup } from "../workspace/utils/backup";
 import {
+  deletionIndex,
   emptyData,
   loadLocal,
   saveLocal,
@@ -92,7 +94,9 @@ function Harness() {
         Training
       </button>
       <button
-        onClick={() => store.importData({ ...emptyData(), solves: [solve()] })}
+        onClick={() => store.update((current) => mergeBackup(current, {
+          ...emptyData(), showLiveTimer: false, preferencesUpdatedAt: new Date().toISOString(),
+        }, "keep-mine", deletionIndex(store.recoveryEnvelope())))}
       >
         Import
       </button>
@@ -184,11 +188,12 @@ describe("local persistence failures", () => {
       fireEvent.click(screen.getByText("Retry saving"));
       expect(screen.queryByRole("alert")).toBeNull();
       expect(loadLocal().data.solves).toHaveLength(
-        action === "Training" ? 1 : 2,
+        action === "Timer" ? 2 : 1,
       );
       expect(loadLocal().data.attempts).toHaveLength(
         action === "Training" ? 1 : 0,
       );
+      if (action === "Import") expect(loadLocal().data.showLiveTimer).toBe(false);
       const recovered = new Event("beforeunload", { cancelable: true });
       window.dispatchEvent(recovered);
       expect(recovered.defaultPrevented).toBe(false);

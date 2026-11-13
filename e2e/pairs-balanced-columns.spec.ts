@@ -46,7 +46,7 @@ for (const width of [1440, 390])
     await expect(columns).toHaveCount(2);
     const cells = grid.getByRole("gridcell");
     const total = await cells.count();
-    expect(total).toBeGreaterThan(30);
+    expect(total).toBe(35);
     const split = Math.ceil(total / 2);
     await expect(columns.nth(0).getByRole("row")).toHaveCount(split);
     await expect(columns.nth(1).getByRole("row")).toHaveCount(
@@ -66,9 +66,17 @@ for (const width of [1440, 390])
       await expect(cells.nth(split)).toBeFocused();
       await page.keyboard.press("ArrowLeft");
       await expect(cells.first()).toBeFocused();
+      await cells.nth(split - 1).focus();
+      await page.keyboard.press("ArrowRight");
+      await expect(cells.nth(split - 1)).toBeFocused();
     } else {
       expect(boxes[0].x).toBe(boxes[1].x);
       expect(boxes[1].y).toBeGreaterThan(boxes[0].y);
+      await cells.nth(split - 1).focus();
+      await page.keyboard.press("ArrowRight");
+      await expect(cells.nth(split - 1)).toBeFocused();
+      await page.keyboard.press("ArrowDown");
+      await expect(cells.nth(split)).toBeFocused();
     }
     await page.screenshot({
       path: `test-results/pairs-balanced-${width}.png`,

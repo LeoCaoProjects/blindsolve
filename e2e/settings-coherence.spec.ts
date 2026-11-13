@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
-import { writePairEntries } from "../src/magic/utils/pairPersistence";
+import { writePairEntries } from "../src/workspace/utils/pairPersistence";
 import type { AppData } from "../src/lib/repository";
 
 test.beforeEach(async ({ page }) => {
@@ -131,7 +131,7 @@ test("preferences persist immediately, radios support arrows and cube edits auto
   await page.reload();
   expect(
     Object.values((await saved(page)).scheme.stickers).some(
-      (s: any) => s.label === "CH",
+      (s) => s.label === "CH",
     ),
   ).toBe(true);
 });
@@ -216,7 +216,7 @@ test("Settings owns shortcuts after visiting each practice route and saves compl
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   expect(
     Object.values((await saved(page)).scheme.stickers).some(
-      (s: any) => s.label === "CH",
+      (s) => s.label === "CH",
     ),
   ).toBe(true);
   for (const name of ["Timer", "Training", "Letter Pairs", "Flashcards"]) {

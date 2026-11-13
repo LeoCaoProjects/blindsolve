@@ -3,7 +3,7 @@ import { createSpeffzScheme } from "../src/domain/bld/speffz";
 import {
   writePairEntries,
   pairsFromStore,
-} from "../src/magic/utils/pairPersistence";
+} from "../src/workspace/utils/pairPersistence";
 import type { AppData } from "../src/lib/repository";
 
 test.beforeEach(async ({ page }) => {
@@ -56,8 +56,8 @@ test("reveal crossfades controls within fixed bounds without moving workspace, p
   await open(page);
   const samples = page.evaluate(
     () =>
-      new Promise<any[]>((resolve) => {
-        const frames: any[] = [],
+      new Promise<Array<{ bounds: DOMRectInit[]; opacity: number | null; exitingInert?: boolean }>>((resolve) => {
+        const frames: Array<{ bounds: { x: number; y: number; width: number; height: number }[]; opacity: number | null; exitingInert?: boolean }> = [],
           start = performance.now();
         const sample = () => {
           const bounds = [

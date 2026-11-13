@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
-import { writePairEntries } from "../src/magic/utils/pairPersistence";
+import { writePairEntries } from "../src/workspace/utils/pairPersistence";
 import type { AppData } from "../src/lib/repository";
 
 const modes = [
@@ -124,7 +124,7 @@ for (const destination of ["Timer", ...modes, "Flashcards"])
     await expect(history.locator("[data-virtual-row]")).toHaveCount(3);
     await trigger.focus();
     await page.keyboard.press("Delete");
-    let popup = page.getByRole("alertdialog");
+    const popup = page.getByRole("alertdialog");
     await expect(
       popup.getByRole("button", { name: "Delete", exact: true }),
     ).toBeFocused();
@@ -159,12 +159,12 @@ for (const destination of ["Timer", ...modes, "Flashcards"])
     if (timer) expect(data.solves).toHaveLength(0);
     else if (flash)
       expect(
-        data.attempts.filter((a: any) => a.kind === "flashcard"),
+        data.attempts.filter((a: { kind: string }) => a.kind === "flashcard"),
       ).toHaveLength(0);
     else
       expect(
         data.attempts.filter(
-          (a: any) => a.trainingMode === modeIds[modes.indexOf(destination)],
+          (a: { trainingMode?: string }) => a.trainingMode === modeIds[modes.indexOf(destination)],
         ),
       ).toHaveLength(0);
   });

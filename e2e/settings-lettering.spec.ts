@@ -1,8 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
-import { stickerInView, siblingsOf } from "../src/magic/utils/scheme";
-import { faceDepth } from "../src/magic/utils/camera";
-import type { Face } from "../src/magic/utils/cube";
+import { stickerInView, siblingsOf } from "../src/workspace/utils/scheme";
+import { faceDepth } from "../src/workspace/utils/camera";
+import type { Face } from "../src/workspace/utils/cube";
 
 async function seed(page: Page, front: "green" | "blue" = "green") {
   const scheme = createSpeffzScheme();
@@ -26,7 +26,7 @@ async function seed(page: Page, front: "green" | "blue" = "green") {
             revision: 0,
           }),
         );
-      (window as any).__settingsRotations = [];
+      (window as Window & { __settingsRotations: string[] }).__settingsRotations = [];
       document.addEventListener(
         "transitionrun",
         (event) => {
@@ -36,7 +36,7 @@ async function seed(page: Page, front: "green" | "blue" = "green") {
               "aria-label",
             ) === "Your cube"
           )
-            (window as any).__settingsRotations.push(
+            (window as Window & { __settingsRotations: string[] }).__settingsRotations.push(
               (event.target as HTMLElement).style.transform,
             );
         },
@@ -210,7 +210,7 @@ for (const front of ["green", "blue"] as const)
       stickerInView("U0", { top: "white", front }).id,
     );
     const entryCount = await page.evaluate(
-      () => (window as any).__settingsRotations.length,
+      () => (window as Window & { __settingsRotations: string[] }).__settingsRotations.length,
     );
     const entryTarget = await cube(page)
       .locator(":scope > div")
@@ -228,7 +228,7 @@ for (const front of ["green", "blue"] as const)
     }
     await expect
       .poll(() =>
-        page.evaluate(() => (window as any).__settingsRotations.length),
+        page.evaluate(() => (window as Window & { __settingsRotations: string[] }).__settingsRotations.length),
       )
       .toBeGreaterThan(entryCount);
     const physical = (await selected(page).getAttribute("data-sticker-id"))!;
@@ -268,7 +268,7 @@ for (const front of ["green", "blue"] as const)
     }
     await expect(selected(page)).toHaveAttribute("data-sticker-id", "U0");
     await mode(page, "Overview");
-    await page.evaluate(() => ((window as any).__settingsRotations = []));
+    await page.evaluate(() => ((window as Window & { __settingsRotations: string[] }).__settingsRotations = []));
     await mode(page, "Lettering");
     await cube(page).locator('[data-sticker-id="U0"]').click();
     await page.waitForTimeout(300);
@@ -405,7 +405,7 @@ test("Lettering entry preserves the view without selection, and Cube View cannot
   const angle = () =>
     camera.evaluate((el) => (el as HTMLElement).style.transform);
   const rotations = () =>
-    page.evaluate(() => (window as any).__settingsRotations.length);
+    page.evaluate(() => (window as Window & { __settingsRotations: string[] }).__settingsRotations.length);
   for (const tab of ["Overview", "Edge buffer", "Corner buffer", "Cube view"]) {
     await mode(page, tab);
     await page.waitForTimeout(300);
@@ -500,7 +500,7 @@ test("Cube and Lettering remains usable on mobile with alternate orientation", a
     .toBeNull();
   expect(
     Object.values((await stored(page)).scheme.stickers).some(
-      (s: any) => s.label === "CH",
+      (s) => s.label === "CH",
     ),
   ).toBe(true);
   expect(

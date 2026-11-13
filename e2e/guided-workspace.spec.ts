@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
 import { mkdir } from "node:fs/promises";
@@ -24,7 +25,7 @@ test.beforeEach(async ({ page }) => {
     createSpeffzScheme(),
   );
 });
-async function selectGuided(page: any) {
+async function selectGuided(page: Page) {
   await page.goto("/training");
   const chooser = page.getByRole("button", {
     name: "Training controls",
@@ -43,7 +44,7 @@ async function selectGuided(page: any) {
     page.getByRole("button", { name: "New scramble", exact: true }),
   ).toBeEnabled({ timeout: 45000 });
 }
-async function touchHold(page: any) {
+async function touchHold(page: Page) {
   const clock = await page
     .getByRole("timer", { name: "Hold Space to start" })
     .boundingBox();
@@ -59,7 +60,7 @@ async function touchHold(page: any) {
   });
   await client.detach();
 }
-async function flow(page: any, width: number, dnf = false) {
+async function flow(page: Page, width: number, dnf = false) {
   await selectGuided(page);
   await page.evaluate(() => document.fonts.ready);
   await expect(page.locator("main .max-h-full[style]")).toHaveCSS(
@@ -98,10 +99,6 @@ async function flow(page: any, width: number, dnf = false) {
     "transform",
     "none",
   );
-  const before = await page.locator("[data-training-targets]").boundingBox();
-  const clockBefore = await page
-    .getByRole("timer", { name: "Memorisation" })
-    .boundingBox();
   await page.screenshot({ path: `${output}/memo-${width}.png` });
   if (touch) await advance.click();
   else await page.keyboard.press("Space");
@@ -220,7 +217,7 @@ async function flow(page: any, width: number, dnf = false) {
 test("Guided phases, completion and passive history use the shared UI with unchanged saved data", async ({
   page,
 }) => {
-  const saved = await flow(page, 1440);
+  await flow(page, 1440);
   const history = page.getByRole("list", { name: "Attempts", exact: true });
   const row = history.locator("[data-attempt-row]");
   await expect(row).toHaveCSS("cursor", "default");

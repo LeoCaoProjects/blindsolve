@@ -1,6 +1,7 @@
+import { viewportGeometry } from "./helpers/viewport";
 import { test, expect } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
-import { trainingModes } from "../src/magic/data/trainingModes";
+import { trainingModes } from "../src/workspace/data/trainingModes";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((scheme) => {
@@ -126,22 +127,37 @@ test("new Training selectors keep real modes, scopes and shared help copy", asyn
   }
 });
 
-test('rail and dock preserve the existing Settings leave guard', async ({ page }) => {
+test('rail and dock persist completed Settings edits on navigation', async ({ page }) => {
   for (const width of [1440, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto('/settings');
-    await page.getByRole('radiogroup', { name: 'Edge method' }).getByRole('radio', { name: 'OP', exact: true }).click();
+    const method = page.getByRole('radiogroup', { name: 'Edge method' });
+    const op = method.getByRole('radio', { name: 'OP', exact: true });
+    const m2 = method.getByRole('radio', { name: 'M2', exact: true });
+    const next = await op.getAttribute('aria-checked') === 'true' ? 'M2' : 'OP';
+    await page.evaluate(() => {
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === "blindsolve-settings-draft-v1:guest" &&
+            document.documentElement.hasAttribute("data-test-draft-blocked")) {
+          throw new DOMException("Synthetic quota", "QuotaExceededError");
+        }
+        return setItem.call(this, key, value);
+      };
+      document.documentElement.setAttribute("data-test-draft-blocked", "");
+    });
+    await (next === 'M2' ? m2 : op).click();
+    await expect(page.getByRole('status', { name: 'Setup save status' })).toContainText('draft');
     await page.getByRole('link', { name: 'Training', exact: true }).click();
-    const confirm = page.getByRole('alertdialog', { name: 'Save setup changes?' });
-    await expect(confirm).toBeVisible();
     await expect(page).toHaveURL(/\/settings$/);
-    await confirm.getByRole('button', { name: 'Stay', exact: true }).click();
+    await page.evaluate(() => document.documentElement.removeAttribute("data-test-draft-blocked"));
+    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Setup save status' })).toHaveCount(0);
     await page.getByRole('link', { name: 'Training', exact: true }).click();
-    await confirm.getByRole('button', { name: 'Discard', exact: true }).click();
     await expect(page).toHaveURL(new URL("/", page.url()).href);
-    await expect(
-      page.getByRole("link", { name: "Training", exact: true }),
-    ).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("link", { name: "Training", exact: true })).toHaveAttribute("aria-current", "page");
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await expect(method.getByRole('radio', { name: next, exact: true })).toHaveAttribute('aria-checked', 'true');
   }
 });
 
@@ -150,15 +166,16 @@ test('Training controls occupy a secondary desktop sidebar and preserve Show sta
     await page.setViewportSize(viewport);
     await page.goto('/training');
     const chooser = page.getByRole('button',{name:'Training controls',exact:true});
-    if (viewport.width >= 1024) {
+    const { contextual, rem } = await viewportGeometry(page);
+    if (contextual) {
       await expect(chooser).toHaveCount(0);
       const globalNav = await page.getByRole('navigation',{name:'Sections'}).boundingBox();
       const sidebar = page.getByRole('complementary',{name:'Training controls',exact:true});
-      await expect.poll(async () => (await sidebar.boundingBox())?.width).toBeCloseTo(224 * 1.2, 1);
+      await expect.poll(async () => (await sidebar.boundingBox())?.width).toBeCloseTo(224 * rem / 16, 1);
       const side = await sidebar.boundingBox();
       const main = await page.getByRole('main').boundingBox();
       expect(side && globalNav && main && side.x >= globalNav.x + globalNav.width && main.x >= side.x + side.width).toBeTruthy();
-      await expect.poll(async () => (await sidebar.boundingBox())?.width).toBeCloseTo(224 * 1.2, 1);
+      await expect.poll(async () => (await sidebar.boundingBox())?.width).toBeCloseTo(224 * rem / 16, 1);
       for (const label of ['Drill','Pieces','Show']) await expect(page.getByRole('main').getByRole('radiogroup',{name:label,exact:true})).toHaveCount(0);
       const modes = await sidebar.getByRole('radiogroup',{name:'Drill'}).getByRole('radio').all();
       for (let i=1;i<modes.length;i++) {

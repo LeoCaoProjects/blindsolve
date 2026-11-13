@@ -1,36 +1,26 @@
-# Blindsolve
+# BlindSolve
 
-A private 3×3 blindfolded-solving trainer, with a separate early CubeIQ solve-analysis foundation.
+BlindSolve is a 3×3 blindfolded-solving trainer with a split timer and memo reconstruction, five Training modes, editable Letter Pairs and Flashcards, and configurable sticker lettering and buffers.
 
-## About
+## Run locally
 
-Blindsolve includes a letter-pair database, random flashcards, realistic BLD memo training, a blind timer, and configurable sticker lettering. It uses real cube states and keeps cycle breaks separate from the memo representation.
+Use Node.js 22 and npm. The frontend works without an account or backend.
 
-The repository also retains CubeIQ's evidence-aware camera-analysis work. That work is still exploratory and does not claim reliable camera reconstruction yet.
+    npm ci
+    npm run dev
 
-## Built with
+For isolated account testing, copy .env.example to .env.local and use the public URL and client key of your disposable local Supabase stack. Keep the sample values to run without sign-in. CI applies the checked-in migrations to a fresh local stack. See [development](CONTRIBUTING.md) and [maintenance](docs/maintenance.md).
 
-React, TypeScript, Vite, cubing.js, Supabase, and FastAPI.
+## Architecture
 
-## Local setup
+| Path | Responsibility |
+| --- | --- |
+| src/main.tsx, src/App.tsx | Browser entry, owner store and recovered-workspace boundary |
+| src/workspace | Routes, session shell, Timer, Training, Pairs, Flashcards, Settings and shared interaction components |
+| src/domain | BLD tracing, physical sticker identities, lettering and logical pair rules |
+| src/app, src/lib | Owner-scoped persistence, validation, sync, tombstones, recovery and provider adapters |
+| supabase | Ordered migrations, database policy fixtures, diagnostics and Edge functions |
+| backend | Experimental FastAPI camera-analysis foundation |
+| e2e, colocated tests and scripts | Browser workflows, focused tests and reproducible tooling |
 
-```powershell
-npm install
-Copy-Item .env.example .env
-npm run dev
-```
-
-The frontend works locally without Supabase. For account sync, create a dedicated Supabase project, apply the migrations in `supabase/migrations`, and provide the public URL and anon key in `.env`. Enable Google in Supabase Auth and add the deployed site URL to its redirect allow-list.
-
-WCA sign-in uses the checked-in `wca-oauth` Edge Function so the OAuth secret never enters the browser. Register an OAuth application at the WCA, using `https://YOUR_PROJECT.supabase.co/functions/v1/wca-oauth/callback` as its callback, then configure and deploy:
-
-```powershell
-supabase secrets set APP_URL=https://YOUR_SITE WCA_CLIENT_ID=... WCA_CLIENT_SECRET=...
-supabase functions deploy wca-oauth --no-verify-jwt
-```
-
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are supplied to deployed functions by Supabase. Never place the service-role key or WCA secret in a `VITE_` variable or frontend code.
-
-Run checks with `npm test`, `npm run lint`, `npm run build`, and `npm run test:e2e`.
-
-See [maintenance checks](docs/maintenance.md) for read-only capacity SQL, cache verification, storage recovery and isolated database contract tests.
+Normal backups and restored workspaces preserve known deletion markers. V1 review exports preserve owner records separately from canonical history. See [logical pair identities](docs/logical-pair-model.md), [Target Recognition](docs/target-recognition.md) and [security](SECURITY.md). Distribution licensing remains a repository-owner decision.

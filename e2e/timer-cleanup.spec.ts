@@ -7,7 +7,7 @@ import {
   stateFromScramble,
   CORNER_SLOTS,
   EDGE_SLOTS,
-} from "../src/magic/utils/cube";
+} from "../src/workspace/utils/cube";
 
 const sizes = [
   [1440, 900],

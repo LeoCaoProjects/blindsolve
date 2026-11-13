@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
-import { challengeFromScramble } from "../src/magic/utils/bld";
-import { FACES, STICKER_COLORS } from "../src/magic/utils/cube";
-import { ALL_STICKERS, speffzScheme } from "../src/magic/utils/scheme";
-import { orderedChallengeGroups } from "../src/magic/utils/challengeTargets";
+import { challengeFromScramble } from "../src/workspace/utils/bld";
+import { FACES, STICKER_COLORS } from "../src/workspace/utils/cube";
+import { ALL_STICKERS, speffzScheme } from "../src/workspace/utils/scheme";
+import { orderedChallengeGroups } from "../src/workspace/utils/challengeTargets";
 const scheme = createSpeffzScheme(),
   letters = speffzScheme();
 const slot = (id: string) =>

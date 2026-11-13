@@ -1,10 +1,11 @@
+import { viewportGeometry } from "./helpers/viewport";
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
-import { resolveWords } from "../src/magic/utils/pairs";
+import { resolveWords } from "../src/workspace/utils/pairs";
 import {
   pairsFromStore,
   writePairEntries,
-} from "../src/magic/utils/pairPersistence";
+} from "../src/workspace/utils/pairPersistence";
 import type { AppData } from "../src/lib/repository";
 const fixture = writePairEntries(
   {
@@ -50,7 +51,11 @@ async function choose(page: Page, label: string) {
     name: "Letter Pairs navigation",
     exact: true,
   });
-  if (await trigger.isVisible()) await trigger.click();
+  const { contextual } = await viewportGeometry(page);
+  if (!contextual) {
+    await trigger.click();
+    await expect(page.getByRole("dialog", { name: "Letter Pairs navigation", exact: true })).toBeVisible();
+  }
   await page
     .getByRole("radiogroup", { name: "Vocabulary", exact: true })
     .getByRole("radio", { name: label, exact: true })
@@ -515,7 +520,11 @@ for (const width of [1440, 320])
         name: "Letter Pairs navigation",
         exact: true,
       });
-      if (await trigger.isVisible()) await trigger.click();
+      const { contextual } = await viewportGeometry(page);
+  if (!contextual) {
+    await trigger.click();
+    await expect(page.getByRole("dialog", { name: "Letter Pairs navigation", exact: true })).toBeVisible();
+  }
       await expect(
         page.getByRole("button", { name: "Delete T pairs", exact: true }),
       ).toHaveCSS("color", "rgb(240, 100, 98)");

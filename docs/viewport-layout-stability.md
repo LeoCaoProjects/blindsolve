@@ -121,7 +121,7 @@ No backend, authentication flow, timer mechanics, cube-state logic, data model o
 
 Files changed for this continuation:
 
-- Policy/build: `postcss.config.js`, `scripts/viewport-layout-css.mjs`, `src/styles/viewport-layout.json`, `src/magic/utils/viewportLayoutPolicy.ts`, `src/magic/utils/viewportSizing.ts`.
+- Policy/build: `postcss.config.js`, `scripts/viewport-layout-css.mjs`, `src/styles/viewport-layout.json`, `src/workspace/utils/viewportLayoutPolicy.ts`, `src/workspace/utils/viewportSizing.ts`.
 - Sidebar/cube geometry: `SubNavigation.tsx`, `useElementSize.ts`, `useElementWidth.ts`, `cubeGeometry.ts`, `Cube3D.tsx`, `SchemeCube.tsx`, `CubeConfigurator.tsx`, `WorkspaceTimer.tsx`; Settings scroll-spy geometry in `Settings.tsx`.
 - Scroll geometry: `VirtualHistory.tsx`.
 - Verification: `src/styles/viewportLayout.test.js`, `e2e/viewport-layout.spec.ts`, `scripts/native-browser-session.mjs`, `scripts/responsive-zoom-audit.mjs`, `scripts/zoom-state-audit.mjs`.

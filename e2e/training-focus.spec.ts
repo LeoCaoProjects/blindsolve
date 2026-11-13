@@ -44,9 +44,19 @@ for (const [index, mode] of [
       ).toBeEnabled({ timeout: 45000 });
     if (mode === "Target Recognition")
       await expect(page.getByRole("status")).toHaveCount(0, { timeout: 45000 });
-    await page
-      .getByRole("button", { name: "How it works", exact: true })
-      .click();
+    const helpTrigger = page.getByRole("button", {
+      name: "How it works",
+      exact: true,
+    });
+    if (mode === "Execution Sprint") {
+      await helpTrigger.hover();
+      await page.locator("[data-workspace-main]").focus();
+      await page.keyboard.down("Space");
+      await expect(
+        page.getByRole("timer", { name: "Ready, release to start" }),
+      ).toBeVisible();
+    }
+    await helpTrigger.click();
     const help = page.getByRole("dialog", {
       name: `How ${mode} works`,
       exact: true,
@@ -56,6 +66,12 @@ for (const [index, mode] of [
     else await help.getByRole("button", { name: "Close", exact: true }).click();
     await expect(help).toHaveCount(0);
     await expect(page.locator("[data-workspace-main]")).toBeFocused();
+    if (mode === "Execution Sprint") {
+      await page.keyboard.up("Space");
+      await expect(
+        page.getByRole("timer", { name: "Hold Space to start" }),
+      ).toBeVisible();
+    }
     await hold(page);
     await expect(
       page.getByRole("timer", { name: "Hold Space to start", exact: true }),

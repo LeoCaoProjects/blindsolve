@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
-import { writePairEntries } from "../src/magic/utils/pairPersistence";
+import { writePairEntries } from "../src/workspace/utils/pairPersistence";
 import type { AppData } from "../src/lib/repository";
 
 test.beforeEach(async ({ page }) => {

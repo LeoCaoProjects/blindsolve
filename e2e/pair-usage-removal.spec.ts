@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
 import type { AppData } from "../src/lib/repository";
-import { writePairEntries } from "../src/magic/utils/pairPersistence";
+import { writePairEntries } from "../src/workspace/utils/pairPersistence";
 const tokens = "ABCDEFGHIJKLMNOPQRSTUVWX".split("");
 const fixture = writePairEntries(
   {

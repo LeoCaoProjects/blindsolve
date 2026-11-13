@@ -10,11 +10,13 @@ import {
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { withAccountCloudLock } from "../lib/cloudLock";
+import { loadRecovered, recoveredKey, saveRecovered, type RecoveredWorkspace } from "../lib/portableRecovery";
 import {
   emptyData,
   loadLocal,
   saveLocal,
   loadCloud,
+  loadLegacyRecovery,
   saveCloudChanges,
   mergeData,
   hasMeaningfulData,
@@ -42,10 +44,14 @@ interface StoreValue {
   storageIssue: string;
   retryStorage: () => void;
   recoveryEnvelope: () => LocalEnvelope;
+  durableRecovery: () => { envelope: LocalEnvelope; legacyIncomplete: boolean };
+  workspaceIdentity: () => string;
+  readLegacyRecovery: (account: string) => ReturnType<typeof loadLegacyRecovery>;
+  recoveredId?: string;
+  recoveryError?: string;
   notify: (s: string) => void;
   update: (fn: (d: AppData) => AppData) => boolean;
   retry: () => void;
-  importData: (data: AppData) => void;
   focus: boolean;
   setFocus: (focus: boolean) => void;
   guestMigration: { pairs: number; solves: number } | null;
@@ -57,7 +63,7 @@ export function useStore() {
   if (!ctx) throw new Error("Missing app store");
   return ctx;
 }
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function StoreProvider({ children, recoveredId }: { children: ReactNode; recoveredId?: string }) {
   const [data, setData] = useState(emptyData),
     [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
@@ -82,20 +88,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     saving = useRef(false),
     connected = useRef(false),
     initialized = useRef(false);
-  const guestForMigration = useRef<AppData | null>(null),
-    clearGuestAfterSync = useRef(false);
+  const guestForMigration = useRef<AppData | null>(null);
   const flushRef = useRef<() => Promise<void>>(async () => {});
   const storageReadable = useRef(true);
   const storageReadReason = useRef("");
+  const recovered = useRef<RecoveredWorkspace["metadata"] | null>(null);
+  const [recoveryError, setRecoveryError] = useState("");
   // A failed atomic setItem must not discard new work on an account transition.
   // These copies live only in this tab; the persistent warning/unload guard says so.
   const unsaved = useRef(new Map<string | null, LocalEnvelope>());
   const unreadableOwners = useRef(new Set<string | null>());
+  const readAccount = useCallback((account: string, generation: number) =>
+    withAccountCloudLock(account, () => loadCloud({
+      owner: account,
+      isCurrent: () => epoch.current === generation && owner.current === account,
+    })), []);
   const persist = useCallback(() => {
     try {
       if (!storageReadable.current)
         throw new Error("Original data requires recovery");
-      saveLocal(owner.current, current.current);
+      if (recoveredId) {
+        if (!recovered.current) throw new Error("Workspace is not open for writing.");
+        saveRecovered(recovered.current, current.current);
+      } else saveLocal(owner.current, current.current);
       unsaved.current.delete(owner.current);
       setStorageIssue(
         unsaved.current.size
@@ -112,7 +127,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
       return false;
     }
-  }, []);
+  }, [recoveredId]);
   const markAttempt = useCallback(() => {
     const attemptedAt = new Date().toISOString();
     current.current = { ...current.current, lastAttemptAt: attemptedAt };
@@ -174,30 +189,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       };
       retryAttempts.current = 0;
       setSync(current.current.dirty ? "saving" : "saved");
-      const persisted = persist();
-      if (persisted && !current.current.dirty && clearGuestAfterSync.current) {
-        try {
-          saveLocal(null, {
-            data: emptyData(),
-            dirty: false,
-            revision: 0,
-            pending: {},
-          });
-        } catch {
-          // Account data is safe; keep the guest source rather than losing it.
-          notify(
-            "Account saved. The guest copy could not be cleared and has been preserved.",
-          );
-          return;
-        }
-        clearGuestAfterSync.current = false;
-        guestForMigration.current = null;
-      }
+      // Migration is a copy. A cloud acknowledgement cannot atomically
+      // compare and clear another tab's guest storage or its deletion evidence.
+      persist();
     } catch (error) {
       if (generation === epoch.current) {
         if (error instanceof SyncConflictError) {
           try {
-            const remote = await withAccountCloudLock(owner.current, loadCloud);
+            const remote = await readAccount(owner.current!, generation);
             if (generation !== epoch.current) return;
             const merged = reconcileSync(current.current, remote);
             current.current = merged;
@@ -205,7 +204,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             persist();
             if (merged.conflicts)
               notify(
-                `${merged.conflicts} word conflicts used the most recently updated values.`,
+                `${merged.conflicts} word conflicts were resolved. Review the resulting words.`,
               );
             if (current.current.dirty) {
               setSync("error");
@@ -226,6 +225,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             // Fall through to the bounded retry path below.
           }
         }
+        if (generation !== epoch.current) return;
         const offline = typeof navigator !== "undefined" && !navigator.onLine;
         setSync(offline ? "offline" : "error");
         notify(
@@ -243,9 +243,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setData({ ...current.current.data });
       }
     }
-  }, [markAttempt, persist]);
+  }, [markAttempt, persist, readAccount]);
   flushRef.current = flush;
   useEffect(() => {
+    if (!recoveredId) return;
+    let disposed = false;
+    let release: (() => void) | undefined;
+    const controller = new AbortController();
+    const waiting = window.setTimeout(() => {
+      setRecoveryError("Waiting for exclusive access. If this workspace is open in another tab, close it there.");
+    }, 350);
+    const open = async () => {
+      try {
+        if (!navigator.locks) throw new Error("This browser cannot safely open an isolated workspace.");
+        await navigator.locks.request(recoveredKey(recoveredId), { signal: controller.signal }, async () => {
+          if (disposed) return;
+          window.clearTimeout(waiting);
+          const saved = loadRecovered(recoveredId);
+          await new Promise<void>((done) => {
+            release = done;
+            recovered.current = saved.metadata;
+            current.current = saved.envelope;
+            setData(saved.envelope.data);
+            setSync("local");
+            setRecoveryError("");
+            setReady(true);
+          });
+        });
+      } catch (error) {
+        window.clearTimeout(waiting);
+        if (!disposed) setRecoveryError(error instanceof Error ? error.message : "Workspace could not be opened.");
+      }
+    };
+    void open();
+    return () => {
+      disposed = true;
+      window.clearTimeout(waiting);
+      controller.abort();
+      recovered.current = null;
+      release?.();
+    };
+  }, [recoveredId]);
+  useEffect(() => {
+    if (recoveredId) return;
     let disposed = false;
     const switchOwner = async (nextUser: User | null) => {
       if (disposed) return;
@@ -266,6 +306,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           : "",
       );
       setGuestMigration(null);
+      guestForMigration.current = null;
       notify("");
       setUser(nextUser);
       setReady(false);
@@ -302,14 +343,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       current.current = local;
       setLastAttemptAt(local.lastAttemptAt ?? null);
       setData(local.data);
-      if (!nextUser) {
-        guestForMigration.current = null;
-        clearGuestAfterSync.current = false;
-      }
       if (nextUser) {
         try {
           markAttempt();
-          const remote = await withAccountCloudLock(nextUser.id, loadCloud);
+          const remote = await readAccount(nextUser.id, generation);
           if (disposed || generation !== epoch.current) return;
           const latestLocal = current.current;
           let merged = reconcileSync(latestLocal, remote);
@@ -320,8 +357,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (guestHasData && !accountHasData) {
             const imported = mergeData(merged.data, guest);
             merged = reconcileSync({ ...merged, data: imported.data }, remote);
-            guestForMigration.current = guest;
-            clearGuestAfterSync.current = true;
           } else if (guestHasData && accountHasData) {
             guestForMigration.current = guest;
             setGuestMigration({
@@ -330,7 +365,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             });
           } else {
             guestForMigration.current = null;
-            clearGuestAfterSync.current = false;
           }
           connected.current = true;
           current.current = merged;
@@ -339,7 +373,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setSync(Object.keys(pending).length ? "saving" : "saved");
           if (merged.conflicts)
             notify(
-              `${merged.conflicts} word conflicts used the most recently updated values. Review them before continuing.`,
+              `${merged.conflicts} word conflicts were resolved. Review them before continuing.`,
             );
           persist();
         } catch {
@@ -376,7 +410,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       listener.subscription.unsubscribe();
     };
     // Auth owns account transitions. No data/effect dependency: subscriptions must stay stable.
-  }, [markAttempt, persist]);
+  }, [markAttempt, persist, recoveredId]);
   useEffect(() => {
     if (sync === "saving" && !saving.current && current.current.dirty) {
       saveTimer.current = setTimeout(() => void flush(), 750);
@@ -384,6 +418,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [data, sync, flush]);
   useEffect(() => {
+    if (recoveredId) return;
     const changed = (event: StorageEvent) => {
       if (
         event.key !== `cubeiq-bld-v2:${owner.current ?? "guest"}` ||
@@ -428,9 +463,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("storage", changed);
     return () => window.removeEventListener("storage", changed);
-  }, []);
+  }, [readAccount, recoveredId]);
   const update = useCallback(
     (fn: (d: AppData) => AppData) => {
+      if (recoveredId && !recovered.current) return false;
       const previous = current.current.data;
       const next = fn(previous);
       if (next.scheme !== previous.scheme)
@@ -478,7 +514,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       return persist();
     },
-    [persist],
+    [persist, recoveredId],
   );
   const retry = async () => {
     if (!owner.current) {
@@ -497,7 +533,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     markAttempt();
     setSync("loading");
     try {
-      const remote = await withAccountCloudLock(owner.current, loadCloud);
+      const remote = await readAccount(owner.current, generation);
       if (generation !== epoch.current) return;
       const merged = reconcileSync(current.current, remote);
       connected.current = true;
@@ -506,7 +542,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       persist();
       if (merged.conflicts)
         notify(
-          `${merged.conflicts} word conflicts used the most recently updated values.`,
+          `${merged.conflicts} word conflicts were resolved. Review the resulting words.`,
         );
       retryAttempts.current = 0;
       if (current.current.dirty) await flush();
@@ -571,25 +607,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
     // Account ownership is held in refs so listeners remain stable.
   }, [flush]);
-  const importData = (incoming: AppData) => {
-    const result = mergeData(current.current.data, incoming);
-    const persisted = update(() => result.data);
-    if (persisted)
-      notify(
-        `Backup merged. ${result.conflicts} word conflicts used the most recently updated values.`,
-      );
-  };
   const resolveGuestMigration = useCallback(
     (choice: "merge" | "account") => {
       const guest = guestForMigration.current;
+      guestForMigration.current = null;
       setGuestMigration(null);
       if (choice !== "merge" || !guest || !owner.current) return;
       const merged = mergeData(current.current.data, guest);
-      clearGuestAfterSync.current = true;
       update(() => merged.data);
       if (merged.conflicts)
         notify(
-          `${merged.conflicts} word conflicts used the most recently updated values.`,
+          `${merged.conflicts} word conflicts were resolved. Review the resulting words.`,
         );
     },
     [update],
@@ -606,10 +634,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         storageIssue,
         retryStorage,
         recoveryEnvelope: () => current.current,
+        durableRecovery: () => {
+          if (!ready || !storageReadable.current || unsaved.current.has(owner.current))
+            throw new Error("Save the current workspace before exporting its durable backup.");
+          if (recoveredId) {
+            const saved = loadRecovered(recoveredId);
+            return { envelope: saved.envelope, legacyIncomplete: saved.metadata.legacyIncomplete };
+          }
+          return { envelope: loadLocal(owner.current), legacyIncomplete: false };
+        },
+        workspaceIdentity: () => recoveredId ? recoveredKey(recoveredId) : `owner:${owner.current ?? "guest"}:${epoch.current}`,
+        readLegacyRecovery: (account) => {
+          const generation = epoch.current;
+          return loadLegacyRecovery({
+            owner: account,
+            isCurrent: () => !recoveredId && owner.current === account && epoch.current === generation,
+          });
+        },
+        recoveredId,
+        recoveryError,
         notify,
         update,
         retry: () => void retry(),
-        importData,
         focus,
         setFocus,
         guestMigration,

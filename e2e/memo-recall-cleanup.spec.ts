@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
-import { formatTime } from "../src/magic/utils/time";
+import { formatTime } from "../src/workspace/utils/time";
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(
     (scheme) =>
@@ -359,7 +359,7 @@ test("extra recalled tokens remain DNF without inflating expected-target accurac
   const popup = await finish(page, withExtra);
 
   await expect(popup.getByRole("definition").first()).toHaveText(
-    `${total}/${total} targets`,
+    `${total}/${total}`,
   );
   await expect(popup.locator("[data-recall-error]")).toHaveCount(1);
   await expect(popup.locator("[data-recall-error]")).toContainText("A");

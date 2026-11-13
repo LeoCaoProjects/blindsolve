@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import type { AppData } from "../src/lib/repository";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
-import { writePairEntries } from "../src/magic/utils/pairPersistence";
+import { writePairEntries } from "../src/workspace/utils/pairPersistence";
 
 async function seed(page: Page, custom: boolean) {
   let data = {
@@ -115,7 +115,7 @@ test("guest relabel/edit/reload/revert preserves logical words and custom naviga
   const saved = await stored(page);
   expect(saved.pairs).toEqual(original.pairs);
   expect(
-    Object.values(saved.logicalPairs).find((r: any) => r.firstToken === "SH"),
+    Object.values((saved as AppData).logicalPairs ?? {}).find((r) => r.firstToken === "SH"),
   ).toMatchObject({ primaryMnemonic: "Ship" });
   await page.screenshot({
     path: test.info().outputPath("restored-logical-pair.png"),
@@ -128,6 +128,7 @@ test("standard single-character two-key navigation still jumps to the pair", asy
 }) => {
   await seed(page, false);
   await page.goto("/pairs");
+  await expect(page.getByRole("heading", { name: "Pairs starting with A", exact: true })).toBeVisible();
   await page.keyboard.type("tb");
   await expect(
     page.getByRole("grid", { name: "Pairs starting T", exact: true }),

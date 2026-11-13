@@ -47,13 +47,15 @@ for (const [width, height] of [
       await page.goto(route);
       await expect(page).toHaveTitle("BlindSolve");
       const root = await page.evaluate(() => ({
-        font: getComputedStyle(document.documentElement).fontSize,
+        font: parseFloat(getComputedStyle(document.documentElement).fontSize),
         zoom: getComputedStyle(document.documentElement).zoom,
         transform: getComputedStyle(document.documentElement).transform,
         overflow: document.documentElement.scrollWidth > innerWidth,
       }));
+      const expectedRoot = width >= height ? Math.max(height * 19.2 / 900, width * 12.8 / 1440) : 19.2;
+      expect(root.font).toBeCloseTo(expectedRoot, 2);
       expect(root).toEqual({
-        font: "19.2px",
+        font: root.font,
         zoom: "1",
         transform: "none",
         overflow: false,
@@ -64,24 +66,23 @@ for (const [width, height] of [
         ).toBeEnabled({ timeout: 45000 });
         await expect(page.getByRole("timer")).toBeInViewport();
         const clock = (await page.getByRole("timer").boundingBox())!;
-        expect(clock.height).toBeGreaterThan(40);
+        expect(clock.height).toBeGreaterThan(40 * root.font / 19.2);
         const footer = (await page
           .getByRole("region", { name: "Last solve memo" })
           .boundingBox())!;
         expect(clock.y + clock.height).toBeLessThanOrEqual(footer.y);
-        if (width >= 768)
-          expect(
-            (await page
-              .getByRole("group", { name: "Scrambled cube", exact: true })
-              .boundingBox())!.width,
-          ).toBe(
-            (
-              { 1440: 272, 1280: 222, 1024: 230, 900: 165 } as Record<
-                number,
-                number
-              >
-            )[width],
-          );
+        if (width >= 768) {
+          const viewport = page.locator("[data-timer-cube-viewport]");
+          const size = await viewport.evaluate(el => ({
+            width: el.clientWidth,
+            height: el.clientHeight,
+          }));
+          const unit = root.font / 19.2;
+          const available = Math.min(size.width / unit - 56, size.height / unit - 36);
+          const expected = Math.max(120, Math.min(272, available)) * unit;
+          const cube = page.getByRole("group", { name: "Scrambled cube", exact: true });
+          await expect.poll(async () => Math.abs((await cube.boundingBox())!.width - expected)).toBeLessThan(1.5);
+        }
       }
       if (process.env.GLOBAL_UI_DIR) {
         await mkdir(process.env.GLOBAL_UI_DIR, { recursive: true });
