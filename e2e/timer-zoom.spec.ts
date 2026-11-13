@@ -1,64 +1,42 @@
 import { viewportGeometry } from "./helpers/viewport";
-import { chromium, expect, test } from "@playwright/test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { isAbsolute, join, relative } from "node:path";
+import { expect, test } from "@playwright/test";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 
-// Native browser zoom, not CSS zoom, DPR overrides, pinch zoom or viewport emulation.
-// Chromium stores the default partition's zoom level under "x". Source:
-// https://chromium.googlesource.com/chromium/src/+/lkgr/chrome/browser/ui/zoom/chrome_zoom_level_prefs.cc
+// Apply and acknowledge actual Chrome tab zoom before exercising native window bounds.
 for (const zoom of [0.8, 1, 1.25, 1.5]) {
-  test(`Timer remains usable at native ${zoom * 100}% browser zoom`, async () => {
-    const profile = await mkdtemp(join(tmpdir(), "blindsolve-zoom-"));
-    const profileRelativePath = relative(tmpdir(), profile);
-    if (isAbsolute(profileRelativePath) || profileRelativePath.startsWith(".."))
-      throw new Error("Unexpected test profile path");
-
-    await mkdir(join(profile, "Default"));
-    await writeFile(
-      join(profile, "Default", "Preferences"),
-      JSON.stringify({
-        partition: {
-          default_zoom_level: { x: Math.log(zoom) / Math.log(1.2) },
-        },
-      }),
-    );
-    const context = await chromium.launchPersistentContext(profile, {
-      ...(process.platform === "win32" ? { channel: "msedge" } : {}),
-      viewport: null,
-      headless: true,
-      args: ["--window-size=1440,900"],
-    });
+  test(`Timer remains usable at native ${zoom * 100}% browser zoom`, async ({ baseURL }) => {
+    const { nativeBrowser } = await import("../scripts/native-browser-session.mjs");
+    const native = await nativeBrowser("chrome");
     try {
-      const page = context.pages()[0];
-      await page.goto(
-        process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:5173",
-      );
+      const page = native.page!;
+      await native.resize(1440, 900);
+      const url = new URL("/", baseURL);
+      const response = await page.goto(url.href);
+      expect(response?.ok()).toBe(true);
+      await expect(page).toHaveURL(url.href);
       await expect(
         page.getByRole("button", { name: "New scramble", exact: true }),
       ).toBeEnabled({ timeout: 45000 });
-      const cdp = await context.newCDPSession(page);
-      const { windowId } = await cdp.send("Browser.getWindowForTarget");
-      const trim = await page.evaluate(
-        (factor) => ({
-          width: outerWidth - innerWidth * factor,
-          height: outerHeight - innerHeight * factor,
-        }),
-        zoom,
-      );
+      const measure = () => page.evaluate(() => ({
+        width: innerWidth,
+        height: innerHeight,
+        dpr: devicePixelRatio,
+      }));
+      const before = await measure();
+      await native.zoom(zoom);
+      const after = await measure();
+      console.log("NATIVE_ZOOM_PREFLIGHT", { browser: native.version, zoom, before, after });
+      expect(after.dpr / before.dpr).toBeCloseTo(zoom, 2);
+      expect(Math.abs(after.width - before.width / zoom)).toBeLessThan(2);
+      expect(Math.abs(after.height - before.height / zoom)).toBeLessThan(2);
       for (const [width, height] of [
         [1440, 900],
         [1280, 720],
         [1024, 768],
         [900, 560],
       ]) {
-        await cdp.send("Browser.setWindowBounds", {
-          windowId,
-          bounds: {
-            width: Math.round(width + trim.width),
-            height: Math.round(height + trim.height),
-          },
-        });
+        await native.resize(width, height);
         // Confirm actual zoom reduced/enlarged CSS viewport interpretation.
         await expect
           .poll(async () =>
@@ -120,16 +98,8 @@ for (const zoom of [0.8, 1, 1.25, 1.5]) {
           await mkdir(process.env.TIMER_REFINEMENT_DIR, { recursive: true });
           // Capture the compositor viewport: Playwright's CSS-pixel clip can
           // crop screenshots at native browser zoom despite correct DOM geometry.
-          const capture = await cdp.send("Page.captureScreenshot", {
-            format: "png",
-            captureBeyondViewport: false,
-          });
-          await writeFile(
-            join(
-              process.env.TIMER_REFINEMENT_DIR,
-              `zoom-${zoom * 100}-${width}.png`,
-            ),
-            Buffer.from(capture.data, "base64"),
+          await native.screenshot(
+            join(process.env.TIMER_REFINEMENT_DIR, `zoom-${zoom * 100}-${width}.png`),
           );
         }
         await page.keyboard.press("Escape");
@@ -148,9 +118,7 @@ for (const zoom of [0.8, 1, 1.25, 1.5]) {
         });
       }
     } finally {
-      await context.close();
-      // Only remove the unique test profile created above, inside the OS temp directory.
-      await rm(profile, { recursive: true, force: true });
+      await native.close();
     }
   });
 }
