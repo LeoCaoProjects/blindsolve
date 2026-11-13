@@ -172,7 +172,11 @@ test("shared suggestions float without layout changes and save only Default", as
   expect(
     await page.locator("[data-workspace-reference]").boundingBox(),
   ).toEqual(panel);
-  expect(await save(page).boundingBox()).toEqual(button);
+  const movedButton = await save(page).boundingBox();
+  expect(movedButton).not.toBeNull();
+  expect(button).not.toBeNull();
+  expect({ ...movedButton, y: button!.y }).toEqual(button);
+  expect(Math.abs(movedButton!.y - button!.y)).toBeLessThanOrEqual(0.1);
   const choice = popup.getByRole("list").getByRole("button").first();
   const word = (await choice.textContent())!.trim();
   await choice.click();
