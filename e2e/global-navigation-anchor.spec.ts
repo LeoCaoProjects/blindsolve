@@ -1,3 +1,4 @@
+import { viewportGeometry } from "./helpers/viewport";
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
 const sizes = [
@@ -175,13 +176,15 @@ for (const [width, height] of sizes)
         ),
         `${previous} → ${label}: unchanged global navigation rectangle`,
       ).toBe(true);
-      const expected = width >= 1024 && label !== "Timer" ? 224 : 0;
-      expect(frames.at(-1)!.column).toBe(expected);
-      if (width >= 1024 && previous !== "Timer" && label !== "Timer") {
+      const { rem, contextual } = await viewportGeometry(page);
+      const expected = contextual && label !== "Timer" ? 224 * rem / 16 : 0;
+      expect(frames.at(-1)!.column).toBeCloseTo(expected, 1);
+      if (contextual && previous !== "Timer" && label !== "Timer") {
         expect(
           frames.every(
             (frame) =>
-              frame.column === 224 && Math.abs(frame.workspace - 296) < 0.1,
+              Math.abs(frame.column - 224 * rem / 16) < 0.1 &&
+              Math.abs(frame.workspace - 296 * rem / 16) < 0.1,
           ),
         ).toBe(true);
       }

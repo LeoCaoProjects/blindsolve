@@ -1,0 +1,303 @@
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useAppData } from "../contexts/AppDataContext";
+import { pairKey, resolveWords, splitKey } from "../utils/pairs";
+import { tokensOf } from "../utils/scheme";
+import { isTypingTarget } from "../utils/keyboard";
+import { useStore } from "../../app/Store";
+
+export type CardPiece = "edges" | "corners";
+export type CardPhase = "question" | "revealed" | "editing";
+
+/** One card = one pair in one piece context. */
+export interface Card {
+  key: string;
+  piece: CardPiece;
+}
+
+export interface CardLog {
+  id: string;
+  key: string;
+  piece: CardPiece;
+  result: "remembered" | "forgot";
+}
+
+interface Options {
+  /** Screen seeding only: which piece context the seeded card uses */
+  scope?: CardPiece | "both";
+  card?: string;
+  phase?: CardPhase;
+}
+
+const PIECES: CardPiece[] = ["edges", "corners"];
+const idOf = (c: Card) => `${c.key}#${c.piece}`;
+
+/** User-visible cards are distinct pair/answer associations, not piece render variants. */
+export function distinctMnemonicCardCount(
+  cards: Card[],
+  wordsFor: (key: string, piece: CardPiece) => string[],
+) {
+  return new Set(
+    cards.map(
+      ({ key, piece }) =>
+        `${key}\u0000${wordsFor(key, piece)
+          .map((word) => word.trim().toLocaleLowerCase())
+          .join("\u0001")}`,
+    ),
+  ).size;
+}
+
+/**
+ * Uniform random practice over every eligible (pair, piece) card: a pair usable for both edges
+ * and corners is two cards, each with the same chance as any other. "Forgot" is recorded,
+ * never used to weight selection.
+ */
+export function useFlashcards(opts: Options, active = true) {
+  const store = useStore();
+  const { pairs, setup, setDefaultWord } = useAppData();
+  const editContext = JSON.stringify([store.user?.id, store.data.scheme, pairs]);
+  const currentContext = useRef(editContext);
+  currentContext.current = editContext;
+  const openedContext = useRef<string | null>(null);
+  const [editError, setEditError] = useState("");
+  // Derive recent cards from saved data, including later account/cloud hydration.
+  const log = useMemo<CardLog[]>(
+    () =>
+      store.data.attempts
+        .filter((attempt) => attempt.kind === "flashcard" && attempt.pairKey)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 200)
+        .map((attempt) => ({
+          id: attempt.id,
+          key: attempt.pairKey!,
+          piece: attempt.pairPiece ?? "edges",
+          result: attempt.correct ? "remembered" : "forgot",
+        })),
+    [store.data.attempts],
+  );
+  const [phase, setPhase] = useState<CardPhase>(opts.phase ?? "question");
+  // Reopening during an exit fade starts a fresh draft rather than reviving it.
+  const [editSession, setEditSession] = useState(0);
+  const beginEdit = useCallback(() => {
+    openedContext.current = currentContext.current;
+    setEditError("");
+    setEditSession((current) => current + 1);
+    setPhase("editing");
+  }, []);
+
+  const wordsFor = useCallback(
+    (key: string, piece: CardPiece) => resolveWords(pairs[key], piece).words,
+    [pairs],
+  );
+
+  // A card is only valid if both tokens exist in that piece's own lettering.
+  const vocab = useMemo(
+    () => ({
+      edges: new Set(tokensOf(setup.scheme, "edge")),
+      corners: new Set(tokensOf(setup.scheme, "corner")),
+    }),
+    [setup.scheme],
+  );
+
+  const eligible = useMemo(() => {
+    const out: Card[] = [];
+    Object.keys(pairs).forEach((key) => {
+      const [a, b] = splitKey(key);
+      if (a === b) return;
+      PIECES.forEach((piece) => {
+        if (
+          vocab[piece].has(a) &&
+          vocab[piece].has(b) &&
+          wordsFor(key, piece).length > 0
+        )
+          out.push({ key, piece });
+      });
+    });
+    return out;
+  }, [pairs, vocab, wordsFor]);
+
+  const pick = useCallback(
+    (exclude?: Card | null) => {
+      const pool =
+        eligible.length > 1 && exclude
+          ? eligible.filter((c) => idOf(c) !== idOf(exclude))
+          : eligible;
+      return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+    },
+    [eligible],
+  );
+
+  const visibleCount = useMemo(
+    () => distinctMnemonicCardCount(eligible, wordsFor),
+    [eligible, wordsFor],
+  );
+
+  const [card, setCard] = useState<Card | null>(() =>
+    opts.card && pairs[opts.card]
+      ? {
+          key: opts.card,
+          piece: opts.scope === "corners" ? "corners" : "edges",
+        }
+      : null,
+  );
+
+  useEffect(() => {
+    if (!card || !eligible.some((c) => idOf(c) === idOf(card))) {
+      if (phase === "editing") return;
+      setCard(pick(null));
+      setPhase("question");
+    }
+  }, [eligible]);
+
+  const words = card ? wordsFor(card.key, card.piece) : [];
+
+  // A card has to be on screen for a moment before it can be answered: no skimming by accident.
+  const shownAt = useRef(0);
+  // Route visits start unrevealed; no keyboard/reveal state is persisted.
+  useLayoutEffect(() => {
+    if (active) {
+      setPhase(opts.phase ?? "question");
+      shownAt.current = performance.now();
+    }
+  }, [active]);
+  useEffect(() => {
+    shownAt.current = performance.now();
+  }, [card]);
+
+  const next = useCallback(
+    (result: "remembered" | "forgot") => {
+      if (
+        !active ||
+        phase !== "revealed" ||
+        !card ||
+        performance.now() - shownAt.current < 220
+      )
+        return;
+      shownAt.current = performance.now();
+      const createdAt = new Date().toISOString();
+      store.update((data) => ({
+        ...data,
+        attempts: [
+          {
+            id: crypto.randomUUID(),
+            kind: "flashcard",
+            correct: result === "remembered",
+            accuracy: result === "remembered" ? 1 : 0,
+            pairKey: card.key,
+            pairPiece: card.piece,
+            createdAt,
+          },
+          ...data.attempts,
+        ],
+      }));
+      setCard(pick(card));
+      setPhase("question");
+    },
+    [active, phase, card, pick, store],
+  );
+
+  const editPrimary = (word: string) => {
+    if (openedContext.current !== null && openedContext.current !== currentContext.current) {
+      setEditError("Your workspace changed. Copy your draft, then cancel and reopen the editor before saving.");
+      return;
+    }
+    if (!card || !word.trim()) return;
+    setDefaultWord(card.key, word.trim());
+    setPhase("revealed");
+  };
+
+  const review = (entry: CardLog) => {
+    setCard({ key: entry.key, piece: entry.piece });
+    setPhase("revealed");
+  };
+
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        isTypingTarget(e.target) ||
+        e.isComposing ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.shiftKey ||
+        e.defaultPrevented
+      )
+        return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]'))
+        return;
+      // Holding a key never cycles through cards.
+      if (e.repeat) {
+        if (e.code === "Space" || e.key === "Enter") e.preventDefault();
+        return;
+      }
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (phase === "question" && card) setPhase("revealed");
+      } else if (phase === "revealed") {
+        if (!["1", "2", "3"].includes(e.key)) return;
+        e.preventDefault();
+        if (e.key === "1") next("remembered");
+        else if (e.key === "2") next("forgot");
+        else beginEdit();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active, card, next, phase, beginEdit]);
+
+  const remembered = log.filter((l) => l.result === "remembered").length;
+
+  return {
+    card,
+    cardId: card ? idOf(card) : null,
+    cardTokens: card ? splitKey(card.key) : null,
+    cardType: card
+      ? ((card.piece === "edges" ? "edge" : "corner") as "edge" | "corner")
+      : null,
+    words,
+    defaultWord: card ? (pairs[card.key]?.shared[0] ?? "") : "",
+    editSession,
+    editError,
+    beginEdit,
+    phase,
+    setPhase,
+    reveal: () => setPhase("revealed"),
+    next,
+    editPrimary,
+    review,
+    eligibleCount: visibleCount,
+    log,
+    removeLog: (id: string) => {
+      store.update((data) => ({
+        ...data,
+        attempts: data.attempts.filter((attempt) => attempt.id !== id),
+      }));
+    },
+    removeLatestLog: () => {
+      const latest = log[0];
+      if (!latest) return;
+      store.update((data) => ({
+        ...data,
+        attempts: data.attempts.filter((attempt) => attempt.id !== latest.id),
+      }));
+    },
+    clearLog: () => {
+      store.update((data) => ({
+        ...data,
+        attempts: data.attempts.filter(
+          (attempt) => attempt.kind !== "flashcard",
+        ),
+      }));
+    },
+    stats: { seen: log.length, remembered, forgot: log.length - remembered },
+    wordsForLog: (entry: CardLog) => wordsFor(entry.key, entry.piece),
+    keyOf: pairKey,
+  };
+}

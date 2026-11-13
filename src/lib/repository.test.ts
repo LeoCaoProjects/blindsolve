@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   emptyData,
   parseBackup,
@@ -21,13 +21,49 @@ const pair = (word: string, time = "2026-09-25T00:00:00Z"): LetterPair => ({
   firstToken: "T",
   secondToken: "W",
   primaryMnemonic: word,
-  alternates: [],
-  encounters: 1,
-  forgotten: 0,
+
   updatedAt: time,
 });
 describe("workspace integrity", () => {
   beforeEach(() => localStorage.clear());
+  it.each(["", "duplicate"])(
+    "retains unfinished archived lettering (%s) without rejecting the current workspace",
+    (label) => {
+      const data = emptyData();
+      const archived = structuredClone(data.scheme);
+      archived.stickers["U:UB"].label =
+        label === "duplicate" ? archived.stickers["U:UR"].label : label;
+      data.schemeHistory = [
+        { scheme: archived, updatedAt: new Date(0).toISOString() },
+      ];
+      const envelope = { data, dirty: false, revision: 7 };
+      saveLocal(null, envelope);
+      const raw = localStorage.getItem("cubeiq-bld-v2:guest");
+      const restored = loadLocal();
+      expect(restored.data.schemeHistory?.[0].scheme).toEqual(archived);
+      expect(restored.data.scheme).toEqual(data.scheme);
+      expect(restored.revision).toBe(7);
+      expect(localStorage.getItem("cubeiq-bld-v2:guest")).toBe(raw);
+      expect(
+        parseBackup(JSON.stringify({ version: 3, data })).schemeHistory?.[0]
+          .scheme,
+      ).toEqual(archived);
+    },
+  );
+  it("still rejects unfinished active schemes and missing physical stickers in archives", () => {
+    const data = emptyData();
+    data.scheme.stickers["U:UB"].label = data.scheme.stickers["U:UR"].label;
+    expect(() => parseData(data)).toThrow("unique token");
+    data.scheme.stickers["U:UB"].label = "";
+    expect(() => parseData(data)).toThrow();
+    data.scheme = emptyData().scheme;
+    const archived = structuredClone(data.scheme);
+    delete archived.stickers["U:UB"];
+    data.schemeHistory = [
+      { scheme: archived, updatedAt: new Date(0).toISOString() },
+    ];
+    expect(() => parseData(data)).toThrow("48 physical stickers");
+  });
   it("isolates device and account storage", () => {
     const d = emptyData();
     d.onboarded = true;
@@ -36,7 +72,36 @@ describe("workspace integrity", () => {
     expect(loadLocal("bob").revision).toBe(0);
     expect(loadLocal("alice").revision).toBe(4);
   });
-  it("retains both conflicting words and combines independent records", () => {
+  it("preserves an empty corrupt current envelope instead of falling back to legacy data", () => {
+    localStorage.setItem("cubeiq-bld-v2:guest", "");
+    localStorage.setItem("cubeiq-bld-data-v1", JSON.stringify(emptyData()));
+    expect(() => loadLocal()).toThrow();
+    expect(localStorage.getItem("cubeiq-bld-v2:guest")).toBe("");
+  });
+  it("reloads all practice modes without rewriting or rescoring the envelope", () => {
+    const data = emptyData();
+    const createdAt = new Date(0).toISOString();
+    for (const trainingMode of ["exec", "guided", "recognition", "trace", "recall", "full"] as const)
+      data.attempts.push({
+        id: crypto.randomUUID(), kind: "memo", trainingMode, createdAt,
+        durationMs: 1200, targets: 4, correct: false, accuracy: 0.75,
+      });
+    data.attempts.push({
+      id: crypto.randomUUID(), kind: "flashcard", createdAt, correct: true,
+      pairKey: "AB", pairPiece: "edges",
+    });
+    saveLocal(null, { data, revision: 0, dirty: false });
+    const raw = localStorage.getItem("cubeiq-bld-v2:guest");
+    const write = vi.spyOn(Storage.prototype, "setItem");
+    try {
+      for (let i = 0; i < 3; i++) expect(loadLocal().data.attempts).toEqual(data.attempts);
+      expect(write).not.toHaveBeenCalled();
+      expect(localStorage.getItem("cubeiq-bld-v2:guest")).toBe(raw);
+    } finally {
+      write.mockRestore();
+    }
+  });
+  it("keeps the newest conflicting word and combines independent records", () => {
     const a = emptyData(),
       b = emptyData(),
       key = pairKey("B:BR", "D:DB");
@@ -45,15 +110,49 @@ describe("workspace integrity", () => {
     const merged = mergeData(a, b);
     expect(merged.conflicts).toBe(1);
     expect(merged.data.pairs[key].primaryMnemonic).toBe("tower");
-    expect(merged.data.pairs[key].alternates).toEqual(["tow"]);
+    expect(merged.data.pairs[key]).not.toHaveProperty("alternates");
   });
-  it("does not duplicate equivalent alternates", () => {
-    const a = emptyData(),
-      b = emptyData(),
-      key = pairKey("B:BR", "D:DB");
-    a.pairs[key] = pair(" Tow ");
-    b.pairs[key] = pair("tow");
-    expect(mergeData(a, b).data.pairs[key].alternates).toEqual([]);
+  it("ignores obsolete secondary words without changing Default or overrides", () => {
+    const original = emptyData();
+    const key = pairKey("B:BR", "D:DB");
+    original.pairs[key] = {
+      ...pair("Arrow"),
+      vocabulary: {
+        shared: ["Apple", "obsolete"],
+        override: ["Arrow", "obsolete"],
+        sharedUpdatedAt: "2026-09-25T00:00:00Z",
+        overrideUpdatedAt: "2026-09-25T00:00:00Z",
+      },
+    };
+    const legacy = JSON.parse(JSON.stringify(original));
+    legacy.pairs[key].alternates = ["obsolete"];
+    const restored = parseData(legacy);
+    expect(restored.pairs[key]).not.toHaveProperty("alternates");
+    expect(restored.pairs[key].vocabulary?.shared).toEqual(["Apple"]);
+    expect(restored.pairs[key].vocabulary?.override).toEqual(["Arrow"]);
+    expect(legacy.pairs[key].alternates).toEqual(["obsolete"]);
+    const payload = seedSyncChanges(restored).find(
+      (change) => change.kind === "pair",
+    )!.payload;
+    expect(payload).not.toHaveProperty("alternates");
+  });
+  it("ignores legacy pair usage fields during hydration and omits them from outgoing payloads", () => {
+    const original = emptyData();
+    const key = pairKey("B:BR", "D:DB");
+    const legacy = { ...pair("Tow"), encounters: 99, forgotten: 7 };
+    original.pairs[key] = legacy;
+    const restored = parseData(original);
+    expect(restored.pairs[key]).not.toHaveProperty("encounters");
+    expect(restored.pairs[key]).not.toHaveProperty("forgotten");
+    expect(legacy.encounters).toBe(99);
+    expect(legacy.forgotten).toBe(7);
+    const payload = seedSyncChanges(restored).find(
+      (change) => change.kind === "pair",
+    )!.payload;
+    expect(payload).not.toHaveProperty("encounters");
+    expect(payload).not.toHaveProperty("forgotten");
+    expect(restored.pairs[key].primaryMnemonic).toBe("Tow");
+    expect(diffSyncChanges(restored, parseData(restored))).toEqual([]);
   });
   it("rejects malformed backup and invalid timing", () => {
     expect(() => parseBackup('{"pairs":[]}')).toThrow();
@@ -118,7 +217,9 @@ describe("workspace integrity", () => {
     ];
     const canonical = parseData(structuredClone(legacy));
     expect(canonical.attempts[0].accuracy).toBe(0);
-    expect(diffSyncChanges(canonical, parseData(structuredClone(canonical)))).toEqual([]);
+    expect(
+      diffSyncChanges(canonical, parseData(structuredClone(canonical))),
+    ).toEqual([]);
   });
   it("round-trips a reproducible Guided Solve attempt", () => {
     const data = emptyData();

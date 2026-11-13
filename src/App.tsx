@@ -5,18 +5,50 @@ import "@fontsource/jetbrains-mono/200.css";
 import "@fontsource/jetbrains-mono/300.css";
 import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
-import { StoreProvider } from "./app/Store";
+import { StoreProvider, useStore } from "./app/Store";
+import { useState } from "react";
+import { selectedRecovery } from "./lib/recoverySelection";
+import { selectRecovery } from "./lib/portableRecovery";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { StorageWarning } from "./components/StorageWarning";
-import { App as MagicPatternsApp } from "./magic/App";
-import "./magic/index.css";
+import { App as MagicPatternsApp } from "./workspace/App";
+import "./workspace/index.css";
+import "./workspace/viewport-sizing.css";
+
+function Workspace() {
+  const store = useStore();
+  const [switchError, setSwitchError] = useState("");
+  return (
+    <>
+      {store.recoveredId && (
+        <aside className="fixed bottom-16 right-2 z-50 rounded border border-line bg-bg px-3 py-2 text-sm vp-md:bottom-2">
+          <span>Recovered local workspace · </span>
+          <button
+            className="underline"
+            disabled={!!store.storageIssue}
+            onClick={() => {
+              try {
+                selectRecovery(null);
+              } catch {
+                setSwitchError("Could not return to the original workspace.");
+              }
+            }}
+          >Return to original workspace</button>
+          {(store.recoveryError || switchError) && <p role="alert">{store.recoveryError || switchError}</p>}
+        </aside>
+      )}
+      <StorageWarning />
+      {(!store.recoveredId || store.ready) && <MagicPatternsApp />}
+    </>
+  );
+}
 
 export default function App() {
+  const [recoveredId] = useState(() => selectedRecovery() ?? undefined);
   return (
     <ErrorBoundary>
-      <StoreProvider>
-        <StorageWarning />
-        <MagicPatternsApp />
+      <StoreProvider recoveredId={recoveredId}>
+        <Workspace />
       </StoreProvider>
     </ErrorBoundary>
   );

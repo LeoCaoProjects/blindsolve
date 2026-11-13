@@ -16,7 +16,7 @@ After deployment, verify representative JS/CSS/font URLs extracted from the new 
 
 ## Storage recovery
 
-A failed localStorage replacement leaves the previous document intact. New work remains in memory, with a persistent export/retry warning and tab-close prompt. Outbox dispatch waits for a successful local commit. An acknowledgement that cannot be committed keeps the warning visible. Unsaved owner copies stay separate for this tab's lifetime; switch back to that account to retry/export. Recovery exports include the ordinary importable backup plus owner-scoped envelope/outbox/tombstone evidence. Unreadable originals are never replaced before a successful read/reconciliation. Volatile data cannot survive a forced browser/process shutdown: export before closing.
+A failed localStorage replacement leaves the previous document intact. New work remains in memory, with a persistent export/retry warning and tab-close prompt. Outbox dispatch waits for a successful local commit. Unsaved owner copies stay separate for this tab's lifetime. Switch back to that account to retry or export. A rescue export contains the in-tab workspace and known deletion markers, without credentials or queued requests. Restore into a separate local workspace. Unreadable originals are retained until successful read and reconciliation. Export volatile data before closing.
 
 ## Database regression tests
 

@@ -56,6 +56,20 @@ const remoteDeleted = () =>
     2,
   );
 describe("deletion reconciliation", () => {
+  it("drops a stale queued solve upsert when a newer remote solve won the merge", () => {
+    const old = solve({ result: "dnf", updatedAt: "2026-11-04T01:00:00.000Z" });
+    const newest = solve({ result: "+2", updatedAt: stamp });
+    const local = envelope([old]);
+    const remote = { ...envelope([newest]), revision: 3 };
+    local.pending = { [`solve:${id}`]: {
+      kind: "solve", recordId: id, payload: old, deleted: false, updatedAt: old.updatedAt!,
+    } };
+    local.dirty = true;
+    const merged = reconcileSync(local, remote);
+    expect(merged.data.solves).toEqual([newest]);
+    expect(merged.pending).toEqual({});
+    expect(merged.dirty).toBe(false);
+  });
   it("keeps deletion ahead of a newer stale live copy in either merge order", () => {
     const deleted = envelope([solve({ deleted: true, updatedAt: stamp })]);
     const stale = envelope([solve({ updatedAt: "2026-11-06T00:00:00.000Z" })]);

@@ -7,7 +7,7 @@ import {
   stateFromScramble,
   CORNER_SLOTS,
   EDGE_SLOTS,
-} from "../src/magic/utils/cube";
+} from "../src/workspace/utils/cube";
 
 const sizes = [
   [1440, 900],
@@ -108,7 +108,7 @@ for (const [width, height] of sizes)
     const scrambleBox = (await page
       .getByRole("region", { name: "Scramble", exact: true })
       .boundingBox())!;
-    expect(modeBox.height).toBeLessThanOrEqual(28);
+    expect(modeBox.height).toBeLessThanOrEqual(28 * 1.2);
     expect(
       await page.getByRole("group", { name: "Timer utilities" }).boundingBox(),
     ).toBeTruthy();
@@ -117,7 +117,7 @@ for (const [width, height] of sizes)
         .getByRole("region", { name: "Scramble", exact: true })
         .getByRole("button", { name: "Timer mode", exact: true }),
     ).toHaveCount(0);
-    expect(modeBox.width).toBeLessThan(90);
+    expect(modeBox.width).toBeLessThan(90 * 1.2);
     expect(scrambleBox.height).toBeGreaterThan(80);
     await contained(page);
     await screenshot(page, `timer-${width}`);

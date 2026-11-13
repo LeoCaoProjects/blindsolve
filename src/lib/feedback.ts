@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js';
-import type { Feedback, FeedbackStatus, NewFeedback } from '../magic/types/feedback';
+import type { Feedback, FeedbackStatus, NewFeedback } from '../workspace/types/feedback';
 import { supabase } from './supabase';
 import { withAccountCloudLock } from './cloudLock';
 

@@ -1,0 +1,456 @@
+import React, { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "framer-motion";
+import { Link } from "react-router-dom";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
+import {
+  SecondaryButton,
+  SECONDARY_BUTTON_STYLE,
+} from "../components/common/PrimaryButton";
+import { ShortcutSheet } from "../components/common/ShortcutSheet";
+import { RadioRows, Toggle } from "../components/common/Toggle";
+import {
+  SubNavigation,
+  SUB_NAV_ITEM,
+} from "../components/layout/SubNavigation";
+import { AppBar } from "../components/layout/AppBar";
+import { AccountSection } from "../components/settings/AccountSection";
+import { LegacyRecoverySection } from "../components/settings/LegacyRecoverySection";
+import { BackupSection } from "../components/settings/BackupSection";
+import { CubeConfigurator } from "../components/settings/CubeConfigurator";
+import {
+  SettingsRow,
+  SettingsSection,
+} from "../components/settings/SettingsSection";
+import { FeedbackSheet } from "../components/feedback/FeedbackSheet";
+import { FeedbackCategory } from "../types/feedback";
+import {
+  magicStickerForPhysical,
+  useAppData,
+} from "../contexts/AppDataContext";
+import { settingsSections } from "../data/navigation";
+import { useShortcutSheet } from "../hooks/useShortcutSheet";
+import { BldSetup, CubeMode } from "../types/app";
+import { useSettingsAutosave } from "../hooks/useSettingsAutosave";
+import { isSpeffz, speffzScheme } from "../utils/scheme";
+import { useScreenInit } from "../useScreenInit.js";
+import { useStore } from "../../app/Store";
+import { conventionalPhysicalEdgeBuffer } from "../utils/methodBuffers";
+import { viewportReferenceScale } from "../utils/viewportSizing";
+import { Trash2Icon } from "lucide-react";
+import { DELETE_BUTTON_STYLE } from "../components/common/destructiveStyle";
+
+const SETTINGS_CONTENT = "w-full max-w-[1200px] px-5 md:px-10";
+
+interface ScreenState {
+  section?: string;
+  mode?: CubeMode;
+  selected?: string;
+  speffzConfirm?: boolean;
+  import?: "valid" | "invalid";
+  signin?: "merge";
+  feedback?: FeedbackCategory;
+  feedbackFails?: boolean;
+  clearAll?: boolean;
+}
+
+export function Settings() {
+  const init = useScreenInit() as ScreenState;
+  const app = useAppData();
+  const store = useStore();
+  const sheet = useShortcutSheet();
+  const reduced = useReducedMotion();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const autosave = useSettingsAutosave();
+  const { draft, setDraft, draftView, setDraftView } = autosave;
+  const [mode, setMode] = useState<CubeMode>(init.mode ?? "view");
+  const [selected, setSelected] = useState<string | null>(
+    init.selected ?? null,
+  );
+  const [active, setActive] = useState(init.section ?? "cube");
+  const [speffzConfirm, setSpeffzConfirm] = useState(!!init.speffzConfirm);
+  const [feedbackOpen, setFeedbackOpen] = useState(!!init.feedback);
+
+  const patch = (p: Partial<BldSetup> | ((setup: BldSetup) => BldSetup)) =>
+    setDraft((d) => (typeof p === "function" ? p(d) : { ...d, ...p }));
+  const changeEdgeMethod = (edgeMethod: BldSetup["edgeMethod"]) => {
+    if (edgeMethod === draft.edgeMethod) return;
+    const edgeBuffer = magicStickerForPhysical(
+      conventionalPhysicalEdgeBuffer(edgeMethod, draftView),
+    );
+    if (!edgeBuffer)
+      throw new Error("Conventional physical buffer has no cube slot");
+    patch({ edgeMethod, edgeBuffer });
+  };
+
+  useEffect(() => {
+    if (init.section) document.getElementById(init.section)?.scrollIntoView();
+  }, [store.ready, autosave.hydrated]);
+
+  // Track the section in view. The last section wins at the bottom of the page, since a short
+  // final section (Support) can never scroll up to the activation line. A nav click holds its
+  // choice until the smooth scroll settles, so it isn't overridden on the way.
+  const clickLock = useRef<string | null>(null);
+  const settleTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      if (clickLock.current) return;
+      const sections = Array.from(
+        root.querySelectorAll<HTMLElement>("[data-section]"),
+      );
+      if (!sections.length) return;
+      const geometryScale = viewportReferenceScale();
+      if (
+        root.scrollTop + root.clientHeight >=
+        root.scrollHeight - 4 * geometryScale
+      ) {
+        setActive(sections[sections.length - 1].dataset.section ?? "cube");
+        return;
+      }
+      const line =
+        root.getBoundingClientRect().top +
+        Math.min(160 * geometryScale, root.clientHeight * 0.3);
+      let current = sections[0];
+      sections.forEach((s) => {
+        if (s.getBoundingClientRect().top <= line) current = s;
+      });
+      setActive(current.dataset.section ?? "cube");
+    };
+    const onScroll = () => {
+      if (clickLock.current) {
+        window.clearTimeout(settleTimer.current);
+        settleTimer.current = window.setTimeout(
+          () => (clickLock.current = null),
+          160,
+        );
+        return;
+      }
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    root.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.clearTimeout(settleTimer.current);
+      root.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [store.ready, autosave.hydrated]);
+
+  const goToSection = (id: string) => {
+    clickLock.current = id;
+    setActive(id);
+    window.clearTimeout(settleTimer.current);
+    // Released after the scroll settles, or straight away if there was nothing to scroll.
+    settleTimer.current = window.setTimeout(
+      () => (clickLock.current = null),
+      700,
+    );
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: reduced ? "auto" : "smooth" });
+  };
+
+  const applySpeffz = () => {
+    patch({ scheme: speffzScheme(), schemeName: "Speffz" });
+    setSpeffzConfirm(false);
+  };
+
+  return (
+    <div className="flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
+      <AppBar onShortcuts={sheet.openSheet} />
+
+      <SubNavigation
+        label="Settings sections"
+        title="Settings"
+        trigger={
+          settingsSections.find((section) => section.id === active)?.label ??
+          "Settings"
+        }
+      >
+        {(close) => (
+          <nav
+            aria-label="Settings sections"
+            className="flex min-h-full flex-col"
+          >
+            <ul className="space-y-0.5">
+              {settingsSections.map((section) => (
+                <li key={section.id}>
+                  <button
+                    type="button"
+                    disabled={!store.ready}
+                    aria-current={active === section.id ? "true" : undefined}
+                    onClick={() => {
+                      goToSection(section.id);
+                      close();
+                    }}
+                    className={`${SUB_NAV_ITEM} ${active === section.id ? "bg-selected text-ink" : "text-ink-2"}`}
+                  >
+                    {section.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+      </SubNavigation>
+
+      {!store.ready || !autosave.hydrated ? (
+        <main
+          className="flex min-h-0 flex-1 items-center justify-center px-5"
+          aria-busy="true"
+        >
+          <p className="text-[13px] text-ink-3" role="status">
+            Loading account settings…
+          </p>
+        </main>
+      ) : (
+        <div
+          ref={scrollRef}
+          className="scroll-quiet relative min-h-0 flex-1 overflow-y-auto"
+        >
+          <div data-settings-content className={SETTINGS_CONTENT}>
+            <div className="min-w-0 pb-28 pt-2 md:pt-10">
+              <SettingsSection id="cube" title="Cube & lettering">
+                <CubeConfigurator
+                  setup={draft}
+                  savedScheme={app.setup.scheme}
+                  onChange={patch}
+                  view={draftView}
+                  onViewChange={setDraftView}
+                  mode={mode}
+                  onModeChange={(m) => {
+                    setMode(m);
+                    if (m === "lettering") setSelected(null);
+                  }}
+                  selected={selected}
+                  onSelect={setSelected}
+                  onUseSpeffz={() =>
+                    isSpeffz(draft.scheme) ? undefined : setSpeffzConfirm(true)
+                  }
+                />
+                {autosave.status && (
+                  <div className="mt-3 flex flex-wrap items-center gap-3 text-[12.5px] text-ink-3">
+                    <p role="status" aria-label="Setup save status">
+                      {autosave.status}
+                    </p>
+                    {autosave.needsRetry && (
+                      <SecondaryButton onClick={autosave.retry}>
+                        Retry
+                      </SecondaryButton>
+                    )}
+                    {autosave.conflict && (
+                      <>
+                        <SecondaryButton
+                          onClick={autosave.useDraft}
+                          disabled={!!autosave.invalid}
+                        >
+                          Keep my changes
+                        </SecondaryButton>
+                        <SecondaryButton onClick={autosave.useSaved}>
+                          Use saved setup
+                        </SecondaryButton>
+                      </>
+                    )}
+                  </div>
+                )}
+              </SettingsSection>
+
+              <SettingsSection id="methods" title="Methods">
+                <div className="grid gap-10 md:grid-cols-2">
+                  <div>
+                    <h3 className="text-[13px] font-medium text-ink-2">
+                      Edges
+                    </h3>
+                    <RadioRows
+                      className="mt-2"
+                      name="Edge method"
+                      value={draft.edgeMethod}
+                      onChange={changeEdgeMethod}
+                      options={[
+                        { value: "op", label: "OP" },
+                        { value: "m2", label: "M2" },
+                      ]}
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-[13px] font-medium text-ink-2">
+                      Corners
+                    </h3>
+                    <RadioRows
+                      className="mt-2"
+                      name="Corner method"
+                      value={draft.cornerMethod}
+                      onChange={(cornerMethod) => patch({ cornerMethod })}
+                      options={[{ value: "op", label: "OP" }]}
+                    />
+                  </div>
+                </div>
+
+                <SettingsRow
+                  inlineControl
+                  label="Automatically swap M2 targets"
+                  hint="Apply M2 target swaps automatically during execution practice and reconstruction"
+                >
+                  <Toggle
+                    label="Automatically swap M2 targets"
+                    checked={app.prefs.m2SecondTargetSwap}
+                    onChange={(m2SecondTargetSwap) =>
+                      app.setPrefs({ m2SecondTargetSwap })
+                    }
+                  />
+                </SettingsRow>
+                <div className="mt-8">
+                  <RadioRows
+                    name="Memo order"
+                    value={app.prefs.memoOrder}
+                    onChange={(memoOrder) => app.setPrefs({ memoOrder })}
+                    options={[
+                      { value: "corners-first", label: "Corners first" },
+                      { value: "edges-first", label: "Edges first" },
+                    ]}
+                  />
+                </div>
+              </SettingsSection>
+
+              <SettingsSection id="timer" title="Timer">
+                <SettingsRow
+                  inlineControl
+                  label="Show live timer"
+                  hint="Show elapsed time while solving"
+                >
+                  <Toggle
+                    label="Show live timer"
+                    checked={app.prefs.showLiveTimer}
+                    onChange={(showLiveTimer) =>
+                      app.setPrefs({ showLiveTimer })
+                    }
+                  />
+                </SettingsRow>
+                <SettingsRow
+                  inlineControl
+                  label="Multiphase timing"
+                  hint="Record memo and execution separately"
+                >
+                  <Toggle
+                    label="Multiphase timing"
+                    checked={app.prefs.multiphase}
+                    onChange={(multiphase) => app.setPrefs({ multiphase })}
+                  />
+                </SettingsRow>
+              </SettingsSection>
+
+              <SettingsSection id="account" title="Account & sync">
+                {store.recoveredId
+                  ? <p className="text-sm text-ink-2">This recovered workspace is local to this browser.</p>
+                  : <AccountSection initialStep={init.signin} />}
+                {!store.recoveredId && store.user && store.ready && (
+                  <LegacyRecoverySection key={store.workspaceIdentity()} account={store.user.id} />
+                )}
+              </SettingsSection>
+
+              <SettingsSection id="backup" title="Data">
+                <BackupSection preview={init.import} />
+                <ClearAllPairs openInitially={!!init.clearAll} />
+              </SettingsSection>
+
+              <SettingsSection id="support" title="Support">
+                <SettingsRow
+                  label="Give feedback"
+                  hint="Report a bug, suggest a feature, or tell us what you think"
+                >
+                  <SecondaryButton onClick={() => setFeedbackOpen(true)}>
+                    Give feedback
+                  </SecondaryButton>
+                </SettingsRow>
+                {app.account.role === "admin" && (
+                  <SettingsRow
+                    label="Feedback inbox"
+                    hint={`${app.feedback.filter((f) => f.status === "new").length} new · admins only`}
+                  >
+                    <Link
+                      to="/admin/feedback"
+                      className={SECONDARY_BUTTON_STYLE}
+                    >
+                      Open inbox
+                    </Link>
+                  </SettingsRow>
+                )}
+              </SettingsSection>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={speffzConfirm}
+        title="Replace your lettering with Speffz?"
+        body="Your custom tokens will be overwritten. Letter pairs are kept."
+        onCancel={() => setSpeffzConfirm(false)}
+        confirm={{ label: "Use Speffz", onClick: applySpeffz }}
+      />
+
+      <FeedbackSheet
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        failFirst={!!init.feedbackFails}
+        initialCategory={init.feedback ?? "bug"}
+      />
+
+      <ShortcutSheet
+        open={sheet.open}
+        onClose={sheet.closeSheet}
+        page="settings"
+      />
+    </div>
+  );
+}
+
+/** Deliberately tucked under Data, away from normal editing. */
+function ClearAllPairs({ openInitially }: { openInitially: boolean }) {
+  const app = useAppData();
+  const [open, setOpen] = useState(openInitially);
+  const [notice, setNotice] = useState<string | null>(null);
+  const count = Object.keys(app.pairs).length;
+  return (
+    <div className="mt-8 border-t border-line pt-5">
+      <SettingsRow
+        label="Clear all letter pairs"
+        hint="Removes every saved word. Export a backup first if you might want them back."
+      >
+        <button
+          type="button"
+          disabled={count === 0}
+          onClick={() => setOpen(true)}
+          className={`${DELETE_BUTTON_STYLE} gap-2 text-[13px] disabled:cursor-not-allowed disabled:opacity-40`}
+        >
+          <Trash2Icon size={14} strokeWidth={1.75} aria-hidden />
+          Clear all…
+        </button>
+      </SettingsRow>
+      <p className="h-5 pt-1 text-[12.5px] text-ink-2" role="status">
+        {notice}
+      </p>
+      <ConfirmDialog
+        open={open}
+        title={`Clear all ${count} saved word ${count === 1 ? "entry" : "entries"}?`}
+        body="Every Default word and Edge or Corner override will be removed. This can’t be undone."
+        onCancel={() => setOpen(false)}
+        confirm={{
+          label: "Clear all",
+          tone: "danger",
+          onClick: () => {
+            app.replacePairs({});
+            setOpen(false);
+            setNotice("All letter pairs cleared");
+          },
+        }}
+      />
+    </div>
+  );
+}

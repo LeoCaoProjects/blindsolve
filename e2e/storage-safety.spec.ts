@@ -55,7 +55,7 @@ for (const surface of ["Timer", "Training"]) {
     else
       await page
         .getByRole("dialog", { name: "Execution Sprint result" })
-        .getByRole("button", { name: /^Next/ })
+        .getByRole("button", { name: /^Close/ })
         .click();
     const warning = page.getByRole("alert", {
       name: "Browser storage warning",
@@ -74,7 +74,8 @@ for (const surface of ["Timer", "Training"]) {
     const backup = JSON.parse(await readFile((await exported.path())!, "utf8"));
     const category = surface === "Timer" ? "solves" : "attempts";
     expect(backup.data[category]).toHaveLength(1);
-    expect(backup.localRecovery.envelope.data[category]).toHaveLength(1);
+    expect(backup.version).toBe(4);
+    expect(backup.localRecovery).toBeUndefined();
     await page.evaluate(() =>
       (window as unknown as { restoreStorage: () => void }).restoreStorage(),
     );

@@ -1,3 +1,5 @@
+export { normalizeLabel, validLabel, mnemonicRecordKey, parseMnemonicRecordKey, MNEMONIC_SCOPES } from "./identity";
+export type { MnemonicScope } from "./identity";
 export interface LetterPair {
   id: string;
   firstStickerId: string;
@@ -5,10 +7,14 @@ export interface LetterPair {
   firstToken: string;
   secondToken: string;
   primaryMnemonic: string;
-  alternates: string[];
-  encounters: number;
-  forgotten: number;
   updatedAt: string;
+  /** Explicit logical vocabulary; absent on legacy effective-only records. */
+  vocabulary?: {
+    shared: string[];
+    sharedUpdatedAt: string;
+    overrideUpdatedAt: string;
+    override?: string[];
+  };
 }
 
 export interface MemoPair {
@@ -28,12 +34,10 @@ export const normalizeMnemonic = (value: string) =>
   value.trim().toLocaleLowerCase();
 export const mnemonicMatches = (
   value: string,
-  pair: Pick<LetterPair, "primaryMnemonic" | "alternates">,
+  pair: Pick<LetterPair, "primaryMnemonic">,
 ) => {
   const normalized = normalizeMnemonic(value);
-  return [pair.primaryMnemonic, ...pair.alternates].some(
-    (m) => normalizeMnemonic(m) === normalized,
-  );
+  return normalizeMnemonic(pair.primaryMnemonic) === normalized;
 };
 
 export function checkTokenAnswer(expected: string[], answer: string) {
