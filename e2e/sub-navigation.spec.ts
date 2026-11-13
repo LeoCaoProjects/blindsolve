@@ -1,3 +1,4 @@
+import { viewportGeometry } from "./helpers/viewport";
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme, stickersFor } from "../src/domain/bld/speffz";
 import { pairKey } from "../src/domain/letterPairs";
@@ -249,7 +250,8 @@ test("contextual navigation remains usable at every requested viewport", async (
       ["/pairs", "Letter Pairs navigation"],
     ]) {
       await page.goto(path);
-      if (viewport.width >= 1024) {
+      const { contextual, rem } = await viewportGeometry(page);
+      if (contextual) {
         await expect
           .poll(
             async () =>
@@ -259,7 +261,7 @@ test("contextual navigation remains usable at every requested viewport", async (
                   .boundingBox()
               )?.width,
           )
-          .toBeCloseTo(224 * 1.2, 1);
+          .toBeCloseTo(224 * rem / 16, 1);
       } else {
         await page.getByRole("button", { name: label, exact: true }).click();
         const sheet = page.getByRole("dialog", { name: label, exact: true });

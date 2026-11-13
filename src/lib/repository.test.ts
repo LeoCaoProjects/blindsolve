@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   emptyData,
   parseBackup,
@@ -71,6 +71,35 @@ describe("workspace integrity", () => {
     expect(loadLocal().data.onboarded).toBe(false);
     expect(loadLocal("bob").revision).toBe(0);
     expect(loadLocal("alice").revision).toBe(4);
+  });
+  it("preserves an empty corrupt current envelope instead of falling back to legacy data", () => {
+    localStorage.setItem("cubeiq-bld-v2:guest", "");
+    localStorage.setItem("cubeiq-bld-data-v1", JSON.stringify(emptyData()));
+    expect(() => loadLocal()).toThrow();
+    expect(localStorage.getItem("cubeiq-bld-v2:guest")).toBe("");
+  });
+  it("reloads all practice modes without rewriting or rescoring the envelope", () => {
+    const data = emptyData();
+    const createdAt = new Date(0).toISOString();
+    for (const trainingMode of ["exec", "guided", "recognition", "trace", "recall", "full"] as const)
+      data.attempts.push({
+        id: crypto.randomUUID(), kind: "memo", trainingMode, createdAt,
+        durationMs: 1200, targets: 4, correct: false, accuracy: 0.75,
+      });
+    data.attempts.push({
+      id: crypto.randomUUID(), kind: "flashcard", createdAt, correct: true,
+      pairKey: "AB", pairPiece: "edges",
+    });
+    saveLocal(null, { data, revision: 0, dirty: false });
+    const raw = localStorage.getItem("cubeiq-bld-v2:guest");
+    const write = vi.spyOn(Storage.prototype, "setItem");
+    try {
+      for (let i = 0; i < 3; i++) expect(loadLocal().data.attempts).toEqual(data.attempts);
+      expect(write).not.toHaveBeenCalled();
+      expect(localStorage.getItem("cubeiq-bld-v2:guest")).toBe(raw);
+    } finally {
+      write.mockRestore();
+    }
   });
   it("keeps the newest conflicting word and combines independent records", () => {
     const a = emptyData(),

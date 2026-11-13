@@ -14,7 +14,7 @@ The Timer cube is an intentional exception: `.timer-layout`, `.timer-cube-viewpo
 
 The short-phone Timer rule applies only below 768px wide and 641px tall. It compacts scramble typography/padding and the stats strip so the clock remains visible, without changing the memo footer's stable height or horizontal overflow.
 
-Normal UI selection is disabled centrally in `src/magic/index.css`; editing surfaces explicitly retain text selection. Browser titles come from `src/seo/site.json` at build time, with no route-driven `document.title` assignment.
+Normal UI selection is disabled centrally in `src/workspace/index.css`; editing surfaces explicitly retain text selection. Browser titles come from `src/seo/site.json` at build time, with no route-driven `document.title` assignment.
 
 Favicon provenance and the retained MIT license are in `docs/third-party/cubing-icons`. Run `node scripts/render-favicons.mjs` to regenerate PNG/ICO variants from the SVG using the existing Playwright installation.
 

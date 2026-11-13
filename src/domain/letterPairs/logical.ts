@@ -108,13 +108,16 @@ export function writeLogicalEntries<T extends LogicalPairState>(
 export function mergeLogicalState(
   local: LogicalPairState,
   incoming: LogicalPairState,
+  preferIncomingOnTie = false,
 ): LogicalPairState {
   const records = { ...local.logicalPairs };
   const deletions = { ...local.logicalPairDeletions };
   for (const [key, value] of Object.entries(incoming.logicalPairs ?? {}))
     if (
       !records[key] ||
-      Date.parse(value.updatedAt) > Date.parse(records[key].updatedAt)
+      Date.parse(value.updatedAt) > Date.parse(records[key].updatedAt) ||
+      (preferIncomingOnTie &&
+        Date.parse(value.updatedAt) === Date.parse(records[key].updatedAt))
     )
       records[key] = value;
   for (const [key, stamp] of Object.entries(

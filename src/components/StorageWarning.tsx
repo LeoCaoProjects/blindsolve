@@ -1,24 +1,12 @@
 import { useStore } from "../app/Store";
-import { buildBackup, downloadJson } from "../magic/utils/backup";
-
-function originalStorage(owner: string | null) {
-  const key = `cubeiq-bld-v2:${owner ?? "guest"}`;
-  try {
-    return {
-      key,
-      raw: localStorage.getItem(key),
-      settingsDraft: localStorage.getItem(
-        `blindsolve-settings-draft-v1:${owner ?? "guest"}`,
-      ),
-    };
-  } catch {
-    return { key, unavailable: true };
-  }
-}
+import { downloadJson } from "../workspace/utils/backup";
+import { portableSnapshot } from "../lib/portableRecovery";
+import { useState } from "react";
 
 /** Persistent across routes; separate from transient notices and cloud status. */
 export function StorageWarning() {
   const store = useStore();
+  const [exportError, setExportError] = useState("");
   if (!store.storageIssue) return null;
   return (
     <aside
@@ -30,21 +18,17 @@ export function StorageWarning() {
       <div className="mt-2 flex flex-wrap gap-4">
         <button
           className="underline"
-          onClick={() =>
-            downloadJson(
-              {
-                ...buildBackup(store.data),
-                // Include deletion/outbox evidence in the recovery file as well as the
-                // standard importable backup. Export still works if reads fail.
-                localRecovery: {
-                  owner: store.user?.id ?? null,
-                  envelope: store.recoveryEnvelope(),
-                  originalStorage: originalStorage(store.user?.id ?? null),
-                },
-              },
-              `blindsolve-recovery-${new Date().toISOString().slice(0, 10)}.json`,
-            )
-          }
+          onClick={() => {
+            try {
+              downloadJson(
+                portableSnapshot(store.recoveryEnvelope(), true),
+                `blindsolve-recovery-${new Date().toISOString().slice(0, 10)}.json`,
+              );
+              setExportError("");
+            } catch {
+              setExportError("The tab copy could not be exported. Keep this tab open and retry saving.");
+            }
+          }}
         >
           Export this workspace
         </button>
@@ -52,6 +36,7 @@ export function StorageWarning() {
           Retry saving
         </button>
       </div>
+      {exportError && <p>{exportError}</p>}
     </aside>
   );
 }

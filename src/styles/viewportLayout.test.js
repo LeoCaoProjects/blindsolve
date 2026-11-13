@@ -5,8 +5,8 @@ import viewportLayoutCss from "../../scripts/viewport-layout-css.mjs";
 import {
   layoutTokens,
   referenceViewportWidth,
-} from "../magic/utils/viewportLayoutPolicy";
-import { cubeGeometry } from "../magic/utils/cubeGeometry";
+} from "../workspace/utils/viewportLayoutPolicy";
+import { cubeGeometry } from "../workspace/utils/cubeGeometry";
 
 describe("viewport layout policy", () => {
   it("keeps the available layout width through page zoom but responds to narrower windows", () => {

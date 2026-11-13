@@ -1,3 +1,5 @@
+import type { Locator } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
 test.beforeEach(async ({ page }) => {
@@ -22,12 +24,12 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-async function hold(page: any) {
+async function hold(page: Page) {
   await page.keyboard.down("Space");
   await page.waitForTimeout(320);
   await page.keyboard.up("Space");
 }
-async function choose(page: any, mode: string) {
+async function choose(page: Page, mode: string) {
   const trigger = page.getByRole("button", {
     name: "Training controls",
     exact: true,
@@ -117,7 +119,7 @@ for (const [width, height] of [
   }) => {
     await page.setViewportSize({ width, height });
     await page.goto("/training");
-    const style = async (dialog: any) =>
+    const style = async (dialog: Locator) =>
       dialog.evaluate((el: Element) => {
         const s = getComputedStyle(el);
         return {
@@ -132,12 +134,12 @@ for (const [width, height] of [
           closeClass: el.querySelector('button[aria-label="Close"]')!.className,
         };
       });
-    let reference: any;
+    let reference: Awaited<ReturnType<typeof style>> | undefined;
     for (const [mode, phrase] of [
       ["Execution Sprint", "memo supplied"],
       ["Guided Solve", "begin execution"],
       ["Memo Recall", "Type the targets in order"],
-      ["Trace Sprint", "right cube shows the back"],
+      ["Trace Sprint", "right view shows its back"],
     ]) {
       await choose(page, mode);
       const helpTrigger = page.getByRole("button", { name: "How it works", exact: true });

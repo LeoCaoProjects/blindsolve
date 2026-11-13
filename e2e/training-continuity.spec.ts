@@ -1,8 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
-import { formatTime } from "../src/magic/utils/time";
+import { formatTime } from "../src/workspace/utils/time";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
 const scheme = createSpeffzScheme();
-function seed(scheme: any) {
+function seed(scheme: ReturnType<typeof createSpeffzScheme>) {
   localStorage.setItem(
     "cubeiq-bld-v2:guest",
     JSON.stringify({
@@ -117,8 +117,8 @@ test("all Training layout transitions retain their real timer, cube and history 
       expect(sample.panel).toEqual(first.panel);
     }
     const headerChange =
-      ["Execution Sprint", "Guided Solve"].includes(from) !==
-      ["Execution Sprint", "Guided Solve"].includes(to);
+      ["Execution Sprint", "Guided Solve", "Trace Sprint"].includes(from) !==
+      ["Execution Sprint", "Guided Solve", "Trace Sprint"].includes(to);
     if (headerChange) {
       expect(Math.abs(last.header - first.header)).toBeGreaterThan(50);
       expect(
@@ -226,7 +226,7 @@ for (const showLiveTimer of [true, false])
       await inputs.nth(i).press("Enter");
     }
     const popup = page.getByRole("dialog", {
-      name: "Memo Recall result",
+      name: "Memo Recall review",
       exact: true,
     });
     await expect(popup).toBeVisible();
@@ -235,7 +235,7 @@ for (const showLiveTimer of [true, false])
     ).toBeVisible();
     await expect(popup.locator("time")).toBeVisible();
     await expect(popup.locator(".font-timer").first()).toHaveText(/\d+\.\d{2}/);
-    await expect(popup.getByRole("definition")).toHaveCount(1);
+    await expect(popup.getByRole("definition")).toHaveCount(3);
     await expect(popup.getByText("Correct", { exact: true })).toHaveCount(0);
     const saved = () =>
       page.evaluate(
@@ -247,12 +247,12 @@ for (const showLiveTimer of [true, false])
       formatTime((await saved()).attempts[0].durationMs),
     );
     await expect(
-      popup.getByRole("button", { name: /No word|Show all words|Save|Next/ }),
+      popup.getByRole("button", { name: /No word|Show all words|Next/ }),
     ).toHaveCount(0);
     await page.screenshot({
       path: `test-results/recall-review-live-${showLiveTimer}.png`,
     });
-    await popup.getByRole("button", { name: /^Close/ }).click();
+    await popup.getByRole("button", { name: /^Save/ }).click();
     await expect(popup).toHaveCount(0);
     await expect(
       page.getByRole("timer", { name: "Hold Space to start" }),
@@ -317,7 +317,7 @@ for (const [width, height] of [
         await inputs.nth(i).press("Enter");
       }
       const popup = page.getByRole("dialog", {
-        name: "Memo Recall result",
+        name: "Memo Recall review",
         exact: true,
       });
       await expect(popup).toBeVisible();
@@ -328,17 +328,18 @@ for (const [width, height] of [
         await popup.evaluate((el) => el.scrollWidth <= el.clientWidth),
       ).toBe(true);
       await expect(
-        popup.getByRole("button", { name: /^Close/ }),
+        popup.getByRole("button", { name: /^Save/ }),
       ).toBeInViewport();
       await page.screenshot({
         path: `test-results/recall-review-${width}.png`,
       });
-      await popup.getByRole("button", { name: /^Close/ }).tap();
+      await popup.getByRole("button", { name: /^Save/ }).tap();
       await expect(popup).toHaveCount(0);
       await choose(page, "Trace Sprint");
       await expect(
         page.getByRole("region", { name: "Scramble", exact: true }),
-      ).toHaveCount(0);
+      ).toBeVisible();
+      await expect(page.getByRole("button", { name: "New scramble", exact: true })).toBeEnabled({ timeout: 45000 });
       await touchHold();
       await expect(
         page.getByRole("textbox", { name: "Corners targets", exact: true }),
@@ -349,7 +350,7 @@ for (const [width, height] of [
         exact: true,
       });
       await expect(trace).toBeVisible();
-      await trace.getByRole("button", { name: /^Next/ }).tap();
+      await trace.getByRole("button", { name: /^Close/ }).tap();
       await expect(trace).toHaveCount(0);
       expect(
         await page.evaluate(

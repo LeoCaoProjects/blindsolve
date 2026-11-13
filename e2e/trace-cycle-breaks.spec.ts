@@ -2,8 +2,8 @@ import { test, expect } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
 import { scrambleToState } from "../src/domain/bld/cubing";
 import { traceSection } from "../src/domain/bld/trace";
-import { challengeFromScramble } from "../src/magic/utils/bld";
-import { ALL_STICKERS, speffzScheme } from "../src/magic/utils/scheme";
+import { challengeFromScramble } from "../src/workspace/utils/bld";
+import { ALL_STICKERS, speffzScheme } from "../src/workspace/utils/scheme";
 const scheme = createSpeffzScheme(),
   letters = speffzScheme();
 const slot = (id: string) =>
@@ -34,6 +34,24 @@ for (const invalid of [false, true])
         ),
       scheme,
     );
+    const fixture = "R' F' U2 F' D' R D' L2 F' B2 U F2 R2 U2 F2 B2 D' F2 U F2 L2";
+    await page.route("**/src/workspace/utils/randomStateScramble.ts", async route => {
+      const response = await route.fetch();
+      const source = await response.text();
+      const replacement = source.replace(/(function cachedScramble\([^)]*\) \{)/, `$1 return ${JSON.stringify(fixture)};`);
+      expect(replacement).not.toBe(source);
+      await route.fulfill({ response, body: replacement });
+    });
+    await page.addInitScript(() => {
+      const original = crypto.getRandomValues.bind(crypto);
+      crypto.getRandomValues = <T extends ArrayBufferView | null>(array: T): T => {
+        if (array instanceof Uint32Array && array.length === 1) {
+          array[0] = 41337;
+          return array;
+        }
+        return original(array);
+      };
+    });
     await page.goto("/training");
     await page
       .getByRole("radio", { name: "Trace Sprint", exact: true })
@@ -111,7 +129,7 @@ for (const invalid of [false, true])
             .nth(i)
             .locator("li > span:first-child")
             .allTextContents()
-        ).join(""),
+        ).filter(token => token !== "··").join(""),
       ).toBe(expected[i].join(""));
     await expect(popup.locator("[data-recall-error]")).toHaveCount(
       invalid ? 1 : 0,

@@ -1,9 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
-import { challengeFromScramble } from "../src/magic/utils/bld";
-import { ALL_STICKERS, speffzScheme } from "../src/magic/utils/scheme";
-import { orderedChallengeGroups } from "../src/magic/utils/challengeTargets";
-import { formatTime, formatTimePerTarget } from "../src/magic/utils/time";
+import { challengeFromScramble } from "../src/workspace/utils/bld";
+import { ALL_STICKERS, speffzScheme } from "../src/workspace/utils/scheme";
+import { orderedChallengeGroups } from "../src/workspace/utils/challengeTargets";
+import { formatTime, formatTimePerTarget } from "../src/workspace/utils/time";
 const scheme = createSpeffzScheme();
 const letters = speffzScheme();
 const slot = (id: string) =>
@@ -241,7 +241,7 @@ test("Trace cube-free history transition retains shared workspace and subnav", a
     const subnav = await page.locator("[data-subnav-column]").boundingBox();
     const before = await page.locator("[data-training-history]").boundingBox();
     await page.evaluate(() => {
-      (window as any).__traceHistory = document.querySelector(
+      (window as Window & { __traceHistory: Element | null }).__traceHistory = document.querySelector(
         "[data-training-history]",
       );
     });
@@ -263,7 +263,7 @@ test("Trace cube-free history transition retains shared workspace and subnav", a
     expect(
       await page.evaluate(
         () =>
-          (window as any).__traceHistory ===
+          (window as Window & { __traceHistory: Element | null }).__traceHistory ===
           document.querySelector("[data-training-history]"),
       ),
     ).toBe(true);

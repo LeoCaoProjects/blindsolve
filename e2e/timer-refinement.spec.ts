@@ -1,3 +1,4 @@
+import { viewportGeometry } from "./helpers/viewport";
 import { chooseTimerMode } from "./helpers/timerMode";
 import { test, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
@@ -125,15 +126,16 @@ for (const [width, height] of [
       utility.y + utility.height,
     );
     if (width >= 768) {
+      const unit = (await viewportGeometry(page)).rem / 19.2;
       const letters = page.getByRole("button", {
         name: "Sticker letters",
         exact: true,
       });
       const letterBox = (await letters.boundingBox())!;
       expect(before[5]!.y).toBeLessThan(letterBox.y);
-      expect(before[5]!.height).toBe(32);
+      expect(before[5]!.height).toBeCloseTo(32 * unit, 1);
       expect(before[5]!.x + before[5]!.width).toBeCloseTo(
-        letterBox.x + letterBox.width + 1.6,
+        letterBox.x + letterBox.width + 1.6 * unit,
         1,
       );
       const typography = (el: Element) => {
@@ -155,10 +157,10 @@ for (const [width, height] of [
         "font-weight",
         "600",
       );
-      expect(letterBox.width).toBe(40);
-      expect(letterBox.height).toBe(40);
+      expect(letterBox.width).toBeCloseTo(40 * unit, 1);
+      expect(letterBox.height).toBeCloseTo(40 * unit, 1);
       await expect(letters.locator("svg.lucide-case-sensitive")).toHaveCount(1);
-      await expect(letters.locator("svg")).toHaveCSS("width", "20px");
+      expect((await letters.locator("svg").boundingBox())!.width).toBeCloseTo(20 * unit, 1);
       await expect(letters).not.toHaveText("Aa");
       expect(
         await letters.evaluate((button) => {
@@ -200,7 +202,7 @@ for (const [width, height] of [
         .locator("[data-timer-cube-viewport]")
         .boundingBox())!;
       expect(
-        Math.abs(viewport.height - Math.max(170, Math.min(height * 0.36, 330))),
+        Math.abs(viewport.height - Math.max(170 * unit, Math.min(height * 0.36, 330 * unit))),
       ).toBeLessThan(1);
       // The original useElementSize hook measures the content box, not its border.
       const contentSize = await page
@@ -208,15 +210,15 @@ for (const [width, height] of [
         .evaluate((el) => ({ width: el.clientWidth, height: el.clientHeight }));
       const expected = Math.max(
         120,
-        Math.min(272, contentSize.width - 56, contentSize.height - 36),
-      );
+        Math.min(272, contentSize.width / unit - 56, contentSize.height / unit - 36),
+      ) * unit;
       const cube = page.getByRole("group", {
         name: "Scrambled cube",
         exact: true,
       });
       const cubeBox = (await cube.boundingBox())!;
-      expect(cubeBox.width).toBe(expected);
-      expect(cubeBox.height).toBe(expected);
+      expect(Math.abs(cubeBox.width - expected)).toBeLessThan(1.5);
+      expect(Math.abs(cubeBox.height - expected)).toBeLessThan(1.5);
       console.log("RESTORED_CUBE", {
         width,
         height,
@@ -254,8 +256,9 @@ for (const [width, height] of [
       page.getByRole("menuitemradio", { name: "3BLD", exact: true }),
     ).toHaveAttribute("aria-checked", "true");
     const menuBox = (await popup.boundingBox())!;
-    expect(menuBox.width).toBeCloseTo(112 * 1.2, 1);
-    expect(menuBox.height).toBeLessThan(100 * 1.2);
+    const designScale = (await viewportGeometry(page)).rem / 16;
+    expect(menuBox.width).toBeCloseTo(112 * designScale, 1);
+    expect(menuBox.height).toBeLessThan(100 * designScale);
     expect(menuBox.x).toBeGreaterThanOrEqual(0);
     expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(width);
     expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(height);
@@ -271,15 +274,15 @@ for (const [width, height] of [
     }
     await page.keyboard.press("Escape");
     await expect(popup).toHaveCount(0);
-    expect(before[2]!.x).toBeCloseTo((width >= 768 ? 168 : 24) * 1.2, 1);
+    expect(before[2]!.x).toBeCloseTo((width >= 768 ? 168 : 24) * designScale, 1);
     expect(
       (await scramble.locator(":scope > div").first().boundingBox())!.x,
     ).toBe(before[2]!.x);
     await expect(footer.getByText("Last memo", { exact: true })).toHaveCount(0);
     expect(before[1]!.y).toBeLessThan(before[0]!.y + 40);
-    expect(before[5]!.height).toBe(32);
-    expect(before[5]!.width).toBe(76);
-    expect(before[4]!.height).toBeCloseTo(84 * 1.2, 1);
+    expect(before[5]!.height).toBeCloseTo(32 * (await viewportGeometry(page)).rem / 19.2, 1);
+    expect(before[5]!.width).toBeCloseTo(76 * designScale / 1.2, 1);
+    expect(before[4]!.height).toBeCloseTo(84 * designScale, 1);
     await expect(footer).not.toContainText("DNF");
     await expect(footer).not.toContainText("8:28.66");
     expect(
@@ -294,7 +297,7 @@ for (const [width, height] of [
     if (width >= 768) {
       const a = (await edges.boundingBox())!,
         b = (await corners.boundingBox())!;
-      expect(b.x - a.x - a.width).toBeLessThanOrEqual(34 * 1.2);
+      expect(b.x - a.x - a.width).toBeLessThanOrEqual(34 * designScale);
     }
     for (const mode of ["Edges", "Corners", "3BLD"]) {
       await chooseTimerMode(
@@ -392,7 +395,7 @@ for (const mode of ["3bld", "corners"] as const)
         footer.getByRole("region", { name: "Previous corners memo" }),
       ).toBeVisible();
       const before = await footer.boundingBox();
-      expect(before!.height).toBeCloseTo(84 * 1.2, 1);
+      expect(before!.height).toBeCloseTo(84 * (await viewportGeometry(page)).rem / 16, 1);
       await expect(footer.getByText("Last memo", { exact: true })).toHaveCount(
         0,
       );

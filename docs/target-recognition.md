@@ -54,7 +54,7 @@ workspace reference-cube visibility; repository payload validation.
 35 unit tests passed:
 
 ```powershell
-npx vitest run src/magic/hooks/useRecognitionSession.test.tsx src/magic/hooks/useExecScramble.test.tsx src/magic/utils/recognition.test.ts src/magic/utils/bld.test.ts src/magic/utils/challengeTargets.test.ts src/magic/components/training/TrainingClock.test.tsx src/magic/hooks/useLogicalWordConsumers.test.tsx
+npx vitest run src/workspace/hooks/useRecognitionSession.test.tsx src/workspace/hooks/useExecScramble.test.tsx src/workspace/utils/recognition.test.ts src/workspace/utils/bld.test.ts src/workspace/utils/challengeTargets.test.ts src/workspace/components/training/TrainingClock.test.tsx src/workspace/hooks/useLogicalWordConsumers.test.tsx
 ```
 
 6 focused browser tests passed:

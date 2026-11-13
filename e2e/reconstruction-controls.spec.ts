@@ -4,7 +4,7 @@ import { createSpeffzScheme } from "../src/domain/bld/speffz";
 import {
   writePairEntries,
   pairsFromStore,
-} from "../src/magic/utils/pairPersistence";
+} from "../src/workspace/utils/pairPersistence";
 
 test.beforeEach(async ({ page }) => {
   const data = {
@@ -45,14 +45,24 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-async function reconstruct(page: Page) {
+async function reconstruct(page: Page, checkHelp = false) {
   await page.goto("/");
   await expect(
     page.getByRole("button", { name: "New scramble", exact: true }),
   ).toBeEnabled({ timeout: 45000 });
-  await page
-    .getByRole("region", { name: "Scramble", exact: true })
-    .click({ position: { x: 5, y: 5 } });
+  if (checkHelp) {
+    await page.getByRole("button", { name: /Keyboard shortcuts/ }).click();
+    const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+    await expect(help.getByText("Confirm a cycle-break sticker or letter")).toBeVisible();
+    await expect(help.getByText(/After reconstruction, click any word/)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(help).toHaveCount(0);
+    await expect(page.locator("[data-workspace-main]")).toBeFocused();
+  } else {
+    await page
+      .getByRole("region", { name: "Scramble", exact: true })
+      .click({ position: { x: 5, y: 5 } });
+  }
   await page.keyboard.down("Space");
   await page.waitForTimeout(350);
   await page.keyboard.up("Space");
@@ -71,12 +81,22 @@ async function reconstruct(page: Page) {
 test("Settings cube selects a visible cell on first click without moving or committing", async ({
   page,
 }) => {
-  const popup = await reconstruct(page);
+  const popup = await reconstruct(page, true);
   await expect(
     popup.getByRole("heading", { name: /cycle break/ }),
   ).toBeVisible();
   const cube = popup.getByRole("group", { name: "Cube at the start of memo" });
+  // R leaves its own top row red; U moves that row to F and F turns it into its right column.
+  await expect(cube.locator('[data-sticker-id="F2"]')).toHaveCSS(
+    "background-color",
+    "rgb(199, 60, 52)",
+  );
   await expect(cube.locator('[data-selected="true"]')).toHaveCount(1);
+  const breakGroup = popup.getByRole("radiogroup", { name: "Cycle break sticker" });
+  const options = breakGroup.getByRole("radio");
+  expect((await cube.locator("button[data-sticker-id]").allTextContents()).sort()).toEqual(
+    (await options.allTextContents()).sort(),
+  );
   await page.waitForTimeout(300);
   const id = await cube.evaluate(
     (el) =>
@@ -115,12 +135,30 @@ test("Settings cube selects a visible cell on first click without moving or comm
   await expect(
     popup.getByRole("button", { name: "Back", exact: true }),
   ).toHaveCount(0);
-  const options = popup.getByRole("radio");
   const selected = options.filter({ hasText: await cell.innerText() });
   await selected.dblclick();
   await expect(cube.locator(`button[data-sticker-id="${id}"]`)).toHaveCount(0);
   await popup.getByRole("button", { name: "Back", exact: true }).click();
   await expect(cell).toHaveAttribute("aria-pressed", "true");
+  await cube.focus();
+  const angle = await transform();
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(transform).not.toBe(angle);
+  await expect(cell).toHaveAttribute("aria-pressed", "true");
+  await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+  await page.keyboard.press("ArrowRight");
+  const arrowChoice = (await breakGroup.getByRole("radio", { checked: true }).innerText()).trim();
+  expect(arrowChoice).not.toBe((await cell.innerText()).trim());
+  await page.keyboard.press("Enter");
+  await popup.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(breakGroup.getByRole("radio", { checked: true })).toHaveText(arrowChoice);
+  await page.keyboard.press(arrowChoice.toLowerCase());
+  await expect(cube.locator(`button[data-sticker-id="${id}"]`)).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(popup).toHaveCount(0);
+  const solves = await page.evaluate(() => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).data.solves);
+  expect(solves).toHaveLength(1);
+  expect(solves[0].reconstruction).toBe("complete");
 });
 
 for (const width of [1440, 390])
@@ -156,8 +194,14 @@ for (const width of [1440, 390])
       .getAttribute("aria-label");
     await second.nth(secondIndex).click();
     field = popup.getByRole("textbox", { name: /^Word used for/ });
+    await field.fill("Discard me");
+    await field.press("Escape");
+    await expect(popup).toBeVisible();
+    await expect(second.nth(secondIndex)).toContainText("Apple");
+    await second.nth(secondIndex).click();
+    field = popup.getByRole("textbox", { name: /^Word used for/ });
     await field.fill("Lantern");
-    await field.press("Enter");
+    await field.blur();
     const updates = popup.getByRole("region", { name: "Default word updates" });
     await expect(
       updates.getByRole("heading", {
@@ -220,6 +264,13 @@ for (const width of [1440, 390])
         ...data.solves[0].memoSnapshot.corners,
       ].map((item: { mnemonic: string }) => item.mnemonic),
     ).toEqual(expect.arrayContaining(["Orchard", "Lantern"]));
+    await page.getByRole("list", { name: "Solves", exact: true }).getByRole("button").first().click();
+    const saved = page.getByRole("dialog", { name: "Solve 1", exact: true });
+    const kept = saved.locator("li").filter({ hasText: keepWord });
+    await expect(kept).toContainText("now Apple");
+    await expect(saved.locator("[data-solve-memo-section]").getByText("Scramble R U F", { exact: true })).toBeAttached();
+    await expect(saved.locator("[data-solve-memo] h3")).toHaveText(["Edges", "Corners"]);
+    await expect(saved.getByText("cycle break at", { exact: true }).first()).toBeAttached();
   });
 
 for (const viewport of [
@@ -248,6 +299,17 @@ for (const viewport of [
         .click();
     const editors = popup.getByRole("button", { name: /^Edit word used for/ });
     await expect(editors.first()).toBeVisible();
+    if (viewport.width === 390 && viewport.height === 640) {
+      for (const [width, height, compact] of [
+        [639, 720, true], [640, 720, false], [639, 721, false], [639, 720, true],
+      ] as const) {
+        await page.setViewportSize({ width, height });
+        await expect
+          .poll(() => header.evaluate((el) => el.classList.contains("h-[150px]")))
+          .toBe(compact);
+      }
+      await page.setViewportSize(viewport);
+    }
     if (viewport.width >= 640) {
       const completedHeader = await header.boundingBox();
       expect(completedHeader!.height).toBeCloseTo(originalHeader!.height, 0);
@@ -343,6 +405,11 @@ for (const input of ["mouse", "Enter"] as const)
       await expect(popup).toBeVisible();
       await page.keyboard.up("Enter");
       await expect(save).toBeEnabled();
+      for (const key of ["Shift+Enter", "Alt+Enter", "Control+Enter", "Shift+Space"]) {
+        await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+        await page.keyboard.press(key);
+        await expect(popup).toBeVisible();
+      }
       await page.keyboard.press("Enter");
     } else await save.click();
     await expect(popup).toHaveCount(0);

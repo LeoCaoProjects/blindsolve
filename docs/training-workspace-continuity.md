@@ -51,21 +51,21 @@ Evidence: `test-results/training-continuity/after/` (screenshots and switching g
 
 ## Files changed in this iteration
 
-- `src/magic/App.tsx`
-- `src/magic/components/layout/SubNavigation.tsx`
-- `src/magic/components/workspace/SessionWorkspaceFrame.tsx` (new)
-- `src/magic/components/workspace/WorkspaceScrambleHeader.tsx` (new)
-- `src/magic/components/workspace/historyStyles.ts` (new)
-- `src/magic/components/concepts/workspace/WorkspaceTimer.tsx`
-- `src/magic/components/concepts/workspace/WorkspaceHistory.tsx`
-- `src/magic/components/training/TrainingAside.tsx` -> `TrainingHistory.tsx`
-- `src/magic/components/training/MemoRecallWorkspace.tsx`
-- `src/magic/components/solve/ScrambleRegion.tsx`
-- `src/magic/components/solve/ScrambleText.tsx`
-- `src/magic/components/cube/Cube3D.tsx` (instant orientation correction)
-- `src/magic/components/cube/SchemeCube.tsx` (instant orientation correction)
-- `src/magic/pages/Training.tsx`
-- `src/magic/index.css` (short-phone selectors follow the extracted main wrapper)
+- `src/workspace/App.tsx`
+- `src/workspace/components/layout/SubNavigation.tsx`
+- `src/workspace/components/workspace/SessionWorkspaceFrame.tsx` (new)
+- `src/workspace/components/workspace/WorkspaceScrambleHeader.tsx` (new)
+- `src/workspace/components/workspace/historyStyles.ts` (new)
+- `src/workspace/components/workspace/WorkspaceTimer.tsx`
+- `src/workspace/components/workspace/WorkspaceHistory.tsx`
+- `src/workspace/components/training/TrainingAside.tsx` -> `TrainingHistory.tsx`
+- `src/workspace/components/training/MemoRecallWorkspace.tsx`
+- `src/workspace/components/solve/ScrambleRegion.tsx`
+- `src/workspace/components/solve/ScrambleText.tsx`
+- `src/workspace/components/cube/Cube3D.tsx` (instant orientation correction)
+- `src/workspace/components/cube/SchemeCube.tsx` (instant orientation correction)
+- `src/workspace/pages/Training.tsx`
+- `src/workspace/index.css` (short-phone selectors follow the extracted main wrapper)
 - `e2e/training-workspace.spec.ts` (new)
 - this report
 

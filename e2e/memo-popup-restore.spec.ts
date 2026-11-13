@@ -42,13 +42,13 @@ async function completedMemo(page: Page, savedWord = false) {
   );
   await page.addInitScript(() => {
     const original = crypto.getRandomValues.bind(crypto);
-    crypto.getRandomValues = ((array: any) => {
+    crypto.getRandomValues = <T extends ArrayBufferView | null>(array: T): T => {
       if (array instanceof Uint32Array && array.length === 1) {
         array[0] = 41337;
         return array;
       }
       return original(array);
-    }) as typeof crypto.getRandomValues;
+    };
   });
   await page.goto("/training");
   await page.getByRole("radio", { name: "Memo Recall", exact: true }).click();
@@ -161,7 +161,10 @@ test("Memo mnemonic input and footer stay stable; explicit Save persists and clo
   await save.click();
   await expect(popup).toHaveCount(0);
   const after = await stored(page);
-  expect(JSON.stringify(after.pairs)).toContain(word);
+  expect(after.pairs).toEqual(original.pairs);
+  expect(Object.values(after.logicalPairs ?? {})).toEqual(
+    expect.arrayContaining([expect.objectContaining({ primaryMnemonic: word })]),
+  );
   expect(after.attempts).toEqual(original.attempts);
 });
 

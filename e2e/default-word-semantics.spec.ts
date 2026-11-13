@@ -4,7 +4,7 @@ import type { AppData } from "../src/lib/repository";
 import {
   pairsFromStore,
   writePairEntries,
-} from "../src/magic/utils/pairPersistence";
+} from "../src/workspace/utils/pairPersistence";
 const base = {
   scheme: createSpeffzScheme(),
   pairs: {},
@@ -45,6 +45,10 @@ for (const piece of ["Edges", "Corners"]) {
     await page.goto("/");
     await page.getByRole("button", { name: "Timer mode", exact: true }).click();
     await page.getByRole("menuitemradio", { name: piece, exact: true }).click();
+    // The clock ignores Space while the exiting mode dialog is still mounted.
+    await expect(
+      page.getByRole("dialog", { name: "Timer mode choices", exact: true }),
+    ).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "New scramble", exact: true }),
     ).toBeEnabled({ timeout: 45000 });

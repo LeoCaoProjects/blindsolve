@@ -20,9 +20,9 @@ import {
 import {
   applyM2Targets as applyTrainingM2Targets,
   trace as traceTraining,
-} from "../../magic/utils/bld";
-import { stateFromScramble as trainingStateFromScramble } from "../../magic/utils/cube";
-import { EDGE_STICKERS, speffzScheme } from "../../magic/utils/scheme";
+} from "../../workspace/utils/bld";
+import { stateFromScramble as trainingStateFromScramble } from "../../workspace/utils/cube";
+import { EDGE_STICKERS, speffzScheme } from "../../workspace/utils/scheme";
 
 const SETUP_TO_UB: Record<string, string> = {
   "U:UR": "R' U R U'",

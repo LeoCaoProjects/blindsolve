@@ -1,8 +1,10 @@
+import type { Locator } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 import { createSpeffzScheme, stickersFor } from "../src/domain/bld/speffz";
 import { pairKey } from "../src/domain/letterPairs";
 import { mkdir } from "node:fs/promises";
-import { formatTime } from "../src/magic/utils/time";
+import { formatTime } from "../src/workspace/utils/time";
 const out = "test-results/execution-details";
 test.beforeEach(async ({ page }) => {
   await mkdir(out, { recursive: true });
@@ -94,7 +96,7 @@ test.beforeEach(async ({ page }) => {
     },
   );
 });
-async function complete(page: any) {
+async function complete(page: Page) {
   await page.goto("/training");
   await expect(
     page.getByRole("button", { name: "New scramble", exact: true }),
@@ -119,7 +121,7 @@ test("Flashcards snap on entry and animate only subsequent card orientations, re
 }) => {
   await page.addInitScript(() => {
     Math.random = () => 0.72;
-    (window as any).__rotations = [];
+    (window as Window & { __rotations: string[] }).__rotations = [];
     document.addEventListener(
       "transitionrun",
       (e) => {
@@ -129,7 +131,7 @@ test("Flashcards snap on entry and animate only subsequent card orientations, re
             ?.getAttribute("aria-label")
             ?.startsWith("Where ")
         )
-          (window as any).__rotations.push(
+          (window as Window & { __rotations: string[] }).__rotations.push(
             (e.target as HTMLElement).style.transform,
           );
       },
@@ -140,22 +142,21 @@ test("Flashcards snap on entry and animate only subsequent card orientations, re
   const cubes = page.locator('aside [role="group"][aria-label^="Where "]');
   await expect(cubes).toBeVisible();
   await page.waitForTimeout(300);
-  expect(await page.evaluate(() => (window as any).__rotations.length)).toBe(0);
-  const initial = await cubes.getAttribute("aria-label");
+  expect(await page.evaluate(() => (window as Window & { __rotations: string[] }).__rotations.length)).toBe(0);
   for (let i = 0; i < 3; i++) {
     await page.getByRole("button", { name: /^Reveal/ }).click();
     await page.getByRole("button", { name: /^Remembered/ }).click();
     await page.waitForTimeout(300);
   }
   expect(
-    await page.evaluate(() => (window as any).__rotations.length),
+    await page.evaluate(() => (window as Window & { __rotations: string[] }).__rotations.length),
   ).toBeGreaterThan(0);
   await page.getByRole("link", { name: "Timer", exact: true }).click();
-  await page.evaluate(() => ((window as any).__rotations = []));
+  await page.evaluate(() => ((window as Window & { __rotations: string[] }).__rotations = []));
   await page.getByRole("link", { name: "Flashcards", exact: true }).click();
   await expect(cubes).toBeVisible();
   await page.waitForTimeout(300);
-  expect(await page.evaluate(() => (window as any).__rotations.length)).toBe(0);
+  expect(await page.evaluate(() => (window as Window & { __rotations: string[] }).__rotations.length)).toBe(0);
   await expect(cubes.locator(":scope > div").first()).toHaveCSS(
     "transition-duration",
     "0.26s",
@@ -209,7 +210,7 @@ test("Execution completion is rich, history passive, and date matches Timer exac
   const close = dialog.getByRole("button", { name: /^Close/ });
   await expect(close).toBeVisible();
   const buttonClass = await close.getAttribute("class");
-  const dateStyle = async (d: any) =>
+  const dateStyle = async (d: Locator) =>
     d.locator("time").evaluate((e: Element) => {
       const style = getComputedStyle(e),
         r = e.getBoundingClientRect(),
@@ -271,7 +272,7 @@ test("Execution completion is rich, history passive, and date matches Timer exac
       (id) =>
         JSON.parse(
           localStorage.getItem("cubeiq-bld-v2:guest")!,
-        ).data.attempts.some((a: any) => a.id === id),
+        ).data.attempts.some((a: { id: string }) => a.id === id),
       saved.id,
     ),
   ).toBe(false);

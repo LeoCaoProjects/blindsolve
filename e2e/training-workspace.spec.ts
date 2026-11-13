@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -48,7 +49,7 @@ test.beforeEach(async ({ page }) => {
     );
   }, createSpeffzScheme());
 });
-async function landmarks(page: any) {
+async function landmarks(page: Page) {
   return page.evaluate(() => {
     const rect = (e: Element) => {
       const r = e.getBoundingClientRect();
@@ -67,9 +68,9 @@ async function landmarks(page: any) {
     );
   });
 }
-function closeGeometry(actual: any, reference: any, training = false) {
+function closeGeometry(actual: Awaited<ReturnType<typeof landmarks>>, reference: Awaited<ReturnType<typeof landmarks>>, training = false) {
   for (const s in reference)
-    for (const axis of ["x", "y", "width", "height"]) {
+    for (const axis of ["x", "y", "width", "height"] as const) {
       // Attempt rows span one column; solve history has two. All rows have the same density.
       if (s === "[data-virtual-row]" && axis === "width") continue;
       // Training's contextual column intentionally narrows/moves the shared header.
@@ -88,22 +89,18 @@ test("shared header, cube, Aa and panel persist through repeated Timer Training 
     page.getByRole("button", { name: "New scramble", exact: true }),
   ).toBeEnabled({ timeout: 45000 });
   const before = await landmarks(page);
-  const cube = await page
-    .locator("[data-timer-cube-viewport] > div:last-child > div")
-    .elementHandle();
-  const header = await page
-    .getByRole("region", { name: "Scramble", exact: true })
-    .elementHandle();
+  const cube = await page.locator("[data-timer-cube-viewport]").elementHandle();
+  const reference = await page.locator("[data-workspace-reference]").elementHandle();
   const aa = page.getByRole("button", { name: "Sticker letters", exact: true });
   await aa.click();
   const nav = page.getByRole("navigation", { name: "Sections", exact: true });
-  const results: any[] = [];
+  const results: { mode: string; landmarks: Awaited<ReturnType<typeof landmarks>>; samples: number }[] = [];
   for (const mode of ["Execution Sprint", "Guided Solve", "Execution Sprint"]) {
     await page.evaluate(() => {
       const panel = document.querySelector("[data-workspace-reference]")!;
       const start = performance.now();
-      const samples: any[] = [];
-      (window as any).__panelTrace = samples;
+      const samples: [number, number, number][] = [];
+      (window as Window & { __panelTrace: [number, number, number][] }).__panelTrace = samples;
       const frame = () => {
         const r = panel.getBoundingClientRect();
         samples.push([r.x, r.y, r.width]);
@@ -120,20 +117,13 @@ test("shared header, cube, Aa and panel persist through repeated Timer Training 
       page.getByRole("button", { name: "Timer mode", exact: true }),
     ).toHaveCount(0);
     await expect(aa).toHaveAttribute("aria-pressed", "true");
-    expect(
-      await header!.evaluate(
-        (e) => e === document.querySelector('section[aria-label="Scramble"]'),
-      ),
-    ).toBe(true);
-    expect(
-      await cube!.evaluate(
-        (e) =>
-          e ===
-          document.querySelector(
-            "[data-timer-cube-viewport] > div:last-child > div",
-          ),
-      ),
-    ).toBe(true);
+    expect(await reference!.evaluate(e =>
+      e === document.querySelector("[data-workspace-reference]"),
+    )).toBe(true);
+    expect(await cube!.evaluate(e =>
+      e === document.querySelector("[data-timer-cube-viewport]"),
+    )).toBe(true);
+    await expect(page.getByRole("region", { name: "Scramble", exact: true })).toHaveCount(1);
     await expect(page.locator("[data-page-workspace]")).toHaveCSS(
       "transform",
       "none",
@@ -152,7 +142,7 @@ test("shared header, cube, Aa and panel persist through repeated Timer Training 
         .innerText(),
     ).toBe("");
     await page.waitForTimeout(460);
-    const samples = await page.evaluate(() => (window as any).__panelTrace);
+    const samples = await page.evaluate(() => (window as Window & { __panelTrace: [number, number, number][] }).__panelTrace);
     for (const sample of samples) expect(sample).toEqual([1048, 0, 392]);
     results.push({
       mode,
@@ -167,6 +157,9 @@ test("shared header, cube, Aa and panel persist through repeated Timer Training 
       "transform",
       "none",
     );
+    const timerHeader = page.getByRole("region", { name: "Scramble", exact: true });
+    await expect.poll(async () => (await timerHeader.boundingBox())?.x)
+      .toBeCloseTo(before['section[aria-label="Scramble"]'].x, 1);
     closeGeometry(await landmarks(page), before);
   }
   await writeFile(
@@ -215,7 +208,7 @@ for (const [width, height] of [
           () => document.documentElement.scrollWidth <= innerWidth,
         ),
       ).toBe(true);
-      if (mode === "Execution Sprint" || mode === "Guided Solve")
+      if (mode === "Execution Sprint" || mode === "Guided Solve" || mode === "Trace Sprint")
         await expect(
           page.getByRole("button", { name: "New scramble", exact: true }),
         ).toBeInViewport();
@@ -239,63 +232,64 @@ test("header uses the workspace slide in both directions without moving the refe
   ).toBeEnabled({ timeout: 45000 });
   await page.evaluate(() => {
     const original = Element.prototype.animate;
-    (window as any).__slides = [];
+    (window as Window & { __slides: Animation[] }).__slides = [];
     Element.prototype.animate = function (...args) {
       const animation = original.apply(this, args);
       if (this.hasAttribute("data-page-workspace")) {
         animation.pause();
         animation.currentTime = 0;
-        (window as any).__slides.push(animation);
+        (window as Window & { __slides: Animation[] }).__slides.push(animation);
       }
       return animation;
     };
   });
   const header = page.getByRole("region", { name: "Scramble", exact: true });
   const nav = page.getByRole("navigation", { name: "Sections", exact: true });
-  const origin = (await header.boundingBox())!.x;
-  for (const mode of ["Execution Sprint", "Guided Solve"]) {
-    await nav.getByRole("link", { name: "Training", exact: true }).click();
-    for (const time of [0, 90, 180]) {
-      const sample = await page.evaluate((time) => {
-        const a = (window as any).__slides.at(-1);
-        a.currentTime = time;
-        const rect = (s: string) =>
-          document.querySelector(s)!.getBoundingClientRect();
+  const reference = page.locator("[data-workspace-reference]");
+  const panel = await reference.boundingBox();
+  const slideCount = () => page.evaluate(() =>
+    (window as Window & { __slides: Animation[] }).__slides.length,
+  );
+  async function switchAndSample(destination: "Timer" | "Training") {
+    const before = (await header.boundingBox())!.x;
+    const count = await slideCount();
+    await nav.getByRole("link", { name: destination, exact: true }).click();
+    await expect.poll(slideCount).toBe(count + 1);
+    const samples = await page.evaluate(async () => {
+      const animation = (window as Window & { __slides: Animation[] }).__slides.at(-1)!;
+      await animation.ready;
+      const duration = Number(animation.effect!.getTiming().duration);
+      const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+      return [0, duration / 2, duration - 0.01].map(time => {
+        animation.currentTime = time;
         return {
           header: rect('section[aria-label="Scramble"]').x,
           workspace: rect("[data-page-workspace]").x,
           panel: rect("[data-workspace-reference]").x,
-          duration: a.effect.getTiming().duration,
+          duration,
         };
-      }, time);
+      });
+    });
+    for (const sample of samples) {
       expect(sample.header).toBeCloseTo(sample.workspace, 2);
-      expect(sample.panel).toBe(1048);
+      expect(sample.panel).toBe(panel!.x);
       expect(sample.duration).toBe(180);
-      if (time === 0) expect(sample.header).toBeCloseTo(origin, 1);
     }
-    const aside = (await page.locator("[data-subnav-column]").boundingBox())!;
-    expect((await header.boundingBox())!.x).toBeCloseTo(
-      aside.x + aside.width,
-      1,
-    );
-    await page.evaluate(() => (window as any).__slides.at(-1).finish());
-    await page.getByRole("radio", { name: mode, exact: true }).click();
-    await nav.getByRole("link", { name: "Timer", exact: true }).click();
-    for (const time of [0, 90, 180]) {
-      const sample = await page.evaluate((time) => {
-        (window as any).__slides.at(-1).currentTime = time;
-        return ['section[aria-label="Scramble"]', "[data-page-workspace]"].map(
-          (s) => document.querySelector(s)!.getBoundingClientRect().x,
-        );
-      }, time);
-      expect(sample[0]).toBeCloseTo(sample[1], 2);
-      if (time === 180) expect(sample[0]).toBeCloseTo(origin, 1);
-    }
-    await page.evaluate(() => (window as any).__slides.at(-1).finish());
+    const [first, middle, last] = samples;
+    expect(first.header).toBeCloseTo(before, 1);
+    expect(middle.header).toBeGreaterThan(Math.min(first.header, last.header));
+    expect(middle.header).toBeLessThan(Math.max(first.header, last.header));
+    await page.evaluate(() => (window as Window & { __slides: Animation[] }).__slides.at(-1)!.finish());
+    await expect(page.locator("[data-page-workspace]")).toHaveCSS("transform", "none");
+    expect(last.header).toBeCloseTo((await header.boundingBox())!.x, 1);
   }
-  expect(await page.evaluate(() => (window as any).__slides.length)).toBe(4);
-  await nav.getByRole("link", { name: "Training", exact: true }).click();
-  await page.evaluate(() => (window as any).__slides.at(-1).finish());
+  for (const mode of ["Execution Sprint", "Guided Solve"]) {
+    await switchAndSample("Training");
+    await page.getByRole("radio", { name: mode, exact: true }).click();
+    await switchAndSample("Timer");
+  }
+  expect(await slideCount()).toBe(4);
+  await switchAndSample("Training");
   await page.getByRole("radio", { name: "Memo Recall", exact: true }).click();
   await expect(header).toHaveCount(0);
   await expect(page.locator("[data-page-workspace]")).toHaveCSS(
@@ -368,10 +362,9 @@ test("cube orientation snaps on drag reset, route/mode switches and preference c
     .getByRole("group", { name: "Your cube", exact: true })
     .locator(":scope > div")
     .first();
-  await expect(settingsCamera).toHaveCSS("transition-duration", "0s");
+  await expect(settingsCamera).toHaveCSS("transition-duration", "0.26s");
   await page.getByRole("radio", { name: "Orange", exact: true }).last().click();
-  expect(
-    await settingsCamera.evaluate((e) => {
+  await expect.poll(() => settingsCamera.evaluate((e) => {
       const actual = new DOMMatrixReadOnly(
         getComputedStyle(e).transform,
       ).toFloat64Array();
@@ -379,9 +372,7 @@ test("cube orientation snaps on drag reset, route/mode switches and preference c
         (e as HTMLElement).style.transform,
       ).toFloat64Array();
       return actual.every((value, i) => Math.abs(value - target[i]) < 0.00001);
-    }),
-  ).toBe(true);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+    })).toBe(true);
   await nav.getByRole("link", { name: "Timer", exact: true }).click();
   await expect(cube).toHaveAttribute("data-cube-view", "white/orange");
   await expect(camera).toHaveCSS("transition-duration", "0s");

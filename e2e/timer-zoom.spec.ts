@@ -1,3 +1,4 @@
+import { viewportGeometry } from "./helpers/viewport";
 import { chromium, expect, test } from "@playwright/test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -69,7 +70,9 @@ for (const zoom of [0.8, 1, 1.25, 1.5]) {
             Math.abs((await page.evaluate(() => innerHeight)) - height / zoom),
           )
           .toBeLessThan(2);
-        await expect(page.locator("html")).toHaveCSS("font-size", "19.2px");
+        const { rem } = await viewportGeometry(page);
+        const root = await page.evaluate(() => Math.max(innerHeight * 19.2 / 900, innerWidth * 12.8 / 1440));
+        expect(rem).toBeCloseTo(root, 1);
         await expect(page.locator("html")).toHaveCSS("zoom", "1");
         expect(
           await page.evaluate(
@@ -91,11 +94,11 @@ for (const zoom of [0.8, 1, 1.25, 1.5]) {
         const footer = (await page
           .getByRole("region", { name: "Last solve memo" })
           .boundingBox())!;
-        expect(clockBox.height).toBeGreaterThan(40);
+        expect(clockBox.height).toBeGreaterThan(40 * rem / 19.2);
         expect(clockBox.y + clockBox.height).toBeLessThanOrEqual(
           footer.y + 0.5,
         );
-        expect(footer.height).toBeCloseTo(84 * 1.2, 0);
+        expect(footer.height).toBeCloseTo(84 * rem / 16, 0);
         const trigger = page.getByRole("button", {
           name: "Timer mode",
           exact: true,

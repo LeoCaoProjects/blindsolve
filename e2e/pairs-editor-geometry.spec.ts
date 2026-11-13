@@ -3,7 +3,7 @@ import { createSpeffzScheme } from "../src/domain/bld/speffz";
 import {
   pairsFromStore,
   writePairEntries,
-} from "../src/magic/utils/pairPersistence";
+} from "../src/workspace/utils/pairPersistence";
 import type { AppData } from "../src/lib/repository";
 const data = writePairEntries(
   {

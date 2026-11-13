@@ -47,7 +47,8 @@ await writeFile('dist/404.html', '<!doctype html><html lang="en"><head><meta cha
 const hash = createHash('sha256').update(schema).digest('base64');
 let headers = (await readFile('dist/_headers', 'utf8')).replaceAll('\r\n', '\n');
 headers = headers.replace("script-src 'self';", `script-src 'self' 'sha256-${hash}';`);
-if (preview) headers += '  X-Robots-Tag: noindex, follow\n';
+if (preview)
+  headers = headers.replace(/^\/\*\n/m, '/*\n  X-Robots-Tag: noindex, follow\n');
 headers += '\nhttps://blindsolve.pages.dev/*\n  X-Robots-Tag: noindex, follow\n\nhttps://:branch.blindsolve.pages.dev/*\n  X-Robots-Tag: noindex, follow\n';
 for (const [path, page] of Object.entries(pages)) if (page.noindex) headers += `\n${path}\n  X-Robots-Tag: noindex, follow\n`;
 for (const path of ['/', '/index.html', ...Object.keys(pages).filter((path) => path !== '/').flatMap((path) => [path, `${path}.html`])]) {

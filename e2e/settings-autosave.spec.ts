@@ -94,7 +94,7 @@ test("unfinished legacy setup history loads intact and autosaving stays silent",
   const restored = await data(page);
   expect(restored.schemeHistory[0].scheme).toEqual(archived);
   expect(
-    Object.values(restored.scheme.stickers).some((s: any) => s.label === "CH"),
+    Object.values(restored.scheme.stickers as ReturnType<typeof createSpeffzScheme>["stickers"]).some((s) => s.label === "CH"),
   ).toBe(true);
   await page.screenshot({ path: test.info().outputPath("silent-saving.png") });
 });

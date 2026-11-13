@@ -27,6 +27,12 @@ async function load(page: Page, data = workspace()) {
     if (!localStorage.getItem('cubeiq-bld-v2:guest')) localStorage.setItem('cubeiq-bld-v2:guest', JSON.stringify({ data: value, revision: 0, dirty: false }));
   }, data);
 }
+async function waitForTrainingStart(page: Page, mode: string) {
+  await expect(page.locator("[data-training-region][data-transitioning=true]")).toHaveCount(0);
+  if (mode === "Trace Sprint")
+    await expect(page.getByRole("button", { name: "New scramble", exact: true })).toBeEnabled({ timeout: 45000 });
+}
+
 async function holdSpace(page: Page) {
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.down('Space');
@@ -191,6 +197,7 @@ test('Trace Sprint submits once, freezes time, and Enter review advances without
   await load(page);
   await page.goto('/training');
   await page.getByRole('radio', { name: 'Trace Sprint' }).click();
+  await waitForTrainingStart(page, 'Trace Sprint');
   await holdSpace(page);
   await page.getByRole('button', { name: /^Submit/ }).evaluate((button) => {
     (button as HTMLButtonElement).click();
@@ -254,7 +261,7 @@ test('Memo Recall history survives a full reload', async ({ page }) => {
   await holdSpace(page);
   await page.keyboard.press('Space');
   await page.getByRole('button', { name: /^Submit/ }).click();
-  await expect(page.getByRole('dialog', { name: 'Memo Recall result' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Memo Recall review' })).toBeVisible();
   await page.reload();
   await page.getByRole('radio', { name: 'Memo Recall' }).click();
   await expect(page.getByRole('list', { name: 'Attempts', exact: true }).locator('li')).toHaveCount(1);
@@ -318,11 +325,12 @@ test('Timer and shared-scope, per-drill Training workspaces survive SPA navigati
 test('Training tabs are ordered and an active Guided Solve keeps its phase and time across navigation', async ({ page }) => {
   await load(page);
   await page.goto('/training');
-  await expect(page.getByRole('navigation', { name: 'Drill' }).getByRole('radio')).toHaveText([
+  await expect(page.getByRole('radiogroup', { name: 'Drill' }).getByRole('radio')).toHaveText([
     'Execution Sprint',
     'Guided Solve',
-    'Memo Recall',
+    'Target Recognition',
     'Trace Sprint',
+    'Memo Recall',
   ]);
   await page.getByRole('radio', { name: 'Guided Solve' }).click();
   const scramble = page.getByRole('region', { name: 'Scramble' });
@@ -333,18 +341,18 @@ test('Training tabs are ordered and an active Guided Solve keeps its phase and t
   const memoClock = page.getByRole('timer').first();
   const memoBefore = await memoClock.innerText();
   await page.getByRole('link', { name: 'Timer', exact: true }).click();
-  await page.waitForTimeout(80);
   await page.getByRole('link', { name: 'Training', exact: true }).click();
   await expect(page.locator('[data-training-challenge-id]')).toHaveAttribute('data-training-challenge-id', challengeId!);
   await expect(page.getByRole('timer', { name: 'Memorisation' })).toBeVisible();
-  expect(await memoClock.innerText()).not.toBe(memoBefore);
+  await expect.poll(() => memoClock.innerText()).not.toBe(memoBefore);
 });
 
-test('all Training modes remain idle until hold-release and Next returns to idle', async ({ page }) => {
+test('Recall and Trace stay idle until hold-release and review returns to idle', async ({ page }) => {
   await load(page);
   await page.goto('/training');
   for (const mode of ['Memo Recall', 'Trace Sprint']) {
     await page.getByRole('radio', { name: mode }).click();
+    await waitForTrainingStart(page, mode);
     await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toBeVisible();
     await holdSpace(page);
     await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toHaveCount(0);
@@ -354,8 +362,8 @@ test('all Training modes remain idle until hold-release and Next returns to idle
     } else {
       await page.getByRole('button', { name: /^Submit/ }).click();
     }
-    await expect(page.getByRole('button', { name: /Next/ })).toBeVisible();
-    await page.getByRole('button', { name: /Next/ }).click();
+    const review = page.getByRole('dialog', { name: mode + ' review', exact: true });
+    await review.getByRole('button', { name: mode === 'Memo Recall' ? /^Save/ : /^Close/ }).click();
     await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toBeVisible();
   }
 });
@@ -392,6 +400,7 @@ test('production search worker serves the hashed module for timer and restricted
   await page.goto('/training');
   for (const mode of ['Memo Recall', 'Trace Sprint']) {
     await page.getByRole('radio', { name: mode }).click();
+    await waitForTrainingStart(page, mode);
     await holdSpace(page);
     await expect(page.getByRole('timer', { name: 'Hold Space to start' })).toHaveCount(0);
     if (mode === 'Memo Recall') {
@@ -400,7 +409,8 @@ test('production search worker serves the hashed module for timer and restricted
     } else {
       await page.getByRole('button', { name: /^Submit/ }).click();
     }
-    await page.getByRole('button', { name: /Next/ }).click();
+    const review = page.getByRole('dialog', { name: mode + ' review', exact: true });
+    await review.getByRole('button', { name: mode === 'Memo Recall' ? /^Save/ : /^Close/ }).click();
   }
 
   await page.getByRole('radio', { name: 'Execution Sprint' }).click();
@@ -426,14 +436,19 @@ test('Space in a Training input never starts or submits another attempt', async 
   await load(page);
   await page.goto('/training');
   await page.getByRole('radio', { name: 'Trace Sprint' }).click();
+  await waitForTrainingStart(page, 'Trace Sprint');
   await holdSpace(page);
-  const input = page.locator('input').first();
+  const input = page.getByRole('textbox', { name: 'Corners targets', exact: true });
+  const count = () => page.evaluate(() => JSON.parse(localStorage.getItem('cubeiq-bld-v2:guest')!).data.attempts.length);
+  const before = await count();
   await input.fill('A B');
   await input.press('Space');
   await expect(input).toBeFocused();
+  await expect(page.getByRole('button', { name: /^Submit/ })).toBeVisible();
+  expect(await count()).toBe(before);
 });
 
-test('Memo Recall results use read-only reconstruction without word-editing clutter', async ({ page }) => {
+test('Memo Recall keeps word editing confined to the completed review', async ({ page }) => {
   await load(page);
   await page.goto('/training');
   await page.getByRole('radio', { name: 'Memo Recall' }).click();
@@ -443,8 +458,9 @@ test('Memo Recall results use read-only reconstruction without word-editing clut
   await page.keyboard.press('Space');
   await expect(page.getByRole('button', { name: 'Suggest' })).toHaveCount(0);
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: 'Memo Recall result' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Suggest' })).toHaveCount(0);
+  const review = page.getByRole('dialog', { name: 'Memo Recall review', exact: true });
+  await expect(review.getByRole('textbox', { name: /^Word for/ }).first()).toBeVisible();
+  await expect(review.getByRole('button', { name: /^Save/ })).toBeVisible();
 });
 
 test('Settings Support scrollspy, feedback validation and signed-out optional contact match the final UI', async ({ page }) => {
@@ -509,6 +525,7 @@ test('all Training drills share scope while retaining distinct challenges', asyn
   const ids = new Set<string>();
   for (const mode of ['Execution Sprint', 'Guided Solve', 'Memo Recall', 'Trace Sprint']) {
     await page.getByRole('radio', { name: mode }).click();
+    await waitForTrainingStart(page, mode);
     await expect(page.getByRole('radio', { name: 'Edges', exact: true })).toHaveAttribute('aria-checked', 'true');
     ids.add((await page.locator('[data-training-challenge-id]').getAttribute('data-training-challenge-id'))!);
   }
@@ -626,7 +643,7 @@ test('key latest screens pass automated WCAG checks', async ({ page }) => {
   }
 });
 
-test('requested desktop, tablet and mobile viewports stay horizontally contained', async ({ page }) => {
+test('requested desktop, tablet and mobile viewports stay horizontally contained', async ({ page }, testInfo) => {
   await load(page, workspace(true));
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 900, height: 560 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
@@ -634,7 +651,7 @@ test('requested desktop, tablet and mobile viewports stay horizontally contained
       await page.goto(path);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${viewport.width}px ${name}`).toBe(true);
       if ([1440, 1024, 390].includes(viewport.width)) {
-        await page.screenshot({ path: `docs/screenshots/latest/${viewport.width}-${name}.png`, animations: 'disabled' });
+        await page.screenshot({ path: testInfo.outputPath(`${viewport.width}-${name}.png`), animations: 'disabled' });
       }
     }
   }
