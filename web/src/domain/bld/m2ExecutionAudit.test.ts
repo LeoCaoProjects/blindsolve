@@ -24,6 +24,12 @@ import {
 import { stateFromScramble as trainingStateFromScramble } from "../../workspace/utils/cube";
 import { EDGE_STICKERS, speffzScheme } from "../../workspace/utils/scheme";
 
+// Independent target algorithms/parity: Andy Klise's M2 / Old Pochmann guide.
+// https://www.kungfoomanchu.com/guides/andy-klise-m2-oldpoch.pdf
+// Classic target-by-target convention (not the direct-pair variant):
+// https://www.stefan-pochmann.info/spocc/blindsolving/M2R2/
+// https://www.cubefreak.net/bld/m2_guide.php
+// Special-target cross-check: https://rubikcube.org/video-guides/m2-old-pochmann-blindfold-tutorial-part-3/
 const SETUP_TO_UB: Record<string, string> = {
   "U:UR": "R' U R U'",
   "R:UR": "B' R B",

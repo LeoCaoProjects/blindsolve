@@ -29,8 +29,8 @@ https://developers.google.com/identity/branding-guidelines
 The WCA OAuth logo is redistributed under the policy described in the World Cube Association logo notice below.
 
 The mnemonic corpus in web/src/workspace/data/mnemonicSuggestions.ts has unresolved
-redistribution rights and is excluded from the root MIT grant. Publication is
-blocked pending confirmation or replacement; see docs/LETTER_PAIR_SOURCES.md.
+redistribution rights and is excluded from the root MIT grant. No redistribution
+permission is established for this data; see docs/LETTER_PAIR_SOURCES.md.
 
 The following license notices conservatively cover runtime dependencies,
 including transitive packages that may be eliminated by tree shaking.
