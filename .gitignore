@@ -3,11 +3,8 @@ dist/
 .env
 .env.*
 !.env.example
-.venv/
-__pycache__/
-.pytest_cache/
 *.tsbuildinfo
 playwright-report/
 test-results/
 supabase/.temp/
-/audit/
+worker-results/
