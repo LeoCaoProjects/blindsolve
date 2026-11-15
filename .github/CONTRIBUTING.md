@@ -1,12 +1,27 @@
-# Development
+# Cloud development
 
-- Use `cd web` then `npm ci` and keep the lockfile aligned. CI uses Node.js 22. Keep the domain independent of workspace rendering.
-- Run `npm run typecheck` and focused tests such as `npx vitest run src/data/repository.test.ts`. Build with `npm run build` and verify generated SEO and headers with `npm run test:seo`.
-- Install the Playwright browser for your environment. CI uses Chromium and the Windows local configuration uses Edge. Run focused selectors with `npx playwright test <file> -g <selector>`. Generated screenshots, reports and traces belong in Playwright output directories.
-- For database work, use a fresh unlinked disposable stack with synthetic accounts. Verify destinations before running migrations or tests. Follow the CI database job and [maintenance notes](../docs/maintenance.md).
-- Preserve owner scope, record identity, legacy formats and deletion precedence. Add fixtures when a change affects historical data.
-- Keep private release reports outside the repository. Generated builds, TypeScript caches, test artifacts and local environment files are ignored.
+Use a local or disposable Supabase project, never production data or credentials.
+Apply all migrations in `supabase/migrations/` in order; see the
+[Supabase migration guide](https://supabase.com/docs/guides/local-development/database-migrations).
+Copy `web/.env.example` to `web/.env.local` and set `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` to that project's public client configuration.
 
-Open an issue for substantial changes, then submit a focused pull request against `main`. Explain the behavior change and checks run. Do not include real backups, account data or credentials.
+Enable the Google Auth provider and allow your app's development redirect URL.
+WCA sign-in uses `supabase/functions/wca-oauth/`; feedback uses
+`supabase/functions/submit-feedback/`. Configure their
+[server environment](https://supabase.com/docs/guides/functions/secrets)
+with `APP_URL`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; WCA also needs
+`WCA_CLIENT_ID` and `WCA_CLIENT_SECRET`. Register the WCA callback as
+`<SUPABASE_URL>/functions/v1/wca-oauth/callback`. Keep OAuth secrets and the
+service-role key out of `VITE_` variables. Use HTTPS when testing the WCA flow,
+which uses a Secure cookie.
 
-Run Supabase CLI commands from the repository root, separately from the frontend package. CI resolves npm/cache/browser artifact paths under `web/`; database paths remain rooted at `supabase/`.
+Feedback administration is controlled by `public.feedback_admins`. After a test
+user signs in, add their Auth user ID through a trusted SQL connection:
+
+```sql
+insert into public.feedback_admins (user_id) values ('<AUTH_USER_UUID>');
+```
+
+The migrations create the private screenshot bucket and access policies;
+feedback submission goes through the Edge function, not direct browser inserts.

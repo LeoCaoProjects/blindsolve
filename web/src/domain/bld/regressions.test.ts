@@ -19,6 +19,7 @@ describe("independent BLD regressions", () => {
       await scrambleToState("F"),
     );
   });
+  // Published scramble and edge-trace fixture: https://jperm.net/bld
   it("matches J Perm's published edge example including a cycle break and flip", async () => {
     const scheme = createSpeffzScheme();
     scheme.edgeBuffer = "U:UR";

@@ -1,11 +1,30 @@
 # BlindSolve
 
-BlindSolve is a web app for practising 3BLD, with a solve timer, reconstruction,
-letter pairs, flashcards and training.
+BlindSolve is a web app for practising 3×3 blindfolded cube solving (3BLD).
+Time your solves, review them, and practise remembering letter pairs and
+recognising targets.
 
-## Development
+[![Open BlindSolve](.github/assets/open-blindsolve.svg)](https://blindsolve.com)
 
-Install Node.js 24.12 or newer, then run:
+![BlindSolve timer and scrambled cube in guest mode](.github/assets/timer.png)
+
+## Features
+
+- A solve timer with memo and execution splits
+- Reconstruction to review a solve
+- Letter-pair words and flashcards
+- Recall, tracing, execution and guided-solve practice
+- Target Recognition using the colours of scrambled pieces
+- Saved history, backups and recovery
+
+## Built with
+
+React, TypeScript, Vite, Tailwind CSS and cubing.js. Optional cloud features
+use Supabase.
+
+## Running locally
+
+Install Node.js 24.12 or newer and npm. From the repository folder:
 
 ```sh
 cd web
@@ -13,15 +32,30 @@ npm ci
 npm run dev
 ```
 
-The app works locally without an account. Optional cloud features use Supabase;
-`web/.env.example` lists the configuration. Use a separate development project.
+Open the address printed in the terminal, usually `http://localhost:5173`.
 
-From `web/`, run `npm test`, `npm run lint`, `npm run typecheck` and
-`npm run build`. The production output goes into `web/dist/`.
+The timer, training, letter pairs, flashcards, history and backups work
+without Supabase. No account or environment file is needed; your saved data
+stays in this browser.
 
-## Structure
+Sign-in, cloud sync and feedback are optional. They need a separate Supabase
+project. Copy `web/.env.example` to `web/.env.local` and use your own project
+credentials. Never connect local development to production data.
 
-- `web/`: frontend source, assets, tests and build tools.
-- `supabase/`: migrations, database tests and Edge functions.
-- `docs/`: technical references and asset provenance.
-- `.github/`: contributor information and CI.
+To build the app, run `npm run build` from `web/`. The files go into `web/dist/`.
+
+## Testing
+
+From `web/`:
+
+```sh
+npm test
+npm run lint
+npm run typecheck
+```
+
+## License
+
+BlindSolve's original code is licensed under the [MIT License](LICENSE).
+See [third-party notices](web/public/THIRD-PARTY-NOTICES.txt) for software,
+assets and data with separate terms.

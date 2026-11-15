@@ -19,11 +19,11 @@ export function ProviderButtons({ pending, onStart, layout = 'stack' }: Provider
         type="button"
         disabled={busy}
         onClick={() => onStart('wca')}
-        className={`inline-flex items-center justify-center gap-2.5 rounded-[4px] bg-ink font-medium text-bg transition-opacity duration-150 ease-out hover:opacity-90 disabled:opacity-60 ${
+        className={`inline-flex items-center justify-center gap-2.5 rounded-[4px] bg-ink font-medium text-bg disabled:cursor-wait ${
         row ? 'h-8 px-3 text-[12.5px]' : 'h-11 w-full px-4 text-[13.5px]'}`
         }>
         
-        {pending === 'wca' ? <Loader2Icon size={15} className="animate-spin motion-reduce:animate-none" /> : null}
+        {pending === 'wca' ? <Loader2Icon size={15} className="animate-spin motion-reduce:animate-none" /> : <img src="/wca-logo.png" alt="" width={28} height={28} className="shrink-0 bg-white object-contain" />}
         {pending === 'wca' ? 'Waiting for WCA…' : 'Continue with WCA'}
       </button>
       <button
