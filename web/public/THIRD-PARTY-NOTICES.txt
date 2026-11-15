@@ -26,7 +26,7 @@ those remotely served files are not part of this source snapshot.
 The Google identity mark is a provider trademark, not Leo-owned artwork.
 Its use for authentication is governed by Google's branding requirements:
 https://developers.google.com/identity/branding-guidelines
-The WCA logo is not redistributed by this snapshot.
+The WCA OAuth logo is redistributed under the policy described in the World Cube Association logo notice below.
 
 The mnemonic corpus in web/src/workspace/data/mnemonicSuggestions.ts has unresolved
 redistribution rights and is excluded from the root MIT grant. Publication is
