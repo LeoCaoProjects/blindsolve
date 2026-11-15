@@ -2,7 +2,7 @@ name: Check app
 
 on:
   push:
-    branches: [dev, main]
+    branches: [develop, main]
   pull_request:
     branches: [main]
 
