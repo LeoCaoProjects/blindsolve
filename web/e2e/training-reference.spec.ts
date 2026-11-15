@@ -82,9 +82,10 @@ test("Guided uses the same Timer multiphase feedback without moving its correcte
     "transform",
     "none",
   );
-  const idle = await page
-    .getByRole("timer", { name: "Hold Space to start" })
-    .boundingBox();
+  const idleTimer = page.getByRole("timer", { name: "Hold Space to start" });
+  // The readout's own layout animation can outlast the outer entrance animation.
+  await expect(idleTimer.locator("..")).toHaveCSS("transform", "none");
+  const idle = await idleTimer.boundingBox();
   await hold(page);
   await expect(page.getByRole("timer", { name: "Memorisation" })).toBeVisible();
   await expect(page.getByText("Memorising", { exact: true })).toBeVisible();

@@ -153,6 +153,10 @@ test("shared suggestions float without layout changes and save only Default", as
 }) => {
   await open(page);
   await edit(page);
+  // Measure settled editor geometry, not its entrance translation.
+  const editor = page.locator('[data-flashcard-state="editing"]');
+  await expect(editor).toHaveCSS("transform", "none");
+  await expect(editor).toHaveCSS("opacity", "1");
   const bounds = await outer(page).boundingBox();
   const panel = await page.locator("[data-workspace-reference]").boundingBox();
   const button = await save(page).boundingBox();

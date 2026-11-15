@@ -45,8 +45,11 @@ async function setup(page: Page, multi = false) {
   await page.getByRole("timer", { name: "Hold Space to start" }).click();
 }
 async function hold(page: Page) {
+  // An absent answer input can also mean the outgoing Timer is still mounted.
+  await expect(page.getByRole("timer", { name: "Hold Space to start", exact: true })).toBeVisible();
+  await expect(page.getByRole("status")).toHaveCount(0);
   await page.keyboard.down("Space");
-  await page.waitForTimeout(330);
+  await expect(page.getByRole("timer", { name: "Ready, release to start", exact: true })).toBeVisible();
   await page.keyboard.up("Space");
 }
 test("single-key answers remain silent; completion, history, deletion and start guards", async ({
