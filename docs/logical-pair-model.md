@@ -44,4 +44,3 @@ Two-key jumping selects two single-character labels, including when custom label
 
 Optional legacy cleanup should wait until deployment confidence, verified backups and upgraded clients. It is not required for correctness. Old clients do not understand new logical records and must refresh/upgrade before continuing to edit after rollout.
 
-See [integration review](logical-pair-integration-review.md) for the data-loss review, changed files and focused checks.

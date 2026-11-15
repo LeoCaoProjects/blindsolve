@@ -1,2 +1,0 @@
-"""CubeIQ API package."""
-

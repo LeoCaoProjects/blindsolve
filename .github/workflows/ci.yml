@@ -33,6 +33,9 @@ jobs:
         if: always()
         run: npx --yes supabase@3.0.0 stop --workdir "$RUNNER_TEMP/blindsolve-db"
   frontend:
+    defaults:
+      run:
+        working-directory: web
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -43,6 +46,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npm test
       - run: npm run lint
@@ -85,8 +89,8 @@ jobs:
         with:
           name: browser-first-attempt
           path: |
-            playwright-report/
-            test-results/
+            web/playwright-report/
+            web/test-results/
           if-no-files-found: error
           retention-days: 30
 
@@ -106,5 +110,5 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: built-worker-smoke
-          path: worker-results/
+          path: web/worker-results/
           if-no-files-found: error
