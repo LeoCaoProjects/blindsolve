@@ -30,10 +30,13 @@ export async function feedbackAdmin(userId?: string): Promise<boolean> {
   if (!supabase) return false;
   const client = supabase;
   const request = async () => await client.rpc('is_feedback_admin');
-  const { data, error } = userId
+  const { data, error, status } = userId
     ? await withAccountCloudLock(userId, request)
     : await request();
-  if (error) return false;
+  if (error) {
+    if (status === 401 || status === 403 || ["42501", "PGRST301", "PGRST302", "PGRST303"].includes(error.code)) return false;
+    throw error; // A network/server failure is not a revoked permission.
+  }
   return data === true;
 }
 
@@ -69,12 +72,18 @@ export async function submitFeedback(input: NewFeedback, user: User | null): Pro
 
 export async function listFeedback(): Promise<Feedback[]> {
   const client = requireClient();
-  const { data, error } = await client.from('feedback')
-    .select('id,user_id,contact_email,category,message,status,source_page,technical_context,screenshot_path,screenshot_name,admin_note,submitter_name,submitter_detail,submitter_provider,created_at')
-    .order('created_at', { ascending: false })
-    .limit(100);
-  if (error) throw error;
-  return Promise.all((data as FeedbackRow[]).map(async (row) => {
+  const rows: FeedbackRow[] = [];
+  // Preserve access to older records too; a fixed first-page limit hid them.
+  for (let offset = 0; ; offset += 100) {
+    const { data, error } = await client.from('feedback')
+      .select('id,user_id,contact_email,category,message,status,source_page,technical_context,screenshot_path,screenshot_name,admin_note,submitter_name,submitter_detail,submitter_provider,created_at')
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .range(offset, offset + 99);
+    if (error) throw error;
+    rows.push(...data as FeedbackRow[]);
+    if (data.length < 100) break;
+  }
+  return Promise.all(rows.map(async (row) => {
     let url: string | undefined;
     if (row.screenshot_path) {
       const signed = await client.storage.from('feedback-screenshots').createSignedUrl(row.screenshot_path, 900);
@@ -89,8 +98,8 @@ export async function updateFeedback(id: string, patch: { status?: FeedbackStatu
   const values: Record<string, unknown> = {};
   if (patch.status) values.status = patch.status;
   if ('note' in patch) values.admin_note = patch.note?.trim() || null;
-  const { error } = await client.from('feedback').update(values).eq('id', id);
-  if (error) throw error;
+  const { data, error } = await client.from('feedback').update(values).eq('id', id).select('id').single();
+  if (error || data?.id !== id) throw error ?? new Error('Feedback was not updated');
 }
 
 export async function deleteFeedback(id: string): Promise<void> {
@@ -101,8 +110,8 @@ export async function deleteFeedback(id: string): Promise<void> {
     const removed = await client.storage.from('feedback-screenshots').remove([existing.data.screenshot_path]);
     if (removed.error) throw removed.error;
   }
-  const { error } = await client.from('feedback').delete().eq('id', id);
-  if (error) throw error;
+  const { data, error } = await client.from('feedback').delete().eq('id', id).select('id').single();
+  if (error || data?.id !== id) throw error ?? new Error('Feedback was not deleted');
 }
 
 function rowToFeedback(row: FeedbackRow, screenshotUrl?: string): Feedback {

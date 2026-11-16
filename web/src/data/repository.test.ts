@@ -62,6 +62,15 @@ describe("workspace integrity", () => {
     ];
     expect(() => parseData(data)).toThrow("48 physical stickers");
   });
+  it("does not turn hostile backup keys into inherited state or global privileges", () => {
+    const hostile = JSON.parse('{"__proto__":{"isAdmin":true},"constructor":{"prototype":{"isAdmin":true}},"isAdmin":true}');
+    const restored = parseBackup(JSON.stringify({ version: 3, data: { ...emptyData(), ...hostile } }));
+    expect(Object.getPrototypeOf(restored)).toBe(Object.prototype);
+    expect(Object.hasOwn(restored, "__proto__")).toBe(false);
+    expect(restored).not.toHaveProperty("isAdmin");
+    expect(Object.prototype).not.toHaveProperty("isAdmin");
+    expect(restored.scheme).toEqual(emptyData().scheme);
+  });
   it("isolates device and account storage", () => {
     const d = emptyData();
     d.onboarded = true;

@@ -17,7 +17,7 @@ const app = vi.hoisted(() => ({
   account: { role: "admin" },
   feedbackStatus: "ready",
 }));
-const store = vi.hoisted(() => ({ user: null as { id: string } | null }));
+const store = vi.hoisted(() => ({ user: null as { id: string } | null, ready: true }));
 vi.mock("../../../app/Store", () => ({ useStore: () => store }));
 vi.mock("../../contexts/AppDataContext", () => ({ useAppData: () => app }));
 import { FeedbackDetail } from "./FeedbackDetail";

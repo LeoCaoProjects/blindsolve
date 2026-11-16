@@ -73,12 +73,14 @@ export function useDialogFocus<T extends HTMLElement>(
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", trap);
-      const workspace = restoreToWorkspace
+      // Body is not a meaningful focus return target. In Edge, focusing it
+      // leaves the Tab starting point at the removed dialog at the end of DOM.
+      const workspace = restoreToWorkspace || !previous?.isConnected || previous === document.body
         ? document.querySelector<HTMLElement>("[data-workspace-main]")
         : null;
       if (workspace) {
         workspace.focus({ preventScroll: true });
-      } else if (previous?.isConnected) {
+      } else if (previous?.isConnected && previous !== document.body) {
         if (quietRestore) {
           // Restore keyboard continuity without painting a fresh focus ring on
           // the workspace/control behind a completed deletion popup.

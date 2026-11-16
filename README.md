@@ -70,6 +70,20 @@ npm run lint
 npm run typecheck
 ```
 
+For isolated Auth, REST and Storage security checks, start a disposable local
+Supabase stack with these migrations, then run
+`node web/tests/infrastructure/provider.mjs` from the repository root. Set
+`LOCAL_SUPABASE_URL` (HTTP loopback), `LOCAL_SUPABASE_CONTAINER` (the local Docker
+database container), and `LOCAL_SUPABASE_JWT_SECRET` (the disposable stack secret).
+Never supply hosted credentials. CI runs this suite against a fresh local stack.
+
+For interactive Admin development on that same disposable stack,
+`node web/scripts/seed-admin-local.mjs` adds synthetic accounts, activity and
+feedback and prints a one-time local sign-in link. Set `LOCAL_APP_URL` to your
+local Vite address (default `http://127.0.0.1:5173`) and allow its `/admin` redirect
+in the local Auth configuration. Configure Vite with the local API URL and
+public anon key. The seed command is repeatable; use only a disposable database.
+
 ## License
 
 BlindSolve's original code is licensed under the [MIT License](LICENSE).

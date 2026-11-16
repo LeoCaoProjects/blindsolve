@@ -1,7 +1,7 @@
 {
   "/": {
     "heading": "Timer",
-    "description": "A timer and training tools for 3×3 blindfolded cube solving."
+    "description": "A timer and training tools for 3\u00c3\u20143 blindfolded cube solving."
   },
   "/pairs": {
     "heading": "Letter pairs",
@@ -28,6 +28,16 @@
   "/admin/feedback": {
     "heading": "Feedback",
     "description": "BlindSolve feedback management.",
+    "noindex": true
+  },
+  "/admin": {
+    "heading": "Admin",
+    "description": "BlindSolve administration and aggregate usage analytics.",
+    "noindex": true
+  },
+  "/settings/feedback": {
+    "heading": "Feedback",
+    "description": "Open BlindSolve Admin feedback.",
     "noindex": true
   }
 }

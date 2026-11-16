@@ -37,6 +37,16 @@ describe("ConfirmDialog focus", () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
+  it("returns a keyboard-opened dialog to the workspace when no control had focus", async () => {
+    render(<main data-workspace-main tabIndex={-1}><Harness /></main>);
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.click(screen.getByRole("button", { name: "Remove pair" }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" })));
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("main")));
+    expect(document.body.hasAttribute("data-quiet-focus-return")).toBe(false);
+  });
+
   it("runs a confirmation only once for a rapid double click", async () => {
     const confirm = vi.fn();
     render(

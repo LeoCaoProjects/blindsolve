@@ -1,4 +1,4 @@
-import { createClient, type User } from "npm:@supabase/supabase-js@2";
+import { createClient, type User } from "npm:@supabase/supabase-js@2.117.1";
 
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
 const ALLOWED_CATEGORIES = new Set(["bug", "feature", "general"]);

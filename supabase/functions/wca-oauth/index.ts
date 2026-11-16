@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { WCA_OAUTH_SCOPE, wcaOAuthCallbackUrl } from "./oauth.ts";
 
 const WCA = "https://www.worldcubeassociation.org";
