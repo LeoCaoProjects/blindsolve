@@ -2,11 +2,11 @@ import { useEffect } from "react";
 import { Penalty } from "../types/solve";
 import { isTypingTarget } from "../utils/keyboard";
 
-const DEFAULT_RESULTS: Penalty[] = ["ok", "+2", "dnf"];
+import { DEFAULT_PENALTIES, penaltyForKey } from "../utils/penaltyKeys";
 export function useDetailsKeys(
   onClose: () => void,
   onPenalty: (p: Penalty) => void,
-  results: Penalty[] = DEFAULT_RESULTS,
+  results: Penalty[] = DEFAULT_PENALTIES,
 ) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -34,8 +34,8 @@ export function useDetailsKeys(
         onClose();
         return;
       }
-      const index = ["1", "2", "3"].indexOf(e.key);
-      if (index >= 0 && results[index]) onPenalty(results[index]);
+      const penalty = penaltyForKey(e.key, results);
+      if (penalty) onPenalty(penalty);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

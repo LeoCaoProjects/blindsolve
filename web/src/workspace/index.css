@@ -320,3 +320,14 @@ body :is([role="textbox"], [contenteditable]:not([contenteditable="false"])) * {
 @media (prefers-reduced-motion: reduce) {
   .recognition-focus-aura { animation: none; }
 }
+
+/* All peripheral timing surfaces begin receding on armed, not on release.
+   Readouts/challenges retain their intentional active visibility. */
+.timing-tone { transition: color 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.timing-recede { transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.timing-recede.timing-idle { opacity: 1; }
+.timing-recede.timing-holding { opacity: .4; }
+.timing-recede.timing-running { opacity: .1; }
+/* Navigation stays readable when deliberately hovered or keyboard-focused. */
+nav.timing-recede:hover, nav.timing-recede:focus-within { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .timing-recede, .timing-tone { transition-duration: 0ms; } }

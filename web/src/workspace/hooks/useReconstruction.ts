@@ -1,3 +1,4 @@
+import { penaltyForKey } from "../utils/penaltyKeys";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReviewSaveGuard } from "./useReviewSaveGuard";
 import { traceMemo } from "../../domain/bld/trace";
@@ -474,9 +475,8 @@ export function useReconstruction({ draft, db, onSave }: Options) {
       }
       if (event.key === "Enter" && event.target instanceof HTMLButtonElement)
         return;
-      if (event.key === "1") return setPenalty("ok");
-      if (event.key === "2") return setPenalty("+2");
-      if (event.key === "3") return setPenalty("dnf");
+      const resultPenalty = penaltyForKey(event.key);
+      if (resultPenalty) return setPenalty(resultPenalty);
       if (step.kind === "break") {
         const count = step.options.length;
         if (event.key === "ArrowRight" || event.key === "ArrowDown") {

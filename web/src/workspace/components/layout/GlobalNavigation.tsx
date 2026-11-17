@@ -154,7 +154,7 @@ function GlobalNavigation({ className, onShortcuts }: Registration) {
       </nav>
       <nav
         aria-label="Sections"
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg pb-[env(safe-area-inset-bottom)] font-sans vp-md:hidden"
+        className={`fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg pb-[env(safe-area-inset-bottom)] font-sans vp-md:hidden ${className}`}
       >
         <ul className={`grid h-14 ${items.length === 6 ? "grid-cols-6" : "grid-cols-5"}`}>{links(true)}</ul>
       </nav>

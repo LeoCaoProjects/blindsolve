@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { isTimingPointer } from "../utils/timingInteraction";
 import { isTypingTarget } from "../utils/keyboard";
 
 export type TimerPhase =
@@ -30,6 +31,7 @@ export function useTimer({
   const [elapsed, setElapsed] = useState(0);
   const [split, setSplit] = useState<number | null>(null);
 
+  const pointerRef = useRef<number | null>(null);
   const phaseRef = useRef<TimerPhase>("idle");
   const startRef = useRef(0);
   const rafRef = useRef(0);
@@ -111,6 +113,7 @@ export function useTimer({
 
   useEffect(() => {
     const cancelHold = () => {
+      pointerRef.current = null;
       lockRef.current = false;
       window.clearTimeout(holdRef.current);
       if (phaseRef.current === "armed" || phaseRef.current === "ready")
@@ -121,19 +124,30 @@ export function useTimer({
       return;
     }
     const ignored = (e: KeyboardEvent) =>
-      isTypingTarget(e.target) || e.isComposing || e.metaKey || e.ctrlKey ||
-      e.altKey || e.shiftKey || e.defaultPrevented ||
+      isTypingTarget(e.target) ||
+      e.isComposing ||
+      e.metaKey ||
+      e.ctrlKey ||
+      e.altKey ||
+      e.shiftKey ||
+      e.defaultPrevented ||
       !!document.querySelector('[role="dialog"], [role="alertdialog"]');
     const down = (e: KeyboardEvent) => {
       if (e.code !== "Space") return;
-      if (ignored(e)) { cancelHold(); return; }
+      if (ignored(e)) {
+        cancelHold();
+        return;
+      }
       e.preventDefault();
       if (e.repeat) return;
       press();
     };
     const up = (e: KeyboardEvent) => {
       if (e.code !== "Space") return;
-      if (ignored(e)) { cancelHold(); return; }
+      if (ignored(e)) {
+        cancelHold();
+        return;
+      }
       e.preventDefault();
       release();
     };
@@ -177,14 +191,36 @@ export function useTimer({
     [setPhase],
   );
 
+  const cancelPointer = (e: ReactPointerEvent) => {
+    if (
+      e.pointerId !== pointerRef.current ||
+      !["touch", "pen"].includes(e.pointerType)
+    )
+      return;
+    pointerRef.current = null;
+    window.clearTimeout(holdRef.current);
+    lockRef.current = false;
+    if (phaseRef.current === "armed" || phaseRef.current === "ready")
+      setPhase(restRef.current);
+  };
   const pointerHandlers = {
     onPointerDown: (e: ReactPointerEvent) => {
-      if (disabled || e.button !== 0) return;
+      if (disabled || !isTimingPointer(e) || pointerRef.current !== null)
+        return;
+      pointerRef.current = e.pointerId;
       press();
     },
-    onPointerUp: () => {
+    onPointerUp: (e: ReactPointerEvent) => {
+      if (
+        e.pointerId !== pointerRef.current ||
+        !["touch", "pen"].includes(e.pointerType)
+      )
+        return;
+      pointerRef.current = null;
       if (!disabled) release();
     },
+    onPointerCancel: cancelPointer,
+    onPointerLeave: cancelPointer,
   };
 
   return {

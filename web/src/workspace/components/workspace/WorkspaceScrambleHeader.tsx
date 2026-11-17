@@ -1,4 +1,5 @@
 import React from "react";
+import { timingClass, type TimingVisual } from "../../utils/timingInteraction";
 import { RefreshCwIcon } from "lucide-react";
 import { ScrambleRegion } from "../solve/ScrambleRegion";
 import { ScrambleText } from "../solve/ScrambleText";
@@ -9,7 +10,7 @@ export function WorkspaceScrambleHeader({
   pending,
   error,
   disabled,
-  dimmed,
+  visual = "idle",
   onNewScramble,
   challengeId,
 }: {
@@ -17,7 +18,7 @@ export function WorkspaceScrambleHeader({
   pending: boolean;
   error: boolean;
   disabled: boolean;
-  dimmed?: boolean;
+  visual?: TimingVisual;
   onNewScramble: () => void;
   challengeId?: string;
 }) {
@@ -25,8 +26,8 @@ export function WorkspaceScrambleHeader({
     <section
       aria-label="Scramble"
       data-challenge-id={challengeId}
-      className={`timer-workspace-inset relative flex shrink-0 items-start gap-3 border-b border-line pb-8 pt-5 transition-opacity duration-300 ease-out vp-md:pb-9 vp-md:pt-6 ${
-        dimmed ? "opacity-25" : ""
+      className={`timer-workspace-inset relative flex shrink-0 items-start gap-3 border-b border-line pb-8 pt-5 vp-md:pb-9 vp-md:pt-6 ${
+        timingClass(visual)
       }`}
     >
       <ScrambleRegion>

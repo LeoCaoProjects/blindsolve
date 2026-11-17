@@ -39,12 +39,14 @@ function start(result: { current: ReturnType<typeof useTrainingSession> }) {
   act(() =>
     result.current.hold.pointerHandlers.onPointerDown({
       button: 0,
+      pointerType: "touch",
+      pointerId: 1,
       target: document.body,
     } as never),
   );
   act(() => vi.advanceTimersByTime(300));
   act(() => {
-    result.current.hold.pointerHandlers.onPointerUp();
+    result.current.hold.pointerHandlers.onPointerUp({ pointerType: "touch", pointerId: 1 } as never);
   });
 }
 it("finishes once with summary-only persistence and in-memory atomic review", () => {
@@ -146,6 +148,8 @@ it("settings changes cancel a pending held start", () => {
   act(() =>
     result.current.hold.pointerHandlers.onPointerDown({
       button: 0,
+      pointerType: "touch",
+      pointerId: 1,
       target: document.body,
     } as never),
   );
@@ -153,7 +157,7 @@ it("settings changes cancel a pending held start", () => {
   state.data = { ...state.data, memoOrder: "edges-first" };
   rerender();
   act(() => {
-    result.current.hold.pointerHandlers.onPointerUp();
+    result.current.hold.pointerHandlers.onPointerUp({ pointerType: "touch", pointerId: 1 } as never);
   });
   expect(result.current.phase).toBe("idle");
 });

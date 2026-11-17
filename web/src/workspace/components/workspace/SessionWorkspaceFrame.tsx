@@ -1,3 +1,4 @@
+import { timingClass, timingVisual } from "../../utils/timingInteraction";
 import React, { useRef, useState } from "react";
 import { useWorkspaceLocation } from "../../navigation/workspaces";
 import { CaseSensitiveIcon } from "lucide-react";
@@ -41,15 +42,8 @@ export function SessionWorkspaceFrame({
   );
   const timerDisabled =
     s.running || s.overlayOpen || phase === "armed" || phase === "ready";
-  const holdReady = training && t.hold.phase === "ready";
-  const recede =
-    training || flashcards
-      ? ""
-      : s.running
-        ? "opacity-[0.1]"
-        : phase === "ready"
-          ? "opacity-40"
-          : "";
+  const visual = flashcards ? "idle" : timingVisual(training ? t.hold.phase : phase, training ? t.running : s.running);
+  const recede = timingClass(visual);
   const scrambleMode =
     t.mode === "exec" || t.mode === "guided" || t.mode === "trace";
   const cubeVisible = !training || (t.mode !== "trace" && t.mode !== "recognition");
@@ -76,7 +70,7 @@ export function SessionWorkspaceFrame({
           ? !t.scrambleReady && !t.scrambleError
           : timerDisabled || s.scramblePending
       }
-      dimmed={training ? t.hold.phase !== "idle" : s.running}
+      visual={visual}
       onNewScramble={training ? t.newScramble : s.newScramble}
       challengeId={training ? t.challengeId : undefined}
     />
@@ -96,7 +90,7 @@ export function SessionWorkspaceFrame({
 
   return (
     <SubNavFrame
-      subnavClassName={holdReady ? "opacity-40" : ""}
+      subnavClassName={recede}
       layoutClassName={
         shared
           ? `timer-layout grid h-full min-h-0 grid-cols-1 ${training || flashcards ? "training-workspace grid-rows-1" : "grid-rows-[minmax(0,1fr)_minmax(128px,25dvh)]"} vp-md:grid-rows-1`
@@ -121,7 +115,7 @@ export function SessionWorkspaceFrame({
         shared ? (
           <aside
             data-workspace-reference
-            className={`timer-reference-column min-h-0 flex-col border-t border-line bg-surface transition-opacity duration-300 ease-out vp-md:border-l vp-md:border-t-0 ${training || flashcards ? "hidden vp-md:flex" : "flex"} ${training ? (t.running ? "opacity-[0.1]" : holdReady ? "opacity-40" : "") : recede}`}
+            className={`timer-reference-column min-h-0 flex-col border-t border-line bg-surface vp-md:border-l vp-md:border-t-0 ${training || flashcards ? "hidden vp-md:flex" : "flex"} ${recede}`}
           >
             <TrainingRegion
               name="cube"
@@ -192,7 +186,7 @@ export function SessionWorkspaceFrame({
             ) : training ? (
               <div
                 data-training-history
-                className={`flex min-h-0 flex-1 flex-col transition-opacity duration-300 ease-out ${recede}`}
+                className="flex min-h-0 flex-1 flex-col"
               >
                 <TrainingHistory t={t} />
               </div>

@@ -24,7 +24,7 @@ function Harness({
         Start test timer
       </button>
       <button
-        onClick={() => timer.pointerHandlers.onPointerDown({ button: 0 } as never)}
+        onClick={() => timer.pointerHandlers.onPointerDown({ button: 0, pointerType: "touch", pointerId: 1, target: document.body } as never)}
       >
         Stop test timer
       </button>

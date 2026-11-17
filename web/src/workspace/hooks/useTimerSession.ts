@@ -1,3 +1,4 @@
+import { penaltyForKey } from "../utils/penaltyKeys";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppData } from "../contexts/AppDataContext";
 import { useStore } from "../../app/Store";
@@ -53,6 +54,7 @@ export function useTimerSession({
     setTimerMode,
     prefs,
   } = useAppData();
+  const editableSolve = useRef<string | null>(null);
   const [scramble, setScramble] = useState("");
   const [scrambleMode, setScrambleMode] = useState<TimerMode>(timerMode);
   const [scramblePending, setScramblePending] = useState(false);
@@ -95,9 +97,8 @@ export function useTimerSession({
           };
           traceRef.current = trace;
           const pair = (tokens: string[]) =>
-            Array.from(
-              { length: Math.ceil(tokens.length / 2) },
-              (_, i) => memoPairReference(tokens.slice(i * 2, i * 2 + 2)),
+            Array.from({ length: Math.ceil(tokens.length / 2) }, (_, i) =>
+              memoPairReference(tokens.slice(i * 2, i * 2 + 2)),
             );
           const sampleFor = (piece: "corners" | "edges") => {
             if (!pieces.includes(piece)) return { pairs: [] };
@@ -187,7 +188,14 @@ export function useTimerSession({
         }
       })();
     },
-    [multiphase, store, timerMode, ownerKey, prefs.m2SecondTargetSwap, prefs.memoOrder],
+    [
+      multiphase,
+      store,
+      timerMode,
+      ownerKey,
+      prefs.m2SecondTargetSwap,
+      prefs.memoOrder,
+    ],
   );
 
   const overlayOpen =
@@ -204,7 +212,9 @@ export function useTimerSession({
     onStop: handleStop,
   });
   const running = isRunning(timer.phase);
+  // An explicit new scramble ends the just-finished correction context.
   const newScramble = useCallback(async () => {
+    editableSolve.current = null;
     const request = ++scrambleRequestRef.current;
     setScramblePending(true);
     setScrambleError(false);
@@ -311,11 +321,21 @@ export function useTimerSession({
       setReconOpen(false);
       setDraft(null);
       void newScramble();
+      // Automatic preparation keeps the correction context for this result.
+      editableSolve.current = d.solveId ?? null;
     },
-    [setDefaultWords, store],
+    [setDefaultWords, store, newScramble],
   );
 
-  const selectSolve = useCallback((id: string) => setSelectedId(id), []);
+  const selectSolve = useCallback((id: string) => {
+    editableSolve.current = null;
+    setSelectedId(id);
+  }, []);
+  // Even an aborted next hold means the user has moved on from this result.
+  useEffect(() => {
+    if (!active || timer.phase === "armed" || running)
+      editableSolve.current = null;
+  }, [active, timer.phase, running]);
   const closeDetails = useCallback(() => setSelectedId(null), []);
   const setPenalty = useCallback(
     (id: string, penalty: Penalty) => {
@@ -336,7 +356,15 @@ export function useTimerSession({
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
-      if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey || e.isComposing || e.repeat || e.defaultPrevented)
+      if (
+        isTypingTarget(e.target) ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.isComposing ||
+        e.repeat ||
+        e.defaultPrevented
+      )
         return;
       if (e.key === "?") {
         setShortcutsOpen((o) => !o);
@@ -348,6 +376,25 @@ export function useTimerSession({
       }
       if (draftRef.current || selectedId || shortcutsOpen || processingStop)
         return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]'))
+        return;
+      const penalty = penaltyForKey(e.key);
+      if (
+        penalty &&
+        editableSolve.current &&
+        timer.phase === "stopped" &&
+        solves[0]?.id === editableSolve.current &&
+        !(
+          e.target instanceof Element &&
+          e.target.closest(
+            '[role="menu"], [role="listbox"], [role="combobox"], [role="slider"], [role="spinbutton"]',
+          )
+        )
+      ) {
+        e.preventDefault();
+        setPenalty(editableSolve.current, penalty);
+        return;
+      }
       if (
         (e.key === "n" || e.key === "N") &&
         !e.repeat &&
@@ -366,6 +413,9 @@ export function useTimerSession({
     selectedId,
     shortcutsOpen,
     processingStop,
+    timer.phase,
+    solves,
+    setPenalty,
   ]);
 
   useEffect(() => {
