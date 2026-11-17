@@ -10,3 +10,7 @@ export function GoogleMark({ size = 16 }: {size?: number;}) {
     </svg>);
 
 }
+
+export function WcaMark({ size = 20 }: { size?: number }) {
+  return <img src="/wca-logo.png" alt="" width={size} height={size} className="shrink-0 object-contain" />;
+}

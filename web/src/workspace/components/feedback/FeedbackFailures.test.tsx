@@ -32,11 +32,15 @@ const item = {
   createdAt: "2026-01-01T00:00:00Z",
 };
 beforeEach(() => {
+  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   vi.resetAllMocks();
   app.feedbackStatus = "ready";
   app.account.role = "admin";
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 it("submission failure keeps the draft and allows retry", async () => {
   app.submitFeedback
     .mockRejectedValueOnce(new Error("offline"))

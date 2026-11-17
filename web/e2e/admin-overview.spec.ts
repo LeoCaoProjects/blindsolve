@@ -898,3 +898,51 @@ for (const event of ["SIGNED_OUT", "SIGNED_IN"])
     ).toHaveCount(0);
     await expect(page.getByRole("main", { name: "Overview" })).toHaveCount(0);
   });
+
+for (const width of [1440, 390]) {
+  for (const reduced of [false, true]) {
+    test(`Overview period indicator stays vertically aligned at ${width}${reduced ? " reduced" : ""}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion: reduced ? "reduce" : "no-preference" });
+      const f = await fixture(page);
+      f.holdRanges();
+      const control = page.getByRole("radiogroup", { name: "Overview period" });
+      const sample = () => page.evaluate(() => new Promise<{ x: number; yError: number; targetX: number; groupY: number }[]>((resolve) => {
+        const frames: { x: number; yError: number; targetX: number; groupY: number }[] = [];
+        const tick = () => {
+          const group = document.querySelector('[role="radiogroup"][aria-label="Overview period"]')!;
+          const target = group.querySelector('[aria-checked="true"]')!.getBoundingClientRect();
+          const indicator = group.querySelector('.bg-selected')!.getBoundingClientRect();
+          frames.push({ x: indicator.x, yError: indicator.y - target.y, targetX: target.x, groupY: group.getBoundingClientRect().y });
+          if (frames.length === 30) resolve(frames); else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }));
+      for (let visit = 0; visit < 3; visit++) {
+        if (visit === 0) await page.goto("/admin");
+        else await page.getByRole("link", { name: "Overview", exact: true }).click();
+        await expect(control.getByRole("radio", { name: "7 days", exact: true })).toHaveAttribute("aria-checked", "true");
+        await expect.poll(() => f.periods.filter(p => p === "7d").length).toBe(visit * 2 + 1);
+        const beforeY = (await control.boundingBox())!.y;
+        const loadingFrames = sample();
+        f.releaseRange("7d", 84);
+        await expect(page.getByRole("region", { name: "Current totals" })).toBeVisible();
+        const frames = await loadingFrames;
+        expect(Math.max(...frames.map(f => Math.abs(f.yError)))).toBeLessThan(1);
+        expect((await control.boundingBox())!.y).toBeGreaterThan(beforeY + 20);
+        for (const label of ["24 hours", "30 days", "All time", "7 days"]) {
+          const oldX = (await control.locator('.bg-selected').boundingBox())!.x;
+          const moving = sample();
+          await control.getByRole("radio", { name: label, exact: true }).click();
+          const positions = await moving;
+          const finalX = (await control.getByRole("radio", { name: label, exact: true }).boundingBox())!.x;
+          expect(Math.max(...positions.map(f => Math.abs(f.yError)))).toBeLessThan(1);
+          expect(Math.abs(positions.at(-1)!.x - finalX)).toBeLessThan(1);
+          const intermediate = positions.some(f => f.x > Math.min(oldX, finalX) + 1 && f.x < Math.max(oldX, finalX) - 1);
+          expect(intermediate).toBe(!reduced);
+        }
+        await page.getByRole("link", { name: "Feedback", exact: true }).click();
+      }
+    });
+  }
+}
