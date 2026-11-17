@@ -1,7 +1,7 @@
 import React from 'react';
 import { Loader2Icon } from 'lucide-react';
 import { AuthProvider } from '../../types/app';
-import { GoogleMark } from './ProviderMarks';
+import { GoogleMark, WcaMark } from './ProviderMarks';
 
 interface ProviderButtonsProps {
   pending: AuthProvider | null;
@@ -23,7 +23,7 @@ export function ProviderButtons({ pending, onStart, layout = 'stack' }: Provider
         row ? 'h-8 px-3 text-[12.5px]' : 'h-11 w-full px-4 text-[13.5px]'}`
         }>
         
-        {pending === 'wca' ? <Loader2Icon size={15} className="animate-spin motion-reduce:animate-none" /> : <img src="/wca-logo.png" alt="" width={28} height={28} className="shrink-0 bg-white object-contain" />}
+        {pending === 'wca' ? <Loader2Icon size={15} className="animate-spin motion-reduce:animate-none" /> : <WcaMark size={row ? 16 : 20} />}
         {pending === 'wca' ? 'Waiting for WCA…' : 'Continue with WCA'}
       </button>
       <button

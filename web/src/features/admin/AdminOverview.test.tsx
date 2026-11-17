@@ -42,13 +42,17 @@ const view = () => (
   </MemoryRouter>
 );
 beforeEach(() => {
+  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   state.owner = "alice";
   state.ready = true;
   state.role = "admin";
   state.status = "ready";
   state.load.mockReset();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 it("waits for auth initialization rather than redirecting a returning administrator", () => {
   state.owner = "";
   state.ready = false;
