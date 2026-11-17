@@ -19,9 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-Scope: this license covers original BlindSolve code and documentation owned
-by Leo Cao. Third-party dependencies and assets retain their separate terms
-listed in web/public/THIRD-PARTY-NOTICES.txt. The mnemonic corpus in
-web/src/workspace/data/mnemonicSuggestions.ts is excluded pending confirmation
-of authorship and redistribution rights; see the third-party notices above.

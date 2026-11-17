@@ -43,18 +43,10 @@ stays in this browser.
 <details>
 <summary>Optional cloud setup</summary>
 
-Use a separate Supabase project, apply `supabase/migrations/` and deploy the
-functions in `supabase/functions/`. Copy `web/.env.example` to `web/.env.local`
-with that project's public URL and key. Never use production data locally.
-
-For Google sign-in, enable its Auth provider and allow your development redirect
-URL. WCA sign-in needs HTTPS and the callback
-`<SUPABASE_URL>/functions/v1/wca-oauth/callback`.
-
-The Edge functions require `APP_URL`, `SUPABASE_URL` and
-`SUPABASE_SERVICE_ROLE_KEY`; WCA also needs `WCA_CLIENT_ID` and
-`WCA_CLIENT_SECRET`. Keep service-role and OAuth secrets on the server, never
-in `VITE_` variables.
+Sign-in, sync and feedback require your own Supabase project.
+Copy [web/.env.example](web/.env.example) to `web/.env.local` and fill in
+your project's values. Never use BlindSolve production credentials or data
+for local development.
 
 </details>
 
@@ -70,22 +62,18 @@ npm run lint
 npm run typecheck
 ```
 
-For isolated Auth, REST and Storage security checks, start a disposable local
-Supabase stack with these migrations, then run
-`node web/tests/infrastructure/provider.mjs` from the repository root. Set
-`LOCAL_SUPABASE_URL` (HTTP loopback), `LOCAL_SUPABASE_CONTAINER` (the local Docker
-database container), and `LOCAL_SUPABASE_JWT_SECRET` (the disposable stack secret).
-Never supply hosted credentials. CI runs this suite against a fresh local stack.
+<details>
+<summary>Advanced local testing</summary>
 
-For interactive Admin development on that same disposable stack,
-`node web/scripts/seed-admin-local.mjs` adds synthetic accounts, activity and
-feedback and prints a one-time local sign-in link. Set `LOCAL_APP_URL` to your
-local Vite address (default `http://127.0.0.1:5173`) and allow its `/admin` redirect
-in the local Auth configuration. Configure Vite with the local API URL and
-public anon key. The seed command is repeatable; use only a disposable database.
+Advanced provider/security and Admin testing use a disposable local Supabase
+stack. See the [CI workflow](.github/workflows/ci.yml),
+[security tests](web/tests/infrastructure/provider.mjs) and
+[Admin setup script](web/scripts/seed-admin-local.mjs) for the exact setup.
+
+</details>
 
 ## License
 
-BlindSolve's original code is licensed under the [MIT License](LICENSE).
-See [third-party notices](web/public/THIRD-PARTY-NOTICES.txt) for software,
-assets and data with separate terms.
+BlindSolve is licensed under the [MIT License](LICENSE). See
+[third-party notices](web/public/THIRD-PARTY-NOTICES.txt) for software and
+assets with separate terms.
