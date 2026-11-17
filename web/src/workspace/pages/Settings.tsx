@@ -1,11 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import { Link } from "react-router-dom";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
-import {
-  SecondaryButton,
-  SECONDARY_BUTTON_STYLE,
-} from "../components/common/PrimaryButton";
+import { SecondaryButton } from "../components/common/PrimaryButton";
 import { ShortcutSheet } from "../components/common/ShortcutSheet";
 import { RadioRows, Toggle } from "../components/common/Toggle";
 import {
@@ -350,19 +346,6 @@ export function Settings() {
                     Give feedback
                   </SecondaryButton>
                 </SettingsRow>
-                {app.account.role === "admin" && (
-                  <SettingsRow
-                    label="Feedback inbox"
-                    hint={`${app.feedback.filter((f) => f.status === "new").length} new · admins only`}
-                  >
-                    <Link
-                      to="/admin/feedback"
-                      className={SECONDARY_BUTTON_STYLE}
-                    >
-                      Open inbox
-                    </Link>
-                  </SettingsRow>
-                )}
               </SettingsSection>
             </div>
           </div>

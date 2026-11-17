@@ -6,7 +6,9 @@ recognising targets.
 
 [![Open BlindSolve](.github/assets/open-blindsolve.svg)](https://blindsolve.com)
 
-![BlindSolve timer and scrambled cube in guest mode](.github/assets/timer.png)
+<p align="center">
+  <img src=".github/assets/blindsolve-timer.png" alt="BlindSolve timer, scrambled cube and solve history" width="1200">
+</p>
 
 ## Features
 
@@ -38,9 +40,15 @@ The timer, training, letter pairs, flashcards, history and backups work
 without Supabase. No account or environment file is needed; your saved data
 stays in this browser.
 
-Sign-in, cloud sync and feedback are optional. They need a separate Supabase
-project. Copy `web/.env.example` to `web/.env.local` and use your own project
-credentials. Never connect local development to production data.
+<details>
+<summary>Optional cloud setup</summary>
+
+Sign-in, sync and feedback require your own Supabase project.
+Copy [web/.env.example](web/.env.example) to `web/.env.local` and fill in
+your project's values. Never use BlindSolve production credentials or data
+for local development.
+
+</details>
 
 To build the app, run `npm run build` from `web/`. The files go into `web/dist/`.
 
@@ -54,8 +62,18 @@ npm run lint
 npm run typecheck
 ```
 
+<details>
+<summary>Advanced local testing</summary>
+
+Advanced provider/security and Admin testing use a disposable local Supabase
+stack. See the [CI workflow](.github/workflows/ci.yml),
+[security tests](web/tests/infrastructure/provider.mjs) and
+[Admin setup script](web/scripts/seed-admin-local.mjs) for the exact setup.
+
+</details>
+
 ## License
 
-BlindSolve's original code is licensed under the [MIT License](LICENSE).
-See [third-party notices](web/public/THIRD-PARTY-NOTICES.txt) for software,
-assets and data with separate terms.
+BlindSolve is licensed under the [MIT License](LICENSE). See
+[third-party notices](web/public/THIRD-PARTY-NOTICES.txt) for software and
+assets with separate terms.

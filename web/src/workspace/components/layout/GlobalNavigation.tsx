@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { KeyboardIcon } from "lucide-react";
+import { KeyboardIcon, ShieldIcon } from "lucide-react";
 import {
   WorkspaceLink as Link,
   useWorkspaceLocation,
@@ -22,6 +22,7 @@ export const hasGlobalNavigation = (pathname: string) =>
     "/flashcards",
     "/settings",
     "/admin/feedback",
+    "/admin",
   ].includes(pathname);
 
 type Registration = { className: string; onShortcuts: () => void };
@@ -71,13 +72,14 @@ export function useGlobalNavigation(registration: Registration) {
 
 function GlobalNavigation({ className, onShortcuts }: Registration) {
   const { pathname } = useWorkspaceLocation();
-  const { navGuard } = useAppData();
+  const { navGuard, account } = useAppData();
   const items = [
     primaryNav[0],
     primaryNav[3],
     primaryNav[1],
     primaryNav[2],
     settingsNav,
+    ...(account.role === "admin" ? [{ id: "admin", label: "Admin", short: "Admin", path: "/admin", icon: ShieldIcon }] : []),
   ];
   const onNav = (event: React.MouseEvent, path: string) => {
     if (
@@ -94,7 +96,7 @@ function GlobalNavigation({ className, onShortcuts }: Registration) {
   const links = (mobile: boolean) =>
     items.map((item) => {
       const Icon = item.icon;
-      const active = pathname === item.path;
+      const active = pathname === item.path || (item.id === "admin" && pathname.startsWith("/admin/"));
       return (
         <li
           key={item.id}
@@ -152,9 +154,9 @@ function GlobalNavigation({ className, onShortcuts }: Registration) {
       </nav>
       <nav
         aria-label="Sections"
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg pb-[env(safe-area-inset-bottom)] font-sans vp-md:hidden"
+        className={`fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg pb-[env(safe-area-inset-bottom)] font-sans vp-md:hidden ${className}`}
       >
-        <ul className="grid h-14 grid-cols-5">{links(true)}</ul>
+        <ul className={`grid h-14 ${items.length === 6 ? "grid-cols-6" : "grid-cols-5"}`}>{links(true)}</ul>
       </nav>
     </>
   );

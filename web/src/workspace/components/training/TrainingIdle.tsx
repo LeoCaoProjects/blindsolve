@@ -54,7 +54,7 @@ export function TrainingIdle({
               ? "Ready, release to start"
               : "Hold Space to start"
         }
-        className={`tnum -ml-[0.06em] whitespace-nowrap font-timer text-[clamp(64px,min(12.5vw,18vh),176px)] font-extralight leading-[0.9] tracking-[-0.06em] transition-colors duration-150 ease-out ${execution ? `visible text-ink ${t.phase === "execution" ? "timer-execution-cue" : ""}` : TONE[hold]}`}
+        className={`tnum -ml-[0.06em] whitespace-nowrap font-timer text-[clamp(64px,min(12.5vw,18vh),176px)] font-extralight leading-[0.9] tracking-[-0.06em] timing-tone ${execution ? `visible text-ink ${t.phase === "execution" ? "timer-execution-cue" : ""}` : TONE[hold]}`}
       />
       {execution && (
         <div className="visible absolute">

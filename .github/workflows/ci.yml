@@ -2,7 +2,7 @@ name: Check app
 
 on:
   push:
-    branches: [dev, main]
+    branches: [develop, main]
   pull_request:
     branches: [main]
 
@@ -29,6 +29,13 @@ jobs:
         run: |
           npx --yes supabase@3.0.0 start --workdir "$RUNNER_TEMP/blindsolve-db" --exclude studio,imgproxy,edge-runtime,logflare,vector,supavisor
           npx --yes supabase@3.0.0 test db --workdir "$RUNNER_TEMP/blindsolve-db"
+      - name: Test provider security
+        env:
+          LOCAL_SUPABASE_URL: http://127.0.0.1:54321
+          LOCAL_SUPABASE_CONTAINER: supabase_db_blindsolve-db
+          # Public, disposable local-stack test secret; never a hosted credential.
+          LOCAL_SUPABASE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+        run: node web/tests/infrastructure/provider.mjs
       - name: Stop isolated database
         if: always()
         run: npx --yes supabase@3.0.0 stop --workdir "$RUNNER_TEMP/blindsolve-db"
@@ -60,7 +67,6 @@ jobs:
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/browser-results.json
         run: npm run test:e2e -- --reporter=list,html,json
       - name: Record first browser outcome
-        id: browser-evidence
         if: ${{ always() && !cancelled() && steps.browser.outcome != 'skipped' }}
         run: |
           if [ -f test-results/.last-run.json ]; then
@@ -77,13 +83,8 @@ jobs:
           const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
           const failed = selection.failedTests.length;
           console.log(JSON.stringify({ status: selection.status, stats: report.stats, failed }));
-          if (selection.status === 'failed' && failed > 0 &&
-              failed === report.stats.unexpected && report.errors.length === 0) {
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'rerun=true\n');
-          }
           NODE
       - name: Upload first browser reports and traces
-        id: first-artifact
         if: ${{ always() && steps.browser.outcome != 'skipped' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

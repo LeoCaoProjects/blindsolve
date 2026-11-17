@@ -1,3 +1,4 @@
+import { AdminOverview } from "../features/admin/AdminOverview";
 import {
   GlobalNavigationShell,
   hasGlobalNavigation,
@@ -102,6 +103,8 @@ export function App({ stage = "live" }: AppProps) {
                       path="/memo"
                       element={<LegacyWorkspace workspace="/training" />}
                     />
+                    <Route path="/admin" element={<AdminOverview />} />
+                    <Route path="/settings/feedback" element={<Navigate to="/admin/feedback" replace />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route
                       path="/setup"

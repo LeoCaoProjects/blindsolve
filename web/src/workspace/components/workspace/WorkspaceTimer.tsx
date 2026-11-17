@@ -1,5 +1,6 @@
 import { useGlobalNavigation } from "../layout/GlobalNavigation";
 import React from "react";
+import { timingClass, timingVisual } from "../../utils/timingInteraction";
 import { AnimatePresence } from "framer-motion";
 import { useAppData } from "../../contexts/AppDataContext";
 import { useHistoryCleanup } from "../../hooks/useHistoryCleanup";
@@ -32,11 +33,8 @@ export function WorkspaceTimer({
     (mode) => mode.value === s.timerMode,
   )?.label ?? "3BLD";
   const { phase } = s.timer;
-  const recede = s.running
-    ? "opacity-[0.1]"
-    : phase === "ready"
-      ? "opacity-40"
-      : "";
+  const visual = timingVisual(phase, s.running);
+  const recede = timingClass(visual);
   const latest = s.latest;
   useGlobalNavigation({ className: recede, onShortcuts: s.openShortcuts });
   const cleanup = useHistoryCleanup({
@@ -53,7 +51,7 @@ export function WorkspaceTimer({
   });
 
   return (
-    <div className="theme-workspace flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
+    <div data-timing-visual={visual} className="theme-workspace flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink">
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div
           className="timer-workspace-inset relative flex min-h-0 flex-1 cursor-default touch-none select-none flex-col justify-center overflow-hidden"

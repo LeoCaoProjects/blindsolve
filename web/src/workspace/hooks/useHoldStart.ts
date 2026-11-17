@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { isTimingPointer } from "../utils/timingInteraction";
 import { ownsTrainingSpace } from "../utils/keyboard";
 
 export type HoldPhase = "idle" | "armed" | "ready";
@@ -19,6 +20,7 @@ export function useHoldStart({
   resetKey,
 }: Options) {
   const [phase, setPhaseState] = useState<HoldPhase>("idle");
+  const pointerRef = useRef<number | null>(null);
   const phaseRef = useRef<HoldPhase>("idle");
   const timer = useRef<number | undefined>(undefined);
   const onStartRef = useRef(onStart);
@@ -44,6 +46,7 @@ export function useHoldStart({
   }, [setPhase]);
 
   const cancel = useCallback(() => {
+    pointerRef.current = null;
     window.clearTimeout(timer.current);
     if (phaseRef.current !== "idle") setPhase("idle");
   }, [setPhase]);
@@ -104,15 +107,31 @@ export function useHoldStart({
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
+  const cancelPointer = (e: ReactPointerEvent) => {
+    if (
+      e.pointerId === pointerRef.current &&
+      ["touch", "pen"].includes(e.pointerType)
+    )
+      cancel();
+  };
   const pointerHandlers = {
     onPointerDown: (e: ReactPointerEvent) => {
-      if (!enabled || e.button !== 0) return;
-      if ((e.target as HTMLElement).closest("button, a, input")) return;
+      if (!enabled || !isTimingPointer(e) || pointerRef.current !== null)
+        return;
+      pointerRef.current = e.pointerId;
       press();
     },
-    onPointerUp: () => enabled && release(),
-    onPointerCancel: cancel,
-    onPointerLeave: cancel,
+    onPointerUp: (e: ReactPointerEvent) => {
+      if (
+        e.pointerId !== pointerRef.current ||
+        !["touch", "pen"].includes(e.pointerType)
+      )
+        return;
+      pointerRef.current = null;
+      if (enabled) release();
+    },
+    onPointerCancel: cancelPointer,
+    onPointerLeave: cancelPointer,
   };
 
   return { phase, pointerHandlers, cancel };

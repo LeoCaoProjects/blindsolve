@@ -36,7 +36,7 @@ export function TimerReadout({ phase, value, penalty, className = '', tones, sho
       </>;
 
   return (
-    <div role="timer" aria-label={ariaLabel} aria-live="off" className={`tnum whitespace-nowrap transition-colors duration-150 ease-out ${tone} ${className}`}>
+    <div role="timer" aria-label={ariaLabel} aria-live="off" className={`tnum whitespace-nowrap timing-tone ${tone} ${className}`}>
       {content}
     </div>);
 

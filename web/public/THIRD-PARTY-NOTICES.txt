@@ -3,41 +3,21 @@ BlindSolve third-party notices
 Original BlindSolve code is MIT-licensed separately. These notices apply to
 third-party software and assets; they do not grant trademark rights.
 
-cubing.js 0.63.7 is used unmodified as an npm library and bundled in the app
-and its lazy-loaded search workers. MPL-2.0 is the selected license option.
-Corresponding source (including vendored components):
+cubing.js 0.63.7 is used under MPL-2.0. Corresponding source, including
+vendored components:
 https://github.com/cubing/cubing.js/tree/65d4360d9775e6ecc19fe4a089e8a45369de06d3
-Users may obtain the source from that URL under its respective license terms.
 
-The browser output includes code already embedded in cubing.js's npm package,
-including @cubing/lazy-promise 0.1.1 (MIT), @cubing/comlink-everywhere 0.1.2
-(Apache-2.0), and the bundled solver implementations. They are not copied
-into BlindSolve application source. The original scrambler author's MIT
-permission covers min2phase, sq12phase and the 4x4 reduction solver:
+The bundled min2phase, sq12phase and 4x4 reduction solvers use the original
+author's MIT permission:
 https://github.com/cs0x7f/min2phase/issues/17
 https://github.com/cubing/cubing.js/commit/b4e713922f810c882de169b8f9def47b9a1771a2
-The old GPL license file still present inside that upstream vendor directory
-does not erase the separately documented MIT option.
 
-Instrument Sans and JetBrains Mono font files are redistributed via Fontsource
-under OFL-1.1. Additional font CSS is requested from Google Fonts by the app;
-those remotely served files are not part of this source snapshot.
+Instrument Sans and JetBrains Mono are distributed under OFL-1.1.
 
-The Google identity mark is a provider trademark, not Leo-owned artwork.
-Its use for authentication is governed by Google's branding requirements:
+The Google sign-in mark is subject to Google's branding requirements:
 https://developers.google.com/identity/branding-guidelines
-The WCA OAuth logo is redistributed under the policy described in the World Cube Association logo notice below.
 
-The mnemonic corpus in web/src/workspace/data/mnemonicSuggestions.ts contains
-suggested words, a word bank and letter images used by
-web/src/workspace/utils/suggestions.ts. User-created words are separate data.
-No author declaration, source license or complete provenance record establishes
-redistribution permission for this corpus. It is excluded from the root MIT
-grant; that license does not grant permission to redistribute this data.
-
-The following license notices conservatively cover runtime dependencies,
-including transitive packages that may be eliminated by tree shaking.
-Development tools are installed from npm; their code is not redistributed here.
+License texts for dependencies and bundled assets follow.
 
 
 ========================================================================
@@ -47,8 +27,6 @@ Development tools are installed from npm; their code is not redistributed here.
 Upstream package metadata declares MIT.
 Author metadata: Lucas Garron <code@garron.net>
 Exact source: https://codeberg.org/cubing/lazy-promise/src/commit/9384ae2aca9e0adf51adf738197b9be5fa5435bb
-The published package and source tag contain no separate license/copyright
-file. No copyright wording has been invented here. The MIT text follows.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2016,8 +1994,7 @@ Cubing Icons — MIT
 BlindSolve's favicon derives from Devin Corr-Robinett's 333bf SVG:
 https://github.com/cubing/icons/blob/5f9b4bb2e78acd3fe4322fc0c0ddba54ea3c0636/src/svg/event/333bf.svg
 The original SVG and license are retained in web/licenses/cubing-icons/.
-BlindSolve uses foreground #ededec and background #1a1a1b, and scales and
-centres the glyph. The four path shapes are unchanged.
+The favicon is recoloured and scaled.
 
 Copyright (c) 2015 Devin Corr-Robinett
 
@@ -2029,12 +2006,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 World Cube Association logo
 --------------------------
-web/public/wca-logo.png is the unmodified "1 Positive Primary/WCA Logo.png"
-from the official WCA Logo Assets.zip linked at:
+web/public/wca-logo.png is the unmodified official WCA logo:
 https://www.worldcubeassociation.org/logo
-Download: https://assets.worldcubeassociation.org/assets/c5e01ea/files/WCA%20Logo%20Assets.zip
-The official artwork includes the registered symbol (R in a circle).
-Used only in the WCA OAuth provider button, not as BlindSolve branding.
-The logo is governed by the WCA Logo Usage Policy (version 2.2):
+Used for WCA sign-in under the WCA Logo Usage Policy:
 https://documents.worldcubeassociation.org/documents/policies/external/Logo%20Usage.pdf
-It is not covered by BlindSolve's MIT license. No WCA endorsement is implied.
+No WCA endorsement is implied.

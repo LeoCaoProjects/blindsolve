@@ -18,23 +18,27 @@ interface DecisionMenuProps<T extends string> {
   safe: T;
   options: DecisionOption<T>[];
   onChange: (value: T) => void;
+  /** Preserve the workspace theme in the body portal when reused outside review. */
+  popoverClassName?: string;
+  disabled?: boolean;
   /** Adds "Choose a suggestion…" which swaps the menu for the suggestion list */
   suggest?: {first: string;second: string;current?: string;onPick: (word: string) => void;};
 }
 
 /** Compact per-row decision: one quiet control instead of a row of buttons. */
-export function DecisionMenu<T extends string>({ label, value, safe, options, onChange, suggest }: DecisionMenuProps<T>) {
+export function DecisionMenu<T extends string>({ label, value, safe, options, onChange, suggest, popoverClassName, disabled }: DecisionMenuProps<T>) {
   const ref = useRef<HTMLButtonElement>(null);
   const [view, setView] = useState<'closed' | 'menu' | 'suggest'>('closed');
   const current = options.find((o) => o.value === value) ?? options[0];
   const changed = value !== safe;
-  const close = () => setView('closed');
+  const close = () => { setView('closed'); ref.current?.focus(); };
 
   return (
     <>
       <button
         ref={ref}
         type="button"
+        disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={view !== 'closed'}
         aria-label={`${label}: ${current.label}`}
@@ -46,7 +50,7 @@ export function DecisionMenu<T extends string>({ label, value, safe, options, on
         <span className="truncate">{current.short}</span>
         <ChevronDownIcon size={12} strokeWidth={1.75} className="shrink-0 text-ink-3" aria-hidden />
       </button>
-      <Popover open={view !== 'closed'} onClose={close} anchorRef={ref} label={label} width={view === 'suggest' ? 216 : 232}>
+      <Popover className={popoverClassName} open={view !== 'closed'} onClose={close} anchorRef={ref} label={label} width={view === 'suggest' ? 216 : 232}>
         {view === 'suggest' && suggest ?
         <SuggestionMenu
           first={suggest.first}

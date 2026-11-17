@@ -28,6 +28,7 @@ import { useHistoryCleanup } from "../hooks/useHistoryCleanup";
 import { useShortcutSheet } from "../hooks/useShortcutSheet";
 import { useSessionWorkspace } from "../contexts/SessionWorkspaceContext";
 import { isTypingTarget } from "../utils/keyboard";
+import { isTimingPointer, timingClass, timingVisual } from "../utils/timingInteraction";
 import { formatTime } from "../utils/time";
 
 /**
@@ -54,7 +55,7 @@ export function Training() {
   if (t.phase !== "review") stableStage.current = stage;
   const [helpOpen, setHelpOpen] = useState(false);
 
-  const busy = t.running;
+  const visual = timingVisual(t.hold.phase, t.running);
   const holding = t.hold.phase !== "idle";
   const executionSetup =
     (t.mode === "exec" || t.mode === "guided" || t.mode === "trace") &&
@@ -107,7 +108,7 @@ export function Training() {
     t.mode === "exec" && t.phase === "active"
       ? {
           onPointerDown: (e: React.PointerEvent) => {
-            if ((e.target as HTMLElement).closest("button, a, input")) return;
+            if (!isTimingPointer(e)) return;
             t.submit();
           },
         }
@@ -115,13 +116,12 @@ export function Training() {
 
   return (
     <div
+      data-timing-visual={visual}
       data-training-challenge-id={t.challengeId}
       className="relative flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-ink"
     >
       <AppBar
-        className={
-          busy ? "opacity-[0.25]" : t.hold.phase === "ready" ? "opacity-40" : ""
-        }
+        className={timingClass(visual)}
         onShortcuts={sheet.openSheet}
       />
 

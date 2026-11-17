@@ -26,14 +26,16 @@ export function Sheet({ open, onClose, label, title, width = 420, footer, childr
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) {
+      if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing && !e.repeat) {
+        const dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
+        if (dialogs[dialogs.length - 1] !== dialogRef.current) return;
         e.preventDefault();
         onClose();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, dialogRef]);
 
   return (
     <AnimatePresence>
