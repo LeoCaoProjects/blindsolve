@@ -1,10 +1,13 @@
-# BlindSolve
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/blindsolve-wordmark-dark.svg">
+    <img src=".github/assets/blindsolve-wordmark-light.svg" alt="blindsolve" width="240">
+  </picture>
+</p>
 
-BlindSolve is a web app for practising 3×3 blindfolded cube solving (3BLD).
-Time your solves, review them, and practise remembering letter pairs and
-recognising targets.
-
-[![Open BlindSolve](.github/assets/open-blindsolve.svg)](https://blindsolve.com)
+<p align="center">
+  A workspace for 3×3 blindfolded solving. Time your solves, train your recall, and learn your letter pairs.
+</p>
 
 <p align="center">
   <img src=".github/assets/blindsolve-timer.png" alt="BlindSolve timer, scrambled cube and solve history" width="1200">
@@ -12,19 +15,14 @@ recognising targets.
 
 ## Features
 
-- A solve timer with memo and execution splits
-- Reconstruction to review a solve
-- Letter-pair words and flashcards
-- Recall, tracing, execution and guided-solve practice
-- Target Recognition using the colours of scrambled pieces
-- Saved history, backups and recovery
+- Time solves with memo and execution splits
+- Review solves with reconstruction
+- Learn letter pairs with custom words and flashcards
+- Practise recall, tracing, execution and guided solves
+- Practise recognising targets on a scrambled cube
+- Keep solve history and export or restore backups
 
-## Built with
-
-React, TypeScript, Vite, Tailwind CSS and cubing.js. Optional cloud features
-use Supabase.
-
-## Running locally
+## Quick start
 
 Install Node.js 24.12 or newer and npm. From the repository folder:
 
@@ -36,9 +34,7 @@ npm run dev
 
 Open the address printed in the terminal, usually `http://localhost:5173`.
 
-The timer, training, letter pairs, flashcards, history and backups work
-without Supabase. No account or environment file is needed; your saved data
-stays in this browser.
+No account or Supabase setup required. Your data stays in your browser.
 
 <details>
 <summary>Optional cloud setup</summary>
@@ -50,9 +46,7 @@ for local development.
 
 </details>
 
-To build the app, run `npm run build` from `web/`. The files go into `web/dist/`.
-
-## Testing
+## Development
 
 From `web/`:
 
@@ -60,7 +54,10 @@ From `web/`:
 npm test
 npm run lint
 npm run typecheck
+npm run build
 ```
+
+The production build is written to `web/dist/`.
 
 <details>
 <summary>Advanced local testing</summary>
