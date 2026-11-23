@@ -177,6 +177,15 @@ function TrainingControls({ t }: { t: TrainingSession }) {
           ]}
         />
       )}
+      {(t.mode === "trace" || t.mode === "recognition") && (
+        <SidebarChoice
+          label="M2 target swap"
+          value={t.m2Swap ? "on" : "off"}
+          onChange={(value) => t.setM2Swap(value === "on")}
+          disabled={busy || !t.m2Available}
+          options={[{ value: "off", label: "Off" }, { value: "on", label: "On" }]}
+        />
+      )}
     </>
   );
 }

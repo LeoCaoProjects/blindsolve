@@ -13,7 +13,7 @@ export const shortcuts: ShortcutItem[] = [
   { keys: ["Space"], label: "Hold, then release to start" },
   { keys: ["Space"], label: "End memo or stop timing" },
   { keys: ["N"], label: "New scramble while idle" },
-  { keys: ["1 / 2 / 3"], label: "OK, +2 or DNF in results" },
+  { keys: ["1 / 2 / 3"], label: "OK, +2 or DNF in results or for the latest solve while idle" },
   { keys: ["Arrows"], label: "Select a cycle-break target" },
   { keys: ["Letter"], label: "Choose and confirm a cycle-break target" },
   { keys: ["Double-click"], label: "Confirm a cycle-break sticker or letter" },
@@ -53,6 +53,7 @@ export function trainingShortcuts(mode: TrainMode): ShortcutItem[] {
       },
     );
   items.push(
+    { keys: ["1 / 2"], label: "OK or DNF for the latest attempt while idle" },
     { keys: ["Backspace"], label: "Delete latest attempt" },
     { keys: ["Shift + Backspace"], label: "Clear this drill’s history" },
   );

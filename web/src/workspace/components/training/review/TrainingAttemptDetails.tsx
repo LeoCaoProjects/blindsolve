@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { Attempt, TrainingSession } from "../../../hooks/useTrainingSession";
-import { isTypingTarget } from "../../../utils/keyboard";
+import { isTypingTarget, allowsReviewEnter } from "../../../utils/keyboard";
 import {
   SolveDetailsShell,
   DetailsSummaryBand,
@@ -38,6 +38,7 @@ export function TrainingAttemptDetails({
         e.repeat
       )
         return;
+      if (document.querySelector('[role="alertdialog"]')) return;
       if (e.key === "Escape") {
         e.preventDefault();
         onClose();
@@ -45,7 +46,7 @@ export function TrainingAttemptDetails({
       if (
         e.key === "Enter" &&
         !e.shiftKey &&
-        !(e.target instanceof HTMLButtonElement)
+        allowsReviewEnter(e.target)
       ) {
         e.preventDefault();
         onClose();

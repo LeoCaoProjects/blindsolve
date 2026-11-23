@@ -129,3 +129,21 @@ it("faces the read colour toward the camera without hiding partner colours", () 
       }
     }
 });
+
+
+it("expects manual M2 swaps without changing observed stickers or splitting custom labels", () => {
+  const configured = { ...setup, scheme: Object.fromEntries(Object.entries(setup.scheme).map(([id, label]) => [id, label + "H"])) };
+  let swaps = 0;
+  for (let seed = 1; seed <= 30; seed++) {
+    const challenge = makeChallenge("both", seed, configured);
+    const raw = recognitionSteps(challenge, configured, "edges-first", "both");
+    const swapped = recognitionSteps(challenge, configured, "edges-first", "both", true);
+    expect(swapped.map(({ source, piece }) => ({ source, piece }))).toEqual(raw.map(({ source, piece }) => ({ source, piece })));
+    const expected = (['edges', 'corners'] as const).flatMap(piece =>
+      challenge.executionTargets[piece].tokens.filter((_, i) => !(piece === 'edges' ? challenge.edgeBreaks : challenge.cornerBreaks).includes(i)));
+    expect(swapped.map(step => step.expected)).toEqual(expected);
+    swaps += swapped.filter((step, i) => step.expected !== raw[i].expected).length;
+    expect(swapped.every(step => step.expected.length === 2)).toBe(true);
+  }
+  expect(swaps).toBeGreaterThan(0);
+});

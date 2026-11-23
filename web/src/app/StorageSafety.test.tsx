@@ -58,6 +58,11 @@ function Harness() {
         {store.ready ? "ready" : "loading"}|{store.user?.id ?? "guest"}|
         {store.sync}|{store.data.solves.length}|{store.data.attempts.length}
       </output>
+      {(["edges", "corners"] as const).map((mode) => (
+        <button key={mode} onClick={() => store.update((data) => ({
+          ...data, activeTimerMode: mode, preferencesUpdatedAt: new Date().toISOString(),
+        }))}>{mode}</button>
+      ))}
       <button
         onClick={() =>
           store.update((data) => ({
@@ -135,6 +140,34 @@ afterEach(() => {
 });
 
 describe("local persistence failures", () => {
+  it("migrates a large signed-in workspace and saves both timer modes without blocking sync", async () => {
+    const data = { ...emptyData(), onboarded: true, solves: Array.from({ length: 20 }, solve) };
+    const legacy = { data, revision: 0, dirty: false };
+    saveLocal("alice", legacy);
+    const original = localStorage.getItem("cubeiq-bld-v2:alice")!;
+    cloud.load.mockResolvedValue(legacy); // No outbox: legacy cloud history must be seeded.
+    const set = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (value.length > original.length + 2000)
+        throw new DOMException("Test quota", "QuotaExceededError");
+      set.call(this, key, value);
+    });
+    mount();
+    await auth("alice");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(loadLocal("alice").data.solves).toHaveLength(20);
+    for (const mode of ["edges", "corners"]) {
+      fireEvent.click(screen.getByText(mode, { exact: true }));
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(loadLocal("alice").data.activeTimerMode).toBe(mode);
+    }
+    await waitFor(() => expect(cloud.save).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(loadLocal("alice").dirty).toBe(false));
+    expect(cloud.save.mock.calls[0][0].filter((change: { kind: string }) => change.kind === "solve")).toHaveLength(20);
+    expect(loadLocal("alice").data.activeTimerMode).toBe("corners");
+    expect(new Map(loadLocal("alice").data.solves.map((record) => [record.id, record])))
+      .toEqual(new Map(data.solves.map((record) => [record.id, record])));
+  });
   it("opens workspaces with unfinished archived lettering without a storage warning or a reset", async () => {
     const data = emptyData();
     data.onboarded = true;

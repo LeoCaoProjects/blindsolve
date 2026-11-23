@@ -54,7 +54,6 @@ export function useTimerSession({
     setTimerMode,
     prefs,
   } = useAppData();
-  const editableSolve = useRef<string | null>(null);
   const [scramble, setScramble] = useState("");
   const [scrambleMode, setScrambleMode] = useState<TimerMode>(timerMode);
   const [scramblePending, setScramblePending] = useState(false);
@@ -212,9 +211,7 @@ export function useTimerSession({
     onStop: handleStop,
   });
   const running = isRunning(timer.phase);
-  // An explicit new scramble ends the just-finished correction context.
   const newScramble = useCallback(async () => {
-    editableSolve.current = null;
     const request = ++scrambleRequestRef.current;
     setScramblePending(true);
     setScrambleError(false);
@@ -321,21 +318,13 @@ export function useTimerSession({
       setReconOpen(false);
       setDraft(null);
       void newScramble();
-      // Automatic preparation keeps the correction context for this result.
-      editableSolve.current = d.solveId ?? null;
     },
     [setDefaultWords, store, newScramble],
   );
 
   const selectSolve = useCallback((id: string) => {
-    editableSolve.current = null;
     setSelectedId(id);
   }, []);
-  // Even an aborted next hold means the user has moved on from this result.
-  useEffect(() => {
-    if (!active || timer.phase === "armed" || running)
-      editableSolve.current = null;
-  }, [active, timer.phase, running]);
   const closeDetails = useCallback(() => setSelectedId(null), []);
   const setPenalty = useCallback(
     (id: string, penalty: Penalty) => {
@@ -381,9 +370,9 @@ export function useTimerSession({
       const penalty = penaltyForKey(e.key);
       if (
         penalty &&
-        editableSolve.current &&
-        timer.phase === "stopped" &&
-        solves[0]?.id === editableSolve.current &&
+        !e.shiftKey &&
+        solves[0] &&
+        (timer.phase === "idle" || timer.phase === "stopped") &&
         !(
           e.target instanceof Element &&
           e.target.closest(
@@ -392,7 +381,7 @@ export function useTimerSession({
         )
       ) {
         e.preventDefault();
-        setPenalty(editableSolve.current, penalty);
+        setPenalty(solves[0].id, penalty);
         return;
       }
       if (

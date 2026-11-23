@@ -27,6 +27,7 @@ export function ResultControl({
   const id = useId();
   return (
     <div
+      data-result-control
       role="radiogroup"
       aria-label="Result"
       onKeyDown={(event) => {

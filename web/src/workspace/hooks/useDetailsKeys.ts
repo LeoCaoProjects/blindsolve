@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Penalty } from "../types/solve";
-import { isTypingTarget } from "../utils/keyboard";
+import { isTypingTarget, allowsReviewEnter } from "../utils/keyboard";
 
 import { DEFAULT_PENALTIES, penaltyForKey } from "../utils/penaltyKeys";
 export function useDetailsKeys(
@@ -19,6 +19,7 @@ export function useDetailsKeys(
         e.altKey
       )
         return;
+      if (document.querySelector('[role="alertdialog"]')) return;
       if (e.key === "Escape") {
         e.preventDefault();
         onClose();
@@ -28,7 +29,7 @@ export function useDetailsKeys(
       if (
         e.key === "Enter" &&
         !e.shiftKey &&
-        !(e.target instanceof HTMLButtonElement)
+        allowsReviewEnter(e.target)
       ) {
         e.preventDefault();
         onClose();

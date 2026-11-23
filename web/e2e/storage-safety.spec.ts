@@ -1,6 +1,40 @@
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { createSpeffzScheme } from "../src/domain/bld/speffz";
+import { emptyData } from "../src/data/model";
+import { chooseTimerMode } from "./helpers/timerMode";
+
+test("timer modes survive quota pressure, reload and another tab without removing legacy data", async ({ page, context }) => {
+  await context.addInitScript((data) => {
+    const key = "cubeiq-bld-v2:guest";
+    const initial = JSON.stringify({ data, dirty: false, revision: 0, pending: {} });
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem(key, initial);
+      localStorage.setItem("cubeiq-bld-data-v1", JSON.stringify(data));
+    }
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (name, value) {
+      if (name === key && value.length > initial.length + 10)
+        throw new DOMException("Test quota", "QuotaExceededError");
+      return set.call(this, name, value);
+    };
+  }, { ...emptyData(), onboarded: true });
+  await page.goto("/");
+  const originalLegacy = await page.evaluate(() => localStorage.getItem("cubeiq-bld-data-v1"));
+  const peer = await context.newPage();
+  await peer.goto("/");
+  for (const mode of ["edges", "corners"]) {
+    await chooseTimerMode(page, mode);
+    await expect(page.getByRole("alert", { name: "Browser storage warning" })).toHaveCount(0);
+    const label = mode === "edges" ? "Edges" : "Corners";
+    await expect(peer.getByRole("button", { name: "Timer mode", exact: true })).toContainText(label);
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Timer mode", exact: true })).toContainText(label);
+    await expect(page.getByRole("alert", { name: "Browser storage warning" })).toHaveCount(0);
+  }
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("cubeiq-bld-v2:guest")!).storageEncoding)).toBe("lz-utf16-v1");
+  expect(await page.evaluate(() => localStorage.getItem("cubeiq-bld-data-v1"))).toBe(originalLegacy);
+});
 
 for (const surface of ["Timer", "Training"]) {
   test(`${surface} quota failure preserves disk, exports memory and recovers`, async ({

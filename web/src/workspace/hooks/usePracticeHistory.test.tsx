@@ -1,4 +1,4 @@
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, fireEvent, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyData, type AppData, type PracticeAttempt } from '../../data/model';
 import { useTrainingSession } from './useTrainingSession';
@@ -88,4 +88,38 @@ describe('saved practice history follows the store', () => {
     expect(store.data.attempts[0]).toEqual(older);
     expect(store.update).not.toHaveBeenCalled();
   });
+});
+
+it.each(['exec', 'guided', 'recall', 'trace', 'recognition'] as const)('%s idle shortcuts edit only the newest attempt and preserve accuracy', (mode) => {
+  const older = attempt(mode);
+  const newest = { ...attempt(mode), createdAt: '2026-11-01T00:00:00.000Z', accuracy: 0.75 };
+  const other = attempt(mode === 'exec' ? 'trace' : 'exec');
+  store.data.attempts = [older, other, newest];
+  const { rerender } = renderHook(() => useTrainingSession({ mode }));
+  fireEvent.keyDown(window, { key: '2' });
+  expect(store.data.attempts.find(a => a.id === newest.id)).toEqual({ ...newest, correct: false });
+  expect(store.data.attempts.slice(0, 2)).toEqual([older, other]);
+  rerender();
+  const input = document.createElement('input');
+  document.body.append(input);
+  fireEvent.keyDown(input, { key: '1' });
+  input.remove();
+  fireEvent.keyDown(window, { key: '1', ctrlKey: true });
+  fireEvent.keyDown(window, { key: '1', shiftKey: true });
+  const dialog = document.createElement('div');
+  dialog.setAttribute('role', 'dialog');
+  document.body.append(dialog);
+  fireEvent.keyDown(window, { key: '1' });
+  dialog.remove();
+  expect(store.data.attempts.find(a => a.id === newest.id)?.correct).toBe(false);
+  fireEvent.keyDown(window, { key: '1' });
+  expect(store.data.attempts.find(a => a.id === newest.id)).toEqual(newest);
+});
+it('training result shortcuts do not edit history during an active solve', () => {
+  const saved = attempt('exec');
+  store.data.attempts = [saved];
+  renderHook(() => useTrainingSession({ mode: 'exec', phase: 'active' }));
+  fireEvent.keyDown(window, { key: '2' });
+  expect(store.data.attempts).toEqual([saved]);
+  expect(store.update).not.toHaveBeenCalled();
 });
