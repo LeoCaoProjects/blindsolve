@@ -172,6 +172,10 @@ async function completed(page: Page) {
     exact: true,
   });
   await expect(result).toBeVisible();
+  // Some scrambles open a word field; number shortcuts must not consume typing.
+  const resultControl = result.getByRole("radio", { name: "OK", exact: true });
+  await resultControl.focus();
+  await expect(resultControl).toBeFocused();
   await page.keyboard.press("2");
   await expect(
     result.getByRole("radio", { name: "+2", exact: true }),
