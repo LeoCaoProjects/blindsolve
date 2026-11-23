@@ -11,7 +11,7 @@ import {
   SolveDraft,
   SolveMemo,
 } from "../types/solve";
-import { isTypingTarget } from "../utils/keyboard";
+import { isTypingTarget, allowsReviewEnter } from "../utils/keyboard";
 import {
   isClassicM2Configuration,
   m2ExecutionRepresentation,
@@ -473,7 +473,7 @@ export function useReconstruction({ draft, db, onSave }: Options) {
         if (step.kind === "review") waitToSave();
         return;
       }
-      if (event.key === "Enter" && event.target instanceof HTMLButtonElement)
+      if (event.key === "Enter" && !allowsReviewEnter(event.target))
         return;
       const resultPenalty = penaltyForKey(event.key);
       if (resultPenalty) return setPenalty(resultPenalty);

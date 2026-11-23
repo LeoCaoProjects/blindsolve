@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { parseMnemonicRecordKey, normalizeLabel } from "../domain/letterPairs/identity";
 import { logicalMnemonicSchema } from "./logicalPairSchema";
 import { logicalDeletionOverlay, mergeLogicalState } from "../domain/letterPairs/logical";
+import { readEnvelopeJson, writeEnvelopeJson } from "./localEnvelopeStorage";
 import {
   emptyData,
   parseData,
@@ -28,7 +29,7 @@ export function loadLocal(owner: string | null = null): LocalEnvelope {
   const raw = localStorage.getItem(storageKey(owner));
   if (raw !== null) {
     try {
-      const envelope = JSON.parse(raw) as LocalEnvelope;
+      const envelope = readEnvelopeJson(raw) as LocalEnvelope;
       return { ...envelope, data: parseData(envelope.data) };
     } catch (e) {
       try {
@@ -48,7 +49,7 @@ export function loadLocal(owner: string | null = null): LocalEnvelope {
   return { data: emptyData(), dirty: false, revision: 0 };
 }
 export function saveLocal(owner: string | null, envelope: LocalEnvelope) {
-  localStorage.setItem(storageKey(owner), JSON.stringify(envelope));
+  writeEnvelopeJson(storageKey(owner), envelope);
 }
 
 export type SyncRecordKind = "settings" | "pair" | "solve" | "attempt";

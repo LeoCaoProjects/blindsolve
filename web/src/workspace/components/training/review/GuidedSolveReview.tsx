@@ -4,7 +4,7 @@ import { Penalty, Solve } from "../../../types/solve";
 import { storedTimerTimes } from "../../../utils/time";
 import { useTrainingMemo } from "../TrainingMemoView";
 import { WorkspaceSolveDetails } from "../../workspace/WorkspaceSolveDetails";
-import { isTypingTarget } from "../../../utils/keyboard";
+import { isTypingTarget, allowsReviewEnter } from "../../../utils/keyboard";
 
 const RESULTS: { value: Penalty; label: string }[] = [
   { value: "ok", label: "OK" },
@@ -50,12 +50,13 @@ export function GuidedSolveReview({ t }: { t: TrainingSession }) {
         isTypingTarget(event.target)
       )
         return;
+      if (document.querySelector('[role="alertdialog"]')) return;
       if (event.key.toLowerCase() === "s") setPenalty("ok");
       if (event.key.toLowerCase() === "d") setPenalty("dnf");
       if (
         event.key === "Enter" &&
         !event.shiftKey &&
-        !(event.target instanceof HTMLButtonElement)
+        allowsReviewEnter(event.target)
       ) {
         event.preventDefault();
         close();

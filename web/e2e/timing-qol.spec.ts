@@ -180,7 +180,7 @@ async function completed(page: Page) {
   await expect(result).toHaveCount(0);
   await expect.poll(async () => (await records(page))[0]?.result).toBe("+2");
 }
-test("post-result keys update the same persisted solve, respect typing, and expire at the next hold", async ({
+test("post-result keys update the same persisted solve, respect typing, and pause while timing", async ({
   page,
 }) => {
   await completed(page);
@@ -221,12 +221,14 @@ test("post-result keys update the same persisted solve, respect typing, and expi
   await page.keyboard.press("3");
   expect((await records(page))[0].result).toBe("+2");
 });
-test("leaving Timer ends post-result correction context", async ({ page }) => {
+test("returning to Timer keeps latest-solve number shortcuts available", async ({ page }) => {
   await completed(page);
   await page.getByRole("link", { name: "Letter Pairs", exact: true }).click();
   await page.getByRole("link", { name: "Timer", exact: true }).click();
+  await expect(page.locator("[data-timer-clock]")).toBeVisible();
+  await ready(page);
   await page.keyboard.press("3");
-  expect((await records(page))[0].result).toBe("+2");
+  await expect.poll(async () => (await records(page))[0].result).toBe("dnf");
 });
 
 for (const viewport of [

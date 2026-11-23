@@ -1,4 +1,6 @@
 import React, { useRef } from "react";
+import { useAppData } from "../../contexts/AppDataContext";
+import { tokensOf } from "../../utils/scheme";
 import { TrainingSession } from "../../hooks/useTrainingSession";
 import { RecallInput } from "../memo/RecallInput";
 import { SplitStage } from "./SplitStage";
@@ -16,6 +18,7 @@ export function TraceSprintWorkspace({
   stage: { width: number; height: number };
 }) {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const { setup } = useAppData();
   const locked = t.phase !== "active";
 
   return (
@@ -45,7 +48,7 @@ export function TraceSprintWorkspace({
                 caption={LABEL[g.piece]}
                 autoFocus={gi === 0 && !locked}
                 label={`${LABEL[g.piece]} targets`}
-                tokens={t.vocabulary}
+                tokens={tokensOf(setup.scheme, g.piece === "edges" ? "edge" : "corner")}
                 value={t.inputs[gi] ?? ""}
                 onChange={(v) => !locked && t.setInput(gi, v)}
                 onEnter={() =>

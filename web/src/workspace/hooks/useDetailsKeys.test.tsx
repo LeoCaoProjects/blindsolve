@@ -23,3 +23,22 @@ it("Enter closes details from the neutral surface without changing the saved res
   expect(close).toHaveBeenCalledTimes(1);
   expect(penalty).not.toHaveBeenCalled();
 });
+
+
+it("Enter after a mouse result selection closes, while ordinary buttons retain activation", () => {
+  const close = vi.fn(), penalty = vi.fn();
+  renderHook(() => useDetailsKeys(close, penalty));
+  const group = document.createElement('div');
+  group.setAttribute('data-result-control', '');
+  const radio = document.createElement('button'); group.append(radio);
+  const action = document.createElement('button');
+  document.body.append(group, action);
+  try {
+    fireEvent.click(radio); radio.focus();
+    fireEvent.keyDown(radio, { key: 'Enter' });
+    expect(close).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(action, { key: 'Enter' });
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(penalty).not.toHaveBeenCalled();
+  } finally { group.remove(); action.remove(); }
+});

@@ -10,6 +10,8 @@ export interface RecognitionStep {
   source: string;
   piece: "edges" | "corners";
   expected: string;
+  /** Raw section position, including cycle breaks which are not shown as prompts. */
+  targetIndex: number;
 }
 /** Follow structured raw trace identities on the unchanged scrambled cube.
  * Break entries are choices, not observations; their location starts the next chain.
@@ -19,6 +21,7 @@ export function recognitionSteps(
   buffers: { edgeBuffer: string; cornerBuffer: string },
   order: "corners-first" | "edges-first",
   scope: TrainFilter,
+  m2Swap = false,
 ): RecognitionStep[] {
   const pieces =
     order === "edges-first"
@@ -40,7 +43,12 @@ export function recognitionSteps(
         {
           source: location,
           piece,
-          expected: normalizeLabel(section.tokens[index]),
+          targetIndex: index,
+          expected: normalizeLabel(
+            m2Swap && piece === "edges"
+              ? challenge.executionTargets.edges.tokens[index]
+              : section.tokens[index],
+          ),
         },
       ];
     });

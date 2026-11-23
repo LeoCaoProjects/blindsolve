@@ -11,6 +11,7 @@ import {
   TrainFilter,
   challengeFromScramble,
   makeChallenge,
+  isClassicM2Setup,
   SOLVED_STATE,
 } from "../utils/bld";
 import { isTypingTarget, ownsTrainingSpace } from "../utils/keyboard";
@@ -93,7 +94,9 @@ export function useTrainingSession(
   onSharedFilterChange?: (filter: TrainFilter) => void,
 ) {
   const store = useStore();
-  const { setup, pairs, prefs } = useAppData();
+  const { setup, pairs, prefs, setPrefs } = useAppData();
+  const m2Available = isClassicM2Setup(setup);
+  const m2Swap = m2Available && prefs.m2SecondTargetSwap;
   const vocabulary = useMemo(() => tokensOf(setup.scheme), [setup.scheme]);
   const [mode, setModeState] = useState<TrainMode>(init.mode ?? "exec");
   const [localFilter, setFilterState] = useState<TrainFilter>(
@@ -237,13 +240,27 @@ export function useTrainingSession(
       return { steps: [], error: false };
     try {
       return {
-        steps: recognitionSteps(challenge, setup, prefs.memoOrder, filter),
+        steps: recognitionSteps(
+          challenge,
+          setup,
+          prefs.memoOrder,
+          filter,
+          m2Swap,
+        ),
         error: false,
       };
     } catch {
       return { steps: [], error: true };
     }
-  }, [mode, preparedScramble, challenge, setup, prefs.memoOrder, filter]);
+  }, [
+    mode,
+    preparedScramble,
+    challenge,
+    setup,
+    prefs.memoOrder,
+    filter,
+    m2Swap,
+  ]);
   const scrambleReady =
     preparedReady && (mode !== "recognition" || recognition.steps.length > 0);
   const [recognitionAnswers, setRecognitionAnswers] = useState<string[]>([]);
@@ -368,6 +385,7 @@ export function useTrainingSession(
               groups,
               inputs,
               vocabulary,
+              m2Swap,
             )
           : compareGroups(groups, inputs, vocabulary),
     [
@@ -380,6 +398,7 @@ export function useTrainingSession(
       groups,
       inputs,
       vocabulary,
+      m2Swap,
     ],
   );
   const targets =
@@ -422,7 +441,10 @@ export function useTrainingSession(
 
   const hold = useHoldStart({
     enabled: active && phase === "idle" && scrambleReady,
-    resetKey: mode === "recognition" ? recognitionIdentity : undefined,
+    resetKey:
+      mode === "recognition" || mode === "trace"
+        ? recognitionIdentity
+        : undefined,
     onStart: start,
   });
 
@@ -706,6 +728,28 @@ export function useTrainingSession(
         (e.target instanceof HTMLButtonElement && e.key === "Enter")
       )
         return;
+      if (
+        phaseRef.current === "idle" &&
+        hold.phase === "idle" &&
+        !e.shiftKey &&
+        (e.key === "1" || e.key === "2") &&
+        history[0] &&
+        !(e.target instanceof Element && e.target.closest(
+          '[role="menu"], [role="listbox"], [role="combobox"], [role="slider"], [role="spinbutton"]',
+        ))
+      ) {
+        e.preventDefault();
+        const id = history[0].id;
+        store.update((data) => ({
+          ...data,
+          attempts: data.attempts.map((attempt) =>
+            attempt.id === id && attempt.trainingMode === mode
+              ? { ...attempt, correct: e.key === "1" }
+              : attempt,
+          ),
+        }));
+        return;
+      }
       if (phase === "report" && mode === "guided") {
         if (e.key === "s" || e.key === "S") finishGuided("solved");
         if (e.key === "d" || e.key === "D") finishGuided("dnf");
@@ -744,6 +788,9 @@ export function useTrainingSession(
     startExecution,
     stopGuided,
     finishGuided,
+    history,
+    hold.phase,
+    store,
   ]);
 
   const clock = running ? now : (times.end ?? now);
@@ -759,6 +806,12 @@ export function useTrainingSession(
     setMode,
     filter,
     setFilter,
+    m2Available,
+    m2Swap,
+    setM2Swap: (enabled: boolean) => {
+      if (phaseRef.current !== "idle" || !m2Available) return;
+      setPrefs({ m2SecondTargetSwap: enabled });
+    },
     phase,
     running,
     hold,

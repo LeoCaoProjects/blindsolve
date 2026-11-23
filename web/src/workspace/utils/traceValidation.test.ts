@@ -1,3 +1,4 @@
+import { m2SecondTarget } from "../../domain/bld/memoConventions";
 import { describe, it, expect } from "vitest";
 import { createSpeffzScheme } from "../../domain/bld/speffz";
 import { scrambleToState } from "../../domain/bld/cubing";
@@ -225,4 +226,30 @@ describe("Trace Sprint submitted cycle breaks", () => {
       )[0].correct,
     ).toBe(false);
   });
+});
+
+
+it("scores manual M2 swaps with atomic custom labels and alternative cycle breaks", async () => {
+  const custom = structuredClone(scheme);
+  for (const sticker of Object.values(custom.stickers)) sticker.label += "H";
+  const state = await scrambleToState("R U R' F2 D L2 B U2 F'");
+  const rawPaths = paths(state, custom, "edge");
+  let swappedPaths = 0;
+  for (const raw of rawPaths) {
+    const expected = raw.map((token, index) => {
+      const sticker = Object.values(custom.stickers).find(s => s.pieceType === "edge" && s.label === token)!;
+      return m2SecondTarget({ stickerId: sticker.id, pieceIndex: sticker.pieceIndex, token, cycleBreak: false }, index, custom).token;
+    });
+    const input = expected.join(" ").toLowerCase();
+    const result = compareTraceGroups(state, custom, [groups[1]], [input], vocabulary(custom), true)[0];
+    expect(result.correct).toBe(true);
+    expect(result.actual).toEqual(expected);
+    expect(result.typed).toEqual(expected);
+    if (JSON.stringify(expected) !== JSON.stringify(raw)) {
+      swappedPaths++;
+      expect(compareTraceGroups(state, custom, [groups[1]], [raw.join(" ")], vocabulary(custom), true)[0].correct).toBe(false);
+      expect(compareTraceGroups(state, custom, [groups[1]], [input], vocabulary(custom), false)[0].correct).toBe(false);
+    }
+  }
+  expect(swappedPaths).toBeGreaterThan(0);
 });

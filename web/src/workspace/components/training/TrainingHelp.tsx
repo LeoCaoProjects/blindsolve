@@ -19,6 +19,12 @@ export function TrainingHelp({
       title="How it works"
     >
       <p className="text-ink-3">{info.tests}</p>
+      {(mode === "trace" || mode === "recognition") && (
+        <p className="mt-3 text-ink-2">
+          With M2 target swap on, enter the swapped second targets yourself.
+          {mode === "trace" ? " Separate multi-character labels with spaces." : " Press Enter after each multi-character label."}
+        </p>
+      )}
       <dl className="mt-5 space-y-4">
         {info.steps.map((step) => (
           <div key={step.label}>

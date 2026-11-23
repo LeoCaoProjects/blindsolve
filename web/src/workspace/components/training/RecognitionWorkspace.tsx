@@ -252,12 +252,17 @@ export function RecognitionWorkspace({
             )}{" "}
             / {t.recognitionSteps.length}
           </span>
-          {!single && value && (
+          {!single && (
             <span className="absolute left-[calc(50%+44px)] whitespace-nowrap opacity-60">
               enter to submit
             </span>
           )}
         </div>
+        {t.m2Swap && step.piece === "edges" && (
+          <p className="mt-1 text-center text-[11px] text-ink-3" aria-label="M2 target position">
+            M2 {step.targetIndex % 2 === 0 ? "first" : "second"} target
+          </p>
+        )}
         <input
           ref={input}
           aria-label="Target label"

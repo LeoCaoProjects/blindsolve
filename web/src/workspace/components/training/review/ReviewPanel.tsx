@@ -3,7 +3,7 @@ import React, { useEffect } from "react";
 import { useDialogFocus } from "../../../hooks/useDialogFocus";
 import { useDialogSpaceClose } from "../../../hooks/useDialogSpaceClose";
 import { motion } from "framer-motion";
-import { EASE_OUT, isTypingTarget } from "../../../utils/keyboard";
+import { EASE_OUT, allowsReviewEnter } from "../../../utils/keyboard";
 import { PrimaryButton, QuietButton } from "../../common/PrimaryButton";
 
 export interface PendingEdits {
@@ -73,7 +73,7 @@ export function ReviewPanel({
         return;
       }
       if (e.key !== "Enter" || e.shiftKey) return;
-      if (isTypingTarget(e.target) || e.target instanceof HTMLButtonElement)
+      if (!allowsReviewEnter(e.target))
         return;
       e.preventDefault();
       if (hasPending) pending?.onSave();
